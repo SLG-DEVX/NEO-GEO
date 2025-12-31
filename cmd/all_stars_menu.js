@@ -140,10 +140,10 @@ ovlcmd(
 // commande nslpro
 ovlcmd(
   {
-    nom_cmd: "nslpro🏆",
-    classe: "AllStars🔷",
-    react: "🏆",
-    desc: "Affiche la présentation NSL Pro",
+    nom_cmd: "neoawards💫",
+    classe: "Neoverse🔷",
+    react: "💫",
+    desc: "Affiche la présentation des NEO GAMING AWARDS ",
   },
   async (ms_org, ovl, { arg, ms }) => {
     if (!arg || arg.length === 0) {
@@ -158,8 +158,7 @@ ovlcmd(
       );
 
       const liens = [
-        "https://files.catbox.moe/afvfo8.jpg",
-        "https://files.catbox.moe/mvlx23.jpg",
+        "https://files.catbox.moe/fgkjih.jpg",       
       ];
 
       const msg = "";
