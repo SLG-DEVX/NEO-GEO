@@ -150,7 +150,7 @@ ovlcmd(
       await ovl.sendMessage(
         ms_org,
         {
-          video: { url: "https://files.catbox.moe/jy3r7a.mp4" },
+          video: { url: "https://files.catbox.moe/lc3hft.mp4" },
           gifPlayback: true,
           caption: "",
         },
