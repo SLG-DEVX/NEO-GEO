@@ -28,15 +28,15 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms) {
   const newLevel = Math.min(Math.floor(newExp / 100), 20);
 
   if (newLevel > oldLevel) {
-    // Level up
     await ovl.sendMessage(ms, { text: `🏆🎉 Félicitations Promotion ! <@${jid}> atteint le niveau supérieur ! Niveau actuel ${newLevel} ▲` });
   } else if (newLevel < oldLevel) {
-    // Level down
     await ovl.sendMessage(ms, { text: `🔻 <@${jid}> redescend d'un niveau ! Niveau actuel ${newLevel} ▼` });
   }
 
-  // Mettre à jour le niveau dans la fiche
-  await setfiche("niveau", newLevel, jid);
+  // Mise à jour uniquement si le niveau a changé
+  if (newLevel !== oldLevel) {
+    await setfiche("niveau", newLevel, jid);
+  }
 }
 
 // --- Ajout d'une fiche ---
@@ -55,13 +55,16 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
     try {
       const data = await getData({ jid: jid });
 
+      // Initialisation sécurisée
       data.exp = data.exp ?? 0;
       data.niveau = data.niveau ?? 0;
       data.close_fight = data.close_fight ?? 0;
       data.cards = data.cards ?? "";
 
-      // Limite du niveau max 20
-      data.niveau = Math.min(data.niveau, 20);
+      // Limite du niveau max 20 mais seulement si défini
+      if (typeof data.niveau === "number") {
+        data.niveau = Math.min(data.niveau, 20);
+      }
 
       if (!arg.length) {
         const fiche = `░▒▒░░▒░ *👤N E O P L A Y E R 🎮*
@@ -228,10 +231,10 @@ async function updatePlayerData(updates, jid, ovl, ms) {
   for (const update of updates) {
     await setfiche(update.colonne, update.newValue, jid);
 
-    // Si c'est exp, on vérifie le niveau
+    // Vérification niveau uniquement si exp a changé
     if (update.colonne === "exp") {
       const oldExp = Number(update.oldValue) || 0;
-      const newExp = Number(update.newValue) || 0;
+      const newExp = Number(update.newValue) || oldExp; // éviter 0 non voulu
       await checkLevel(jid, oldExp, newExp, ovl, ms);
     }
   }
