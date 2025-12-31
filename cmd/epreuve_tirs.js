@@ -223,7 +223,23 @@ async function afficherRecords(ms_org, ovl){
 }
 
 //---------------- STOP ----------------
-ovlcmd({nom_cmd:'stop', isfunc:true}, (ms_org, ovl, { auteur_Message })=>{
-  const joueur=joueurs.get(auteur_Message);
-  if(joueur && joueur.en_cours){ clearTimeout(joueur.timer); joueur.en_cours=false; joueurs.delete(auteur_Message); ovl.sendMessage(ms_org,{text:"✅Exercice arrêté."}); }
-});
+ovlcmd(
+  { nom_cmd: 'stop', isfunc: true },
+  (ms_org, ovl, { auteur_Message, texte }) => {
+
+    if (!texte) return;
+
+    const t = texte.toLowerCase().trim();
+
+    // ✅ SEULEMENT si le joueur écrit "stop"
+    if (t !== "stop") return;
+
+    const joueur = joueurs.get(auteur_Message);
+    if (joueur && joueur.en_cours) {
+      clearTimeout(joueur.timer);
+      joueur.en_cours = false;
+      joueurs.delete(auteur_Message);
+      ovl.sendMessage(ms_org, { text: "✅Exercice arrêté." });
+    }
+  }
+);
