@@ -109,8 +109,19 @@ Souhaitez-vous lancer l'exercice ? :
     const rep = await ovl.recup_msg({ auteur:auteur_Message, ms_org, temps:60000 });
     const res = rep?.message?.conversation?.toLowerCase();
     if(!res) return;
-    if(res === "non") return repondre("❌ Lancement de l'exercice annulé...");
-    if(res === "records") return afficherRecords(ms_org, ovl);
+
+if(res === "non"){
+  return repondre("❌ Lancement de l'exercice annulé...");
+}
+
+if(res === "records"){
+  await afficherRecords(ms_org, ovl);
+  return; // ⛔ STOP TOTAL
+}
+
+if(res !== "oui"){
+  return repondre("❌ Réponse invalide. Tapez *Oui*, *Non* ou *Records*");
+}
 
     const tirImpose = tirerTypeImpose();
 
