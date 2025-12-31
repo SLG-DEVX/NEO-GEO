@@ -141,6 +141,12 @@ ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, {repondre,
   const joueur = joueurs.get(auteur_Message);
   if(!joueur||!joueur.en_cours) return;
 
+  const t = normalize(texte);
+
+// ⛔ Ignore tout ce qui n'est pas une tentative de tir
+const motsTir = ["tir", "lucarne", "pied", "trivela", "enroul", "direct"];
+if (!motsTir.some(m => t.includes(m))) return;
+  
   try{
     const analyse = detectTirParElements(texte);
     if(!analyse||analyse.tir_type==="MISSED"){
