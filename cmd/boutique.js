@@ -329,8 +329,8 @@ Merci pour ton achat !
                     let finalSalePrice;
 
 if (card.name.includes("🎰")) {
-    // 🎰 = 20% du prix de base
-    finalSalePrice = Math.floor(basePrix * 0.2);
+    // 🎰 = 15% du prix de base
+    finalSalePrice = Math.floor(basePrix * 0.15);
 } else {
     // Cartes normales = 50%
     finalSalePrice = Math.floor(basePrix / 2);
