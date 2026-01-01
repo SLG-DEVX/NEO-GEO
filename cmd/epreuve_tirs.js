@@ -1,13 +1,20 @@
 const { ovlcmd } = require('../lib/ovlcmd');
 const joueurs = new Map();
+const recordsGlobal = new Map();
+
 const { MyNeoFunctions, TeamFunctions, BlueLockFunctions } = require("../DataBase/myneo_lineup_team");
 const { cardsBlueLock } = require("../DataBase/cardsBL");
+
 const { saveUser: saveMyNeo, deleteUser: delMyNeo, getUserData: getNeo, updateUser: updateMyNeo } = MyNeoFunctions;
 const { saveUser: saveTeam, deleteUser: delTeam, getUserData: getTeam, updateUser: updateTeam } = TeamFunctions;
 const { saveUser: saveLineup, deleteUser: delLineup, getUserData: getLineup, updatePlayers, updateStats } = BlueLockFunctions;
 
 // ---------------- ZONES & PIEDS ----------------
-const ZONES = ["ras du sol gauche","ras du sol droite","mi-hauteur gauche","mi-hauteur droite","lucarne gauche","lucarne droite"];
+const ZONES = [
+  "ras du sol gauche","ras du sol droite",
+  "mi-hauteur gauche","mi-hauteur droite",
+  "lucarne gauche","lucarne droite"
+];
 
 const MODELES_TIRS = [
   { type:"tir direct", zones:ZONES },
@@ -24,7 +31,7 @@ function normalize(t){
     .trim();
 }
 
-// ---------------- TIR IMPOSÉ (PROBAS) ----------------
+// ---------------- TIR IMPOSÉ ----------------
 function tirerTypeImpose(){
   const r = Math.random();
   if(r < 0.4) return "tir direct";
@@ -51,7 +58,7 @@ function chance(type){
   return 0;
 }
 
-// ---------------- ANNONCE TIR OBLIGATOIRE ----------------
+// ---------------- TIR OBLIGATOIRE ----------------
 function envoyerTirObligatoire(ms_org, ovl, type, id){
   const joueur = joueurs.get(id);
   if(!joueur) return;
@@ -107,35 +114,24 @@ Souhaitez-vous lancer l'exercice ? :
     });
 
     const rep = await ovl.recup_msg({ auteur:auteur_Message, ms_org, temps:60000 });
-    const res = rep?.message?.conversation?.toLowerCase();
+    const res = rep?.message?.conversation?.toLowerCase()?.trim();
     if(!res) return;
 
-if(res === "non"){
-  return repondre("❌ Lancement de l'exercice annulé...");
-}
-
-if(res === "records"){
-  await afficherRecords(ms_org, ovl);
-  return; // ⛔ STOP TOTAL
-}
-
-if(res !== "oui"){
-  return repondre("❌ Réponse invalide. Tapez *Oui*, *Non* ou *Records*");
-}
-
-    const tirImpose = tirerTypeImpose();
+    if(res === "non") return repondre("❌ Lancement de l'exercice annulé...");
+    if(res === "records"){ await afficherRecords(ms_org, ovl); return; }
+    if(res !== "oui") return;
 
     joueurs.set(auteur_Message,{
       id:auteur_Message,
       but:0,
       tirs_total:0,
       stats:{ direct:0, enroule:0, trivela:0 },
-      tirImpose,
+      tirImpose:tirerTypeImpose(),
       en_cours:true,
       timer:null
     });
 
-    envoyerTirObligatoire(ms_org, ovl, tirImpose, auteur_Message);
+    envoyerTirObligatoire(ms_org, ovl, joueurs.get(auteur_Message).tirImpose, auteur_Message);
 
   }catch(e){
     console.error(e);
@@ -148,11 +144,13 @@ ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_M
   const j = joueurs.get(auteur_Message);
   if(!j || !j.en_cours) return;
 
-  clearTimeout(j.timer);
+  if(!texte || texte.trim().length < 5) return;
 
   const tir = detectTir(texte);
+  if(tir.type === "MISSED") return;
 
-  // ❌ Mauvais type
+  clearTimeout(j.timer);
+
   if(tir.type !== j.tirImpose){
     j.en_cours = false;
     await ovl.sendMessage(ms_org,{
@@ -163,7 +161,6 @@ ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_M
     return envoyerResultats(ms_org, ovl, j);
   }
 
-  // 🎯 Chance
   if(Math.random() > chance(tir.type)){
     j.en_cours = false;
     await ovl.sendMessage(ms_org,{
@@ -174,7 +171,6 @@ ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_M
     return envoyerResultats(ms_org, ovl, j);
   }
 
-  // ✅ GOAL
   j.but++;
   j.tirs_total++;
 
@@ -193,7 +189,6 @@ ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_M
     return envoyerResultats(ms_org, ovl, j);
   }
 
-  // 🎯 PROCHAIN TIR
   j.tirImpose = tirerTypeImpose();
   envoyerTirObligatoire(ms_org, ovl, j.tirImpose, auteur_Message);
 });
