@@ -363,8 +363,8 @@ ovlcmd({
 .                    ⚡RAZORX™ LIVE▶️
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 🏆\`RESULTAT\`: 
-@tag :    
-@tag :  
+ :    
+ :  
 ⏱️Durée: 
 
 ╰───────────────────
