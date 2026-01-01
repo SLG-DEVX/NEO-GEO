@@ -1,4 +1,4 @@
-const ovlcmd  = require("../lib/ovlcmd");
+const { ovlcmd } = require("../lib/ovlcmd");
 const PlayerFunctions  = require("../DataBase/ElysiumFichesDB");
 
 // ================= UTILITAIRES =================
