@@ -326,8 +326,15 @@ Merci pour ton achat !
                     cardsList.splice(index, 1);
                     await setfiche("cards", cardsList.join("\n"), auteur_Message);
 
-                    let finalSalePrice = Math.floor(basePrix / 2);
-                    if (card.name.includes("🎰")) finalSalePrice = basePrix;
+                    let finalSalePrice;
+
+if (card.name.includes("🎰")) {
+    // 🎰 = 20% du prix de base
+    finalSalePrice = Math.floor(basePrix * 0.2);
+} else {
+    // Cartes normales = 50%
+    finalSalePrice = Math.floor(basePrix / 2);
+}
 
                     if (cardCurrency === "golds")
                         await setfiche("golds", golds + finalSalePrice, auteur_Message);
