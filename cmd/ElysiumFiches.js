@@ -1,5 +1,5 @@
-const { ovlcmd } = require("../lib/ovlcmd");
-const { PlayerFunctions } = require("../DataBase/ElysiumFichesDB");
+const ovlcmd  = require("../lib/ovlcmd");
+const PlayerFunctions  = require("../DataBase/ElysiumFichesDB");
 
 // ================= UTILITAIRES =================
 function normalizeText(text) {
