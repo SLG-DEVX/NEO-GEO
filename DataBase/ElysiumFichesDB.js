@@ -98,12 +98,18 @@ const PlayerFunctions = {
   async getAllPlayers() {
     return await Player.findAll();
   },
+async savePlayer(id, data = {}) {
+  if (!id) throw new Error("ID/JID manquant");
 
-  async savePlayer(id, data = {}) {
-    const exists = await Player.findByPk(id);
-    if (exists) return "⚠️ Ce joueur existe déjà.";
-    await Player.create({ id, ...data });
-    return "✅ Joueur enregistré.";
+  const [player, created] = await Player.findOrCreate({
+    where: { id },
+    defaults: data
+  });
+
+  return created
+    ? "✅ Joueur enregistré."
+    : "⚠️ Ce joueur existe déjà.";
+}  
   },
 
   async updatePlayer(id, updates) {
