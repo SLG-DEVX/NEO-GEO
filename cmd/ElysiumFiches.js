@@ -4,7 +4,8 @@ const PlayerFunctions = require("../DataBase/ElysiumFichesDB");
 const registeredElysium = new Set();
 
 // ================= UTILITAIRES =================
-function normalizeText(text = "") {
+function normalizeText(text) {
+  if (!text) text = "";
   return text
     .toString()
     .normalize("NFD")
