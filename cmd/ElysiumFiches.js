@@ -1,5 +1,10 @@
 const { ovlcmd } = require("../lib/ovlcmd");
-const PlayerFunctions = require("../DataBase/ElysiumFichesDB");
+const {
+  getPlayer,
+  savePlayer,
+  updatePlayer,
+  deletePlayer
+} = require("../DataBase/ElysiumFichesDB");;
 
 const registeredElysium = new Set();
 
