@@ -32,7 +32,7 @@ function add_elysium(code_cmd) {
   registeredElysium.add(code_cmd);
 
   ovlcmd({
-    nom_cmd: "elysiumme💠" ,
+    nom_cmd: "elysiumme💠",
     classe: "Elysium",
     react: "💠"
   }, async (ms_org, ovl, { repondre, ms, arg }) => {
