@@ -32,10 +32,10 @@ function limiterStats(stats, stat, valeur) {
 }
 
 function generateFicheDuel(duel) {
-    return `*🆚VERSUS ARENA BATTLE🏆🎮*
+    return `*🆚VERSUS ARENA BATTLE🏆🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒░░▒░
 🔅 *${duel.equipe1[0].nom}*: 🫀:${duel.equipe1[0].stats.sta}% 🌀:${duel.equipe1[0].stats.energie}% ❤️:${duel.equipe1[0].stats.pv}%
-                                   ~  *🆚*  ~
+                                   ~  *🆚*  ~
 🔅 *${duel.equipe2[0].nom}*: 🫀:${duel.equipe2[0].stats.sta}% 🌀:${duel.equipe2[0].stats.energie}% ❤️:${duel.equipe2[0].stats.pv}%
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *🌍 𝐀𝐫𝐞̀𝐧𝐞*: ${duel.arene.nom}
@@ -52,6 +52,63 @@ function generateFicheDuel(duel) {
 
 ╰───────────────────
 🏆NSL PRO ESPORT ARENA® | RAZORX⚡™ `;
+}
+
+//---------------- PARSER PERFORMANCES ----------------
+function parsePerformances(text, mentionedJids = []) {
+    const lignes = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const actions = [];
+
+    for (const ligne of lignes) {
+        if (!ligne.includes('→')) continue;
+
+        const m = ligne.match(
+            /@([^\s]+)\s*→.*?strikes\s*:\s*(\d+).*?attaques\s*:\s*(\d+)/i
+        );
+        if (!m) continue;
+
+        const tag = m[1];
+        const strikes = parseInt(m[2]);
+        const attaques = parseInt(m[3]);
+
+        const jid = mentionedJids.find(j =>
+            j.toLowerCase().includes(tag.toLowerCase())
+        );
+        if (!jid) continue;
+
+        actions.push({ jid, strikes, attaques });
+    }
+    return actions;
+}
+
+//---------------- PARSER RESULTAT ----------------
+function parseResultats(text, mentionedJids = []) {
+    const bloc = text.match(/🏆`RESULTAT`:\s*([\s\S]+)/i);
+    if (!bloc) return [];
+
+    const lignes = bloc[1].split('\n').map(l => l.trim()).filter(Boolean);
+    const actions = [];
+
+    for (const ligne of lignes) {
+        const m = ligne.match(/@([^\s:]+)\s*:\s*(victoire|defaite|défaite)(?:\s*\+\s*([✅❌]))?/i);
+        if (!m) continue;
+
+        const tag = m[1];
+        let type = m[2].toLowerCase();
+        if (type === "défaite") type = "defaite";
+
+        const jid = mentionedJids.find(j =>
+            j.toLowerCase().includes(tag.toLowerCase())
+        );
+        if (!jid) continue;
+
+        actions.push({
+            jid,
+            type,
+            symbol: m[3] || null
+        });
+    }
+    return actions;
 }
 
 //---------------- COMMANDE +DUEL ----------------
@@ -90,246 +147,101 @@ ovlcmd({
     }
 });
 
-//---------------- COMMANDE +DUEL STATS ----------------
-ovlcmd({
-    nom: "duel stats",
-    isfunc: true
-}, async (ms_org, ovl, { texte, repondre, ms }) => {
-    if(!texte) return;
-    const mots = texte.trim().split(/\s+/);
-    const statsAutorisees = ["sta", "energie", "pv"];
-
-    if (mots.length !== 4) return;
-    let [joueurId, stat, signe, valeurStr] = mots;
-
-    if (!statsAutorisees.includes(stat.toLowerCase())) return;
-    if (!["+", "-"].includes(signe)) return;
-
-    const valeur = parseInt(valeurStr);
-    if (isNaN(valeur)) return;
-
-    if (joueurId.startsWith("@")) joueurId = joueurId.replace("@", "");
-
-    const duelKey = Object.keys(duelsEnCours).find(k => k.includes(joueurId));
-    if (!duelKey) return;
-
-    const duel = duelsEnCours[duelKey];
-    const joueur = duel.equipe1.find(j => j.nom === joueurId) || duel.equipe2.find(j => j.nom === joueurId);
-    if (!joueur) return;
-
-    limiterStats(joueur.stats, stat.toLowerCase(), (signe === "-" ? -valeur : valeur));
-
-    const fiche = generateFicheDuel(duel);
-    await ovl.sendMessage(ms_org, { image: { url: duel.arene.image }, caption: fiche }, { quoted: ms });
-});
-
-//---------------- COMMANDE +RESET_STATS ----------------
-ovlcmd({
-    nom_cmd: "reset_stats",
-    classe: "Duel",
-    react: "🔄",
-    desc: "Réinitialise les stats d’un joueur ou de tous."
-}, async (ms_org, ovl, { arg, repondre, ms }) => {
-    if (arg.length < 1) return repondre('Format: @NomDuJoueur ou "all"');
-
-    const joueurId = arg[0];
-    const duelKey = Object.keys(duelsEnCours).find(k => k.includes(joueurId.replace("@", "")));
-    if (!duelKey) return repondre('❌ Joueur non trouvé.');
-
-    const duel = duelsEnCours[duelKey];
-
-    if (joueurId.toLowerCase() === 'all') {
-        duel.equipe1.forEach(j => j.stats = { sta: 100, energie: 100, pv: 100 });
-        duel.equipe2.forEach(j => j.stats = { sta: 100, energie: 100, pv: 100 });
-    } else {
-        const joueur = duel.equipe1.find(j => j.nom === joueurId.replace("@", "")) || duel.equipe2.find(j => j.nom === joueurId.replace("@", ""));
-        if (!joueur) return repondre('❌ Joueur non trouvé.');
-        joueur.stats = { sta: 100, energie: 100, pv: 100 };
-    }
-
-    const fiche = generateFicheDuel(duel);
-    ovl.sendMessage(ms_org, { image: { url: duel.arene.image }, caption: fiche }, { quoted: ms });
-});
-
-//---------------- COMMANDE +RESET_DUEL ----------------
-ovlcmd({
-    nom_cmd: "reset_duel",
-    classe: "Duel",
-    react: "🗑️",
-    desc: "Supprime un duel en cours."
-}, async (ms_org, ovl, { arg, repondre, auteur_Message, ms }) => {
-    if (arg.length < 1) return repondre('Format: @NomDuJoueur ou "all"');
-
-    const joueurId = arg[0];
-    await ovl.sendMessage(ms_org, { text: '❓ Confirmez la suppression avec "oui" ou "non".' }, { quoted: ms });
-
-    const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
-    const confirmation = rep?.message?.extendedTextMessage?.text || rep?.message?.conversation;
-
-    if (!rep || confirmation.toLowerCase() !== 'oui') return repondre('❌ Suppression annulée.');
-
-    if (joueurId.toLowerCase() === 'all') {
-        const n = Object.keys(duelsEnCours).length;
-        if (n === 0) return repondre('Aucun duel en cours.');
-        Object.keys(duelsEnCours).forEach(k => delete duelsEnCours[k]);
-        return repondre(`✅ Tous les duels (${n}) ont été supprimés.`);
-    }
-
-    const duelKey = Object.keys(duelsEnCours).find(k => k.includes(joueurId.replace("@", "")));
-    if (!duelKey) return repondre('❌ Aucun duel trouvé.');
-    delete duelsEnCours[duelKey];
-    repondre(`✅ Duel "${duelKey}" supprimé.`);
-});
-
-//---------------- PARSER STATS RAZORX ----------------
-function parseStatsRazorX(text) {
-    const bloc = text.match(/▶️`Match Live`:\s*([\s\S]+)/i);
-    if (!bloc) return [];
-
-    const lignes = bloc[1].split('\n').map(l => l.trim()).filter(Boolean);
-    const actions = [];
-
-    for (const ligne of lignes) {
-        const clean = ligne.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '');
-        const [p, s] = clean.split(':').map(v => v.trim());
-        if (!p || !s) continue;
-
-        const tag = p.startsWith("@") ? p.slice(1) : p;
-        if (!tag) continue;
-
-        const stats = s.split(',').map(v => v.trim());
-        for (const st of stats) {
-            const m = st.match(/(talent|strikes|attaques|pv|sta|energie)\s*([+-])\s*(\d+)/i);
-            if (!m) continue;
-
-            actions.push({
-                tag,
-                isMention: p.startsWith("@"),
-                stat: m[1].toLowerCase(),
-                valeur: parseInt(m[3]) * (m[2] === "-" ? -1 : 1)
-            });
-        }
-    }
-    return actions;
-}
-
 //---------------- RAZORX AUTO ----------------
 ovlcmd({
     nom: "razorx_auto",
     isfunc: true
-}, async (ms_org, ovl, { texte, ms, getJid }) => {
+}, async (ms_org, ovl, { texte, ms }) => {
     if (!texte?.includes("⚡RAZORX™")) return;
 
-    //---------------- STATS ----------------
-    if (texte.includes("▶️`Match Live`")) {
-        const actions = parseStatsRazorX(texte);
+    const mentionedJids =
+        ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+    //---------------- PERFORMANCES ----------------
+    if (texte.includes("📊PERFORMANCES")) {
+        const actions = parsePerformances(texte, mentionedJids);
         if (!actions.length) return;
 
-        const duelKey = Object.keys(duelsEnCours).find(k =>
-            actions.some(a => k.toLowerCase().includes(a.tag.toLowerCase()))
-        );
-        const duel = duelKey ? duelsEnCours[duelKey] : null;
-
-        let duelTouched = false;
-        let allStarsTouched = false;
+        let updated = false;
 
         for (const act of actions) {
-            if (['pv', 'sta', 'energie'].includes(act.stat) && duel) {
-                const joueur =
-                    duel.equipe1.find(j => j.nom.toLowerCase() === act.tag.toLowerCase()) ||
-                    duel.equipe2.find(j => j.nom.toLowerCase() === act.tag.toLowerCase());
-                if (!joueur) continue;
+            const duelKey = Object.keys(duelsEnCours).find(k =>
+                k.toLowerCase().includes(act.jid.split("@")[0].toLowerCase())
+            );
+            if (!duelKey) continue;
 
-                limiterStats(joueur.stats, act.stat, act.valeur);
-                duelTouched = true;
-            }
+            const duel = duelsEnCours[duelKey];
+            const joueurExiste = duel.equipe1.some(j => j.nom.toLowerCase() === act.jid.split("@")[0].toLowerCase())
+                || duel.equipe2.some(j => j.nom.toLowerCase() === act.jid.split("@")[0].toLowerCase());
+            if (!joueurExiste) continue;
 
-            if (act.isMention && ['talent', 'strikes', 'attaques'].includes(act.stat) && act.tag) {
-                let jid;
-                try { jid = await getJid(act.tag + "@lid", ms_org, ovl); } catch { continue; }
+            const data = await getData({ jid: act.jid });
+            if (!data) continue;
 
-                const data = await getData({ jid });
-                if (!data) continue;
-
-                const oldVal = Number(data[act.stat]) || 0;
-                await setfiche(act.stat, oldVal + act.valeur, jid);
-                allStarsTouched = true;
-            }
+            await setfiche("strikes", (Number(data.strikes) || 0) + act.strikes, act.jid);
+            await setfiche("attaques", (Number(data.attaques) || 0) + act.attaques, act.jid);
+            updated = true;
         }
 
-        if (duelTouched && duel) {
-            const fiche = generateFicheDuel(duel);
+        if (updated) {
             await ovl.sendMessage(ms_org, {
-                image: { url: duel.arene.image },
-                caption: fiche
+                text: "✅ Performances mises à jour sur les fiches joueurs."
             }, { quoted: ms });
-        }
-
-        if (allStarsTouched) {
-            await ovl.sendMessage(ms_org, { text: "✅ Stats All Stars mises à jour." });
         }
     }
 
     //---------------- RESULTAT ----------------
     if (texte.includes("🏆`RESULTAT`")) {
-        const bloc = texte.match(/🏆`RESULTAT`:\s*([\s\S]+)/i);
-        if (!bloc) return;
+        const actions = parseResultats(texte, mentionedJids);
+        if (!actions.length) return;
 
-        const lignes = bloc[1].split('\n').map(l => l.trim()).filter(Boolean);
+        let updated = false;
 
-        for (const ligne of lignes) {
-            const m = ligne.match(/@?([^\s:]+)\s*:\s*(victoire|defaite|défaite)(?:\s*\+\s*([✅❌]))?/i);
-            if (!m) continue;
+        for (const act of actions) {
+            const duelKey = Object.keys(duelsEnCours).find(k =>
+                k.toLowerCase().includes(act.jid.split("@")[0].toLowerCase())
+            );
+            if (!duelKey) continue;
 
-            const tag = m[1];
-            let type = m[2].toLowerCase();
-            const symbol = m[3] || null;
-            if (type === "défaite") type = "defaite";
+            const duel = duelsEnCours[duelKey];
+            const joueurExiste = duel.equipe1.some(j => j.nom.toLowerCase() === act.jid.split("@")[0].toLowerCase())
+                || duel.equipe2.some(j => j.nom.toLowerCase() === act.jid.split("@")[0].toLowerCase());
+            if (!joueurExiste) continue;
 
-            let jid;
-            try { jid = await getJid(tag + "@lid", ms_org, ovl); } catch { continue; }
-
-            const data = await getData({ jid });
+            const data = await getData({ jid: act.jid });
             if (!data) continue;
 
-            let exp = Number(data.exp) || 0;
-            let fans = Number(data.fans) || 0;
-            let talent = Number(data.talent) || 0;
-            let victoires = Number(data.victoires) || 0;
-            let defaites = Number(data.defaites) || 0;
+            let { exp = 0, fans = 0, talent = 0, victoires = 0, defaites = 0 } = data;
 
-            if (type === "victoire") {
-                victoires += 1;
-                if (symbol === "✅") {
-                    exp += 10;
-                    fans += 1000;
-                    talent += 1;
-                } else {
-                    exp += 5;
-                    fans += 500;
-                }
+            if (act.type === "victoire") {
+                victoires++;
+                exp += act.symbol === "✅" ? 10 : 5;
+                fans += act.symbol === "✅" ? 1000 : 500;
+                if (act.symbol === "✅") talent++;
             } else {
-                defaites += 1;
-                if (symbol === "❌") {
-                    exp -= 5;
-                    fans -= 500;
-                    exp = Math.max(0, exp);
-                    fans = Math.max(0, fans);
+                defaites++;
+                if (act.symbol === "❌") {
+                    exp = Math.max(0, exp - 5);
+                    fans = Math.max(0, fans - 500);
                 } else {
                     exp += 2;
                 }
             }
 
-            await setfiche("exp", exp, jid);
-            await setfiche("fans", fans, jid);
-            await setfiche("talent", talent, jid);
-            await setfiche("victoires", victoires, jid);
-            await setfiche("defaites", defaites, jid);
+            await setfiche("exp", exp, act.jid);
+            await setfiche("fans", fans, act.jid);
+            await setfiche("talent", talent, act.jid);
+            await setfiche("victoires", victoires, act.jid);
+            await setfiche("defaites", defaites, act.jid);
+
+            updated = true;
         }
 
-        await ovl.sendMessage(ms_org, {
-            text: "✅ Résultat appliqué et fiches All Stars mises à jour."
-        });
+        if (updated) {
+            await ovl.sendMessage(ms_org, {
+                text: "✅ Résultat appliqué et fiches All Stars mises à jour."
+            }, { quoted: ms });
+        }
     }
 });
 
@@ -338,37 +250,56 @@ ovlcmd({
     nom_cmd: "pavemodo",
     classe: "Duel",
     react: "📄",
-    desc: "Envoie le pavé modèle RazorX™."
-}, async (ms_org, ovl, { repondre }) => {
-    const paveStats = `
-.                    ⚡RAZORX™
-▔▔▔▔▔▔▔▔▔░▒░▔▔▔
-                             
-▶️\`Match Live\`:
--
+    desc: "Envoie le pavé complet RazorX™."
+}, async (ms_org, ovl) => {
 
-╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
-`;
-    await ovl.sendMessage(ms_org, { text: paveStats });
-});
-
-ovlcmd({
-    nom_cmd: "endmatch",
-    classe: "Duel",
-    react: "📄",
-    desc: "Envoie le pavé résultats RazorX™."
-}, async (ms_org, ovl, { repondre }) => {
-    const paveResult = `
+    const paveComplet = `
 .                    ⚡RAZORX™ LIVE▶️
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+
+\`📊PERFORMANCES\`
+@Joueur 1 → Strikes:    | Attaques:     
+@Joueur 2 → Strikes:    | Attaques:     
+
 🏆\`RESULTAT\`: 
- :    
- :  
+@Joueur 1:    
+@Joueur 2:  
 ⏱️Durée: 
 
 ╰───────────────────
 🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
 `;
-    await ovl.sendMessage(ms_org, { text: paveResult });
+
+    await ovl.sendMessage(ms_org, { text: paveComplet });
+});
+
+//---------------- COMMANDE +STATS ----------------
+ovlcmd({
+    nom_cmd: "stats",
+    classe: "Duel",
+    react: "📉",
+    desc: "Modifie rapidement les stats d'une équipe dans un duel en cours."
+}, async (ms_org, ovl, { arg, ms }) => {
+    if (!arg[0]) return;
+
+    const equipeName = arg.join(' ').toLowerCase();
+
+    const duelKey = Object.keys(duelsEnCours).find(k =>
+        duelsEnCours[k].equipe1.some(e => e.nom.toLowerCase() === equipeName) ||
+        duelsEnCours[k].equipe2.some(e => e.nom.toLowerCase() === equipeName)
+    );
+    if (!duelKey) return;
+
+    const duel = duelsEnCours[duelKey];
+
+    const equipe = duel.equipe1.find(e => e.nom.toLowerCase() === equipeName)
+        || duel.equipe2.find(e => e.nom.toLowerCase() === equipeName);
+    if (!equipe) return;
+
+    equipe.stats.pv = Math.max(0, equipe.stats.pv - 30);
+    equipe.stats.energie = Math.max(0, equipe.stats.energie - 30);
+    equipe.stats.sta = Math.max(0, equipe.stats.sta - 50);
+
+    const fiche = generateFicheDuel(duel);
+    await ovl.sendMessage(ms_org, { image: { url: duel.arene.image }, caption: fiche }, { quoted: ms });
 });
