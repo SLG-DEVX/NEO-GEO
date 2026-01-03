@@ -314,9 +314,9 @@ Merci pour ton achat !
                 else {
 
                     let cardsList = (fiche.cards || "")
-                        .split("\n")
-                        .map(x => x.trim())
-                        .filter(Boolean);
+    .split(/\n|•/g)
+    .map(c => c.trim())
+    .filter(Boolean); 
 
                     const index = cardsList.findIndex(
                         c => normalize(c) === normalize(card.name)
