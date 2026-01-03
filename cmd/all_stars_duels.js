@@ -31,6 +31,10 @@ function limiterStats(stats, stat, valeur) {
     stats[stat] = Math.max(0, Math.min(100, stats[stat] + valeur));
 }
 
+function cleanText(txt) {
+    return txt.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+}
+
 function generateFicheDuel(duel) {
     return `*🆚VERSUS ARENA BATTLE🏆🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒░░▒░
@@ -44,7 +48,7 @@ function generateFicheDuel(duel) {
 *🏞️ 𝐀𝐢𝐫 𝐝𝐞 𝐜𝐨𝐦𝐛𝐚𝐭*: illimitée
 *🦶🏼 𝐃𝐢𝐬𝐭𝐚𝐧𝐜𝐞 𝐢𝐧𝐢𝐭𝐢𝐚𝐥𝐞 📌*: 5m
 *⌚ 𝐋𝐚𝐭𝐞𝐧𝐜𝐞*: 6mins ⚠️
-*⭕ 𝐏𝐨𝐫𝐭𝐞́𝐞*: 10m
+*⭕ 𝐏𝐨𝐫𝐭𝐞́*: 10m
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 
 *⚠️ Vous avez 🔟 tours max pour finir votre Adversaire !*
@@ -62,18 +66,14 @@ function parsePerformances(text, mentionedJids = []) {
     for (const ligne of lignes) {
         if (!ligne.includes('→')) continue;
 
-        const m = ligne.match(
-            /@([^\s]+)\s*→.*?strikes\s*:\s*(\d+).*?attaques\s*:\s*(\d+)/i
-        );
+        const m = ligne.match(/@([^\s]+)\s*→.*?strikes\s*:\s*(\d+).*?attaques\s*:\s*(\d+)/i);
         if (!m) continue;
 
-        const tag = m[1];
+        const tag = cleanText(m[1]);
         const strikes = parseInt(m[2]);
         const attaques = parseInt(m[3]);
 
-        const jid = mentionedJids.find(j =>
-            j.toLowerCase().includes(tag.toLowerCase())
-        );
+        const jid = mentionedJids.find(j => j.toLowerCase().includes(tag.toLowerCase()));
         if (!jid) continue;
 
         actions.push({ jid, strikes, attaques });
@@ -93,20 +93,14 @@ function parseResultats(text, mentionedJids = []) {
         const m = ligne.match(/@([^\s:]+)\s*:\s*(victoire|defaite|défaite)(?:\s*\+\s*([✅❌]))?/i);
         if (!m) continue;
 
-        const tag = m[1];
+        const tag = cleanText(m[1]);
         let type = m[2].toLowerCase();
         if (type === "défaite") type = "defaite";
 
-        const jid = mentionedJids.find(j =>
-            j.toLowerCase().includes(tag.toLowerCase())
-        );
+        const jid = mentionedJids.find(j => j.toLowerCase().includes(tag.toLowerCase()));
         if (!jid) continue;
 
-        actions.push({
-            jid,
-            type,
-            symbol: m[3] || null
-        });
+        actions.push({ jid, type, symbol: m[3] || null });
     }
     return actions;
 }
@@ -278,28 +272,54 @@ ovlcmd({
     nom_cmd: "stats",
     classe: "Duel",
     react: "📉",
-    desc: "Modifie rapidement les stats d'une équipe dans un duel en cours."
+    desc: "Modifie plusieurs stats d'une équipe dans un duel en cours."
 }, async (ms_org, ovl, { arg, ms }) => {
-    if (!arg[0]) return;
+    if (!arg.length) return;
 
-    const equipeName = arg.join(' ').toLowerCase();
+    const input = arg.join(' ');
 
+    // Vérifie le format "NomEquipe = stat1 +/-valeur1, stat2 +/-valeur2, ..."
+    const parts = input.split('=');
+    if (parts.length < 2) return; // Format invalide
+
+    const equipeName = parts[0].trim().toLowerCase();
+    const statsPart = parts[1].trim();
+
+    // Parse chaque stat du format stat +/- valeur
+    const statPairs = statsPart.split(',').map(s => s.trim());
+    const statsAutorisees = ["sta", "energie", "pv"];
+    const updates = [];
+
+    for (const pair of statPairs) {
+        const m = pair.match(/(sta|energie|pv)\s*([+-])\s*(\d+)/i);
+        if (!m) continue;
+        updates.push({
+            stat: m[1].toLowerCase(),
+            delta: m[2] === '-' ? -parseInt(m[3]) : parseInt(m[3])
+        });
+    }
+    if (!updates.length) return; // Aucun stat valide
+
+    // Recherche duel en cours contenant cette équipe
     const duelKey = Object.keys(duelsEnCours).find(k =>
         duelsEnCours[k].equipe1.some(e => e.nom.toLowerCase() === equipeName) ||
         duelsEnCours[k].equipe2.some(e => e.nom.toLowerCase() === equipeName)
     );
-    if (!duelKey) return;
+    if (!duelKey) return; // Aucun duel, on ignore
 
     const duel = duelsEnCours[duelKey];
 
+    // Récupère l'équipe
     const equipe = duel.equipe1.find(e => e.nom.toLowerCase() === equipeName)
         || duel.equipe2.find(e => e.nom.toLowerCase() === equipeName);
-    if (!equipe) return;
+    if (!equipe) return; // Sécurité
 
-    equipe.stats.pv = Math.max(0, equipe.stats.pv - 30);
-    equipe.stats.energie = Math.max(0, equipe.stats.energie - 30);
-    equipe.stats.sta = Math.max(0, equipe.stats.sta - 50);
+    // Applique toutes les modifications
+    for (const u of updates) {
+        limiterStats(equipe.stats, u.stat, u.delta);
+    }
 
+    // Renvoie la fiche mise à jour
     const fiche = generateFicheDuel(duel);
     await ovl.sendMessage(ms_org, { image: { url: duel.arene.image }, caption: fiche }, { quoted: ms });
 });
