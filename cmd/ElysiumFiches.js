@@ -44,9 +44,9 @@ function add_elysium(code_cmd) {
       if (!data) return repondre("❌ Aucune fiche trouvée.");
 
       // sécurisation
-      data.cyberwares = data.cyberwares ?? "";
-      data.exp = data.exp ?? 0;
-      data.niveau = data.niveau ?? 0;
+      data.cyberwares = data.cyberwares != null ? data.cyberwares : "";
+data.exp = data.exp != null ? data.exp : 0;
+data.niveau = data.niveau != null ? data.niveau : 0;
 
       // ===== AFFICHAGE FICHE =====
       if (!arg.length) {
