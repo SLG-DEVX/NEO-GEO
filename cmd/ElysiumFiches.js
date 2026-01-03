@@ -1,5 +1,5 @@
 const { ovlcmd } = require("../lib/ovlcmd");
-const { PlayerFunctions } = require('../DataBase/ElysiumFichesDB');
+const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 
 // --- Utilitaires ---
 function normalizeText(text) {
@@ -10,13 +10,14 @@ function normalizeText(text) {
     .trim();
 }
 
-// --- Fonction utilitaire pour récupérer le JID depuis args ou sender ---
 function resolveJid(arg, sender) {
   if (arg && arg.length) return arg[0].replace(/[^\d]/g, "") + "@s.whatsapp.net";
   return sender;
 }
 
-// --- Commande principale ElysiumMe💠 ---
+// ============================
+// 🎮 Commande principale +ElysiumMe💠
+// ============================
 ovlcmd({
   nom_cmd: "elysiumme💠",
   classe: "Elysium",
@@ -28,7 +29,7 @@ ovlcmd({
   try {
     console.log("[ELYME] Commande déclenchée pour JID:", jid, "arg:", arg);
 
-    const data = await PlayerFunctions.getPlayer(jid);
+    const data = await PlayerFunctions.getPlayer({ id: jid });
     console.log("[ELYME] Fiche récupérée:", data);
 
     if (!data) return repondre("❌ Aucune fiche trouvée.");
@@ -40,29 +41,20 @@ ovlcmd({
       ? data.cyberwares.split("\n").filter(c => c.trim() !== "").length
       : 0;
 
-    // Si pas d'argument, afficher la fiche complète
+    // Afficher la fiche complète si pas d'args
     if (!arg.length) {
       const fiche = `➤ ──⦿ P L A Y E R | ⦿──
 
-▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
 🫆Pseudo:  ➤ ${data.pseudo}
 🫆User:    ➤ ${data.user}
 ⏫Exp:     ➤ ${data.exp}/4000 \`XP\`
 🔰Niveau:  ➤ ${data.niveau} ▲
 🎖️Rang:   ➤ ${data.rang}
-🛄Infos:   ➤
 
-▒▒▒░░ \`P L A Y E R\` 💠
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
 💲ECash:       ➤ ${data.ecash} \`E¢\`
 🌟Lifestyle:  ➤ ${data.lifestyle} 🌟
 ⭐Charisme:   ➤ ${data.charisme} ⭐
 🫱🏼‍🫲🏽Réputation: ➤ ${data.reputation} 🫱🏼‍🫲🏽
-
----
-
-+HUD💠        ➤ ( 𝗂𝗇𝗍𝖾𝗋𝖿𝖺𝖼𝖾 𝖽𝖾 𝗃𝗈𝗎𝖾𝗎𝗋 )
-+Inventaire💠 ➤ ( Propriétés )
 
 ░▒▒▒▒░ \`C Y B E R W A R E S\` 💠
 🩻Cyberwares : (Total) ➤ ${cyberwaresCount}
@@ -87,25 +79,17 @@ ovlcmd({
       return ovl.sendMessage(ms_org, { ...imagePayload, caption: fiche }, { quoted: ms || ms_org });
     }
 
-    // Si args pour update, gérer les mises à jour (à adapter selon ton processUpdates)
-    const updates = await processUpdates(arg, jid);
-    console.log("[ELYME] Updates à appliquer:", updates);
-
-    for (const u of updates) {
-      console.log(`[ELYME] Mise à jour colonne ${u.colonne}: ${u.oldValue} -> ${u.newValue}`);
-      await PlayerFunctions.updatePlayer(jid, { [u.colonne]: u.newValue });
-    }
-
-    const message = updates.map(u => `🛠️ *${u.colonne}* modifié : \`${u.oldValue}\` ➤ \`${u.newValue}\``).join("\n");
-    return repondre("✅ Fiche mise à jour avec succès !\n\n" + message);
-
+    // Ici tu peux gérer des mises à jour via args (optionnel)
+    // Par exemple : processUpdates(arg, jid)
   } catch (err) {
     console.error("[ELYME] Erreur dans +ElysiumMe💠:", err);
     return repondre("❌ Une erreur est survenue.");
   }
 });
 
-// --- Commande +HUD💠 ---
+// ============================
+// 🎮 Commande +HUD💠
+// ============================
 ovlcmd({
   nom_cmd: "hud💠",
   classe: "Elysium",
@@ -115,30 +99,20 @@ ovlcmd({
     const jid = resolveJid(arg, ms_org.sender);
     console.log("[HUD] Commande déclenchée pour JID:", jid);
 
-    const data = await PlayerFunctions.getPlayer(jid);
+    const data = await PlayerFunctions.getPlayer({ id: jid });
     if (!data) return repondre("❌ Aucune fiche trouvée.");
 
     const hud = `➤ ──⦿ \`P L A Y E R\` | ⦿──
 
-▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒
-💬
-
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-💠
-
-░▒▒▒░░▒░░▒░ \`V I T A L S\`
-
 > 🍗: ${data.besoins || 100}%    ❤️: ${data.pv || 100}%   💠: ${data.energie || 100}%
 💪🏼: ${data.forme || 100}%    🫁: ${data.stamina || 100}%   🙂: ${data.plaisir || 100}%
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+
 🧠Intelligence: ${data.intelligence || 1}     👊🏽Force: ${data.force || 1}
 🔍Gathering: ${data.gathering || 0}     ⚡Vitesse: ${data.vitesse || 1}
 🛞Driving: ${data.driving || 0}        👁️Reflexes: ${data.reflexes || 1}
 👾Hacking: ${data.hacking || 0}      🛡️Résistance: ${data.resistance || 1}
 
-➤ \`+Package\`🎒 ➤ \`+Phone\`📱
-▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
-💠▯▯▯▯▯▯⎢⎢⎢⎢⎢`;
+➤ \`+Package\`🎒 ➤ \`+Phone\`📱`;
 
     const imagePayload = data.oc_url ? { image: { url: data.oc_url } } : {};
     return ovl.sendMessage(ms_org, { ...imagePayload, caption: hud }, { quoted: ms_org });
@@ -149,7 +123,9 @@ ovlcmd({
   }
 });
 
-// --- Commande +add💠 ---
+// ============================
+// 🎮 Commande +add💠
+// ============================
 ovlcmd({
   nom_cmd: "add💠",
   classe: "Elysium",
@@ -160,10 +136,10 @@ ovlcmd({
   try {
     const jid = resolveJid(arg, ms_org.sender);
 
-    const existing = await PlayerFunctions.getPlayer(jid);
+    const existing = await PlayerFunctions.getPlayer({ id: jid });
     if (existing) return repondre("❌ Ce joueur possède déjà une fiche.");
 
-    await PlayerFunctions.savePlayer(jid, {
+    await PlayerFunctions.addPlayer(jid, {
       pseudo: "Nouveau Joueur",
       user: arg[0],
       besoins: 100,
@@ -208,7 +184,9 @@ ovlcmd({
   }
 });
 
-// --- Commande +del💠 ---
+// ============================
+// 🎮 Commande +del💠
+// ============================
 ovlcmd({
   nom_cmd: "del💠",
   classe: "Elysium",
@@ -229,7 +207,9 @@ ovlcmd({
   }
 });
 
-// --- Commande +oc💠 ---
+// ============================
+// 🎮 Commande +oc💠
+// ============================
 ovlcmd({
   nom_cmd: "+oc💠",
   classe: "Elysium",
@@ -249,10 +229,10 @@ ovlcmd({
     const newValue = arg.slice(3).join(" ").trim();
     if (!newValue) return repondre("❌ Fournis un lien valide pour l'image/GIF Catbox.");
 
-    const data = await PlayerFunctions.getPlayer(jid);
+    const data = await PlayerFunctions.getPlayer({ id: jid });
     if (!data) return repondre("❌ Joueur introuvable.");
 
-    await PlayerFunctions.updatePlayer(jid, { oc_url: newValue });
+    await PlayerFunctions.setPlayer("oc_url", newValue, jid);
 
     return repondre(`✅ Image/GIF du joueur ${data.pseudo} mise à jour avec succès !`);
     
