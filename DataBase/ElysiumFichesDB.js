@@ -2,35 +2,39 @@ const { Sequelize, DataTypes } = require("sequelize");
 const config = require("../set");
 
 const db = config.DATABASE;
-const sequelize = db
-  ? new Sequelize(db, {
-      dialect: "postgres",
-      ssl: true,
-      protocol: "postgres",
-      dialectOptions: {
-        native: true,
-        ssl: { require: true, rejectUnauthorized: false },
-      },
-      logging: false,
-    })
-  : new Sequelize({
-      dialect: "sqlite",
-      storage: "./database.db",
-      logging: false,
-    });
 
+let sequelize;
+if (!db) {
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: "./database.db",
+    logging: false,
+  });
+} else {
+  sequelize = new Sequelize(db, {
+    dialect: "postgres",
+    ssl: true,
+    protocol: "postgres",
+    dialectOptions: {
+      native: true,
+      ssl: { require: true, rejectUnauthorized: false },
+    },
+    logging: false,
+  });
+}
+
+// ============================
+// 🎮 Définition de la table Player
+// ============================
 const Player = sequelize.define(
   "Player",
   {
     id: { type: DataTypes.STRING, primaryKey: true },
-
     pseudo: { type: DataTypes.STRING, defaultValue: "Anonymous" },
     user: { type: DataTypes.STRING, defaultValue: "aucun" },
-
-    // 🎥 Image / GIF OC
     oc_url: { type: DataTypes.STRING, defaultValue: "" },
 
-    // 🔋 VITALS (HUD)
+    // Vitals
     besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
     pv: { type: DataTypes.INTEGER, defaultValue: 100 },
     energie: { type: DataTypes.INTEGER, defaultValue: 100 },
@@ -38,33 +42,33 @@ const Player = sequelize.define(
     stamina: { type: DataTypes.INTEGER, defaultValue: 100 },
     plaisir: { type: DataTypes.INTEGER, defaultValue: 100 },
 
-    // 🧠 STATS PRINCIPALES
+    // Stats principales
     intelligence: { type: DataTypes.INTEGER, defaultValue: 1 },
     force: { type: DataTypes.INTEGER, defaultValue: 1 },
     vitesse: { type: DataTypes.INTEGER, defaultValue: 1 },
     reflexes: { type: DataTypes.INTEGER, defaultValue: 1 },
     resistance: { type: DataTypes.INTEGER, defaultValue: 1 },
 
-    // 🛠️ STATS MÉTIERS (INDÉPENDANTES)
+    // Métiers
     gathering: { type: DataTypes.INTEGER, defaultValue: 0 },
     driving: { type: DataTypes.INTEGER, defaultValue: 0 },
     hacking: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-    // 📈 PROGRESSION
+    // Progression
     exp: { type: DataTypes.INTEGER, defaultValue: 0 },
     niveau: { type: DataTypes.INTEGER, defaultValue: 1 },
     rang: { type: DataTypes.STRING, defaultValue: "Novice🥉" },
 
-    // 💰 SOCIAL
+    // Social
     ecash: { type: DataTypes.INTEGER, defaultValue: 50000 },
     lifestyle: { type: DataTypes.INTEGER, defaultValue: 0 },
     charisme: { type: DataTypes.INTEGER, defaultValue: 0 },
     reputation: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-    // 🦾 CYBERWARES
+    // Cyberwares
     cyberwares: { type: DataTypes.TEXT, defaultValue: "" },
 
-    // 🎮 STATS DE JEU
+    // Stats de jeu
     missions: { type: DataTypes.INTEGER, defaultValue: 0 },
     gameover: { type: DataTypes.INTEGER, defaultValue: 0 },
     pvp: { type: DataTypes.INTEGER, defaultValue: 0 },
@@ -84,39 +88,56 @@ const Player = sequelize.define(
   }
 );
 
-// 🔄 Sync DB
+// ============================
+// 🔄 Synchronisation DB
+// ============================
 (async () => {
   await sequelize.sync({ alter: true });
-  console.log("✅ Table Player synchronisée (HUD & Fiche OK)");
+  console.log("✅ Table Player synchronisée avec Supabase/SQLite");
 })();
 
-const PlayerFunctions = {
-  async getPlayer(id) {
-    return await Player.findByPk(id);
-  },
+// ============================
+// 📦 Fonctions Player (style AllStarsDivsFiche)
+// ============================
+async function getAllPlayers() {
+  return await Player.findAll();
+}
 
-  async getAllPlayers() {
-    return await Player.findAll();
-  },
+async function getPlayer(where = {}) {
+  const [player, created] = await Player.findOrCreate({
+    where,
+    defaults: {},
+  });
+  return player;
+}
 
-  async savePlayer(id, data = {}) {
-    const exists = await Player.findByPk(id);
-    if (exists) return "⚠️ Ce joueur existe déjà.";
-    await Player.create({ id, ...data });
-    return "✅ Joueur enregistré.";
-  },
+async function setPlayer(colonne, valeur, id) {
+  const updateData = {};
+  updateData[colonne] = valeur;
 
-  async updatePlayer(id, updates) {
-    const record = await Player.findByPk(id);
-    if (!record) return "⚠️ Joueur introuvable.";
-    await record.update(updates);
-    return `✅ Mises à jour effectuées pour ${record.pseudo}`;
-  },
+  const [updated] = await Player.update(updateData, { where: { id } });
 
-  async deletePlayer(id) {
-    const deleted = await Player.destroy({ where: { id } });
-    return deleted ? "✅ Joueur supprimé." : "⚠️ Joueur introuvable.";
-  },
+  if (!updated) throw new Error(`❌ Aucun joueur trouvé pour id : ${id}`);
+  console.log(`✔ ${colonne} mis à jour → ${valeur}`);
+}
+
+async function addPlayer(id, data = {}) {
+  if (!id) throw new Error("❌ ID requis");
+
+  const exists = await Player.findOne({ where: { id } });
+  if (exists) return null;
+
+  return await Player.create({ id, ...data });
+}
+
+async function deletePlayer(id) {
+  return await Player.destroy({ where: { id } });
+}
+
+module.exports = {
+  getAllPlayers,
+  getPlayer,
+  setPlayer,
+  addPlayer,
+  deletePlayer,
 };
-
-module.exports = { PlayerFunctions };
