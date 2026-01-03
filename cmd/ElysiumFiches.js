@@ -10,9 +10,18 @@ function normalizeText(text) {
     .trim();
 }
 
+// --- Récupération sécurisée du JID ---
 function resolveJid(arg, sender) {
-  if (arg && arg.length) return arg[0].replace(/[^\d]/g, "") + "@s.whatsapp.net";
-  return sender;
+  // Si on mentionne un joueur
+  if (arg && arg.length && arg[0]) {
+    return arg[0].replace(/[^\d]/g, "") + "@s.whatsapp.net";
+  }
+  // Si sender est un objet { id: "xxx" }
+  if (sender && typeof sender === "object" && sender.id) return sender.id;
+  // Si sender est déjà une string
+  if (typeof sender === "string") return sender;
+  // Sinon rien
+  return null;
 }
 
 // ============================
@@ -22,16 +31,14 @@ ovlcmd({
   nom_cmd: "elysiumme💠",
   classe: "Elysium",
   react: "💠"
-}, async (ms_org, ovl, cmd_options) => {
-  const { repondre, ms, arg } = cmd_options;
+}, async (ms_org, ovl, { repondre, arg, ms }) => {
   const jid = resolveJid(arg, ms_org.sender);
+  if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
 
   try {
     console.log("[ELYME] Commande déclenchée pour JID:", jid, "arg:", arg);
 
     const data = await PlayerFunctions.getPlayer({ id: jid });
-    console.log("[ELYME] Fiche récupérée:", data);
-
     if (!data) return repondre("❌ Aucune fiche trouvée.");
 
     data.cyberwares = data.cyberwares || "";
@@ -41,8 +48,8 @@ ovlcmd({
       ? data.cyberwares.split("\n").filter(c => c.trim() !== "").length
       : 0;
 
-    // Afficher la fiche complète si pas d'args
     if (!arg.length) {
+      // Affichage fiche complète
       const fiche = `➤ ──⦿ P L A Y E R | ⦿──
 
 🫆Pseudo:  ➤ ${data.pseudo}
@@ -79,8 +86,6 @@ ovlcmd({
       return ovl.sendMessage(ms_org, { ...imagePayload, caption: fiche }, { quoted: ms || ms_org });
     }
 
-    // Ici tu peux gérer des mises à jour via args (optionnel)
-    // Par exemple : processUpdates(arg, jid)
   } catch (err) {
     console.error("[ELYME] Erreur dans +ElysiumMe💠:", err);
     return repondre("❌ Une erreur est survenue.");
@@ -95,10 +100,10 @@ ovlcmd({
   classe: "Elysium",
   react: "💠"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  try {
-    const jid = resolveJid(arg, ms_org.sender);
-    console.log("[HUD] Commande déclenchée pour JID:", jid);
+  const jid = resolveJid(arg, ms_org.sender);
+  if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
 
+  try {
     const data = await PlayerFunctions.getPlayer({ id: jid });
     if (!data) return repondre("❌ Aucune fiche trouvée.");
 
@@ -119,7 +124,7 @@ ovlcmd({
 
   } catch (err) {
     console.error("[HUD] Erreur lors de l'affichage du HUD:", err);
-    return repondre("❌ Erreur lors de l'affichage du HUD.");
+    return repondre("❌ Erreur lors de la mise à jour du HUD.");
   }
 });
 
@@ -131,11 +136,12 @@ ovlcmd({
   classe: "Elysium",
   react: "➕"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  if (arg.length < 1) return repondre("❌ Syntaxe : +add💠 @tag");
+  if (!arg.length) return repondre("❌ Syntaxe : +add💠 @tag");
+
+  const jid = resolveJid(arg, ms_org.sender);
+  if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
 
   try {
-    const jid = resolveJid(arg, ms_org.sender);
-
     const existing = await PlayerFunctions.getPlayer({ id: jid });
     if (existing) return repondre("❌ Ce joueur possède déjà une fiche.");
 
@@ -178,8 +184,9 @@ ovlcmd({
     });
 
     return repondre(`✅ Fiche créée pour le joueur : ${arg[0]} (JID : ${jid})`);
+
   } catch (err) {
-    console.error(err);
+    console.error("[ADD💠] Erreur lors de la création :", err);
     return repondre("❌ Erreur lors de la création de la fiche.");
   }
 });
@@ -192,17 +199,19 @@ ovlcmd({
   classe: "Elysium",
   react: "🗑️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  if (arg.length < 1) return repondre("❌ Syntaxe : +del💠 @tag");
+  if (!arg.length) return repondre("❌ Syntaxe : +del💠 @tag");
+
+  const jid = resolveJid(arg, ms_org.sender);
+  if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
 
   try {
-    const jid = resolveJid(arg, ms_org.sender);
-
     const deleted = await PlayerFunctions.deletePlayer(jid);
     if (!deleted) return repondre("❌ Aucune fiche trouvée pour ce joueur.");
 
     return repondre(`✅ Fiche supprimée pour le joueur : ${arg[0]} (JID : ${jid})`);
+
   } catch (err) {
-    console.error(err);
+    console.error("[DEL💠] Erreur lors de la suppression :", err);
     return repondre("❌ Erreur lors de la suppression de la fiche.");
   }
 });
@@ -211,17 +220,18 @@ ovlcmd({
 // 🎮 Commande +oc💠
 // ============================
 ovlcmd({
-  nom_cmd: "+oc💠",
+  nom_cmd: "oc💠",
   classe: "Elysium",
   react: "🖼️"
 }, async (ms_org, ovl, { repondre, arg }) => {
   if (arg.length < 3) return repondre("❌ Syntaxe : +oc💠 @tag = [lien fichier Catbox]");
 
-  try {
-    const jid = resolveJid(arg, ms_org.sender);
+  const jid = resolveJid(arg, ms_org.sender);
+  if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
 
-    const colonne = arg[1]; // doit être oc_url
-    const signe = arg[2];   // doit être "="
+  try {
+    const colonne = arg[1];
+    const signe = arg[2];
 
     if (colonne !== "oc_url" || signe !== "=") 
       return repondre("❌ Syntaxe invalide. Utilise : oc_url = [lien]");
@@ -235,9 +245,9 @@ ovlcmd({
     await PlayerFunctions.setPlayer("oc_url", newValue, jid);
 
     return repondre(`✅ Image/GIF du joueur ${data.pseudo} mise à jour avec succès !`);
-    
+
   } catch (err) {
-    console.error(err);
+    console.error("[OC💠] Erreur lors de la mise à jour :", err);
     return repondre("❌ Erreur lors de la mise à jour du oc_url.");
   }
 });
