@@ -148,8 +148,13 @@ Après cela attendez la validation de votre achat ou de votre vente.
                     userInput = await waitFor();
                     continue;
                 }
+let query = parts.slice(1).join(":").trim();
 
-                const query = parts.slice(1).join(":").trim();
+// 🎰 Détection vente casino
+const isCasinoSale = query.includes("🎰");
+
+// Nettoyage du 🎰 pour trouver la vraie carte
+query = query.replace("🎰", "").trim();
                 if (!query) {
                     await repondre("❌ Tu dois écrire un nom après ':'");
                     userInput = await waitFor();
@@ -328,11 +333,11 @@ Merci pour ton achat !
 
                     let finalSalePrice;
 
-if (card.name.includes("🎰")) {
-    // 🎰 = 15% du prix de base
+if (isCasinoSale) {
+    // 🎰 Vente casino = 15%
     finalSalePrice = Math.floor(basePrix * 0.15);
 } else {
-    // Cartes normales = 50%
+    // Vente normale = 50%
     finalSalePrice = Math.floor(basePrix / 2);
 }
 
