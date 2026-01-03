@@ -125,4 +125,9 @@ async savePlayer(id, data = {}) {
   },
 };
 
-module.exports = { PlayerFunctions };
+module.exports = {
+  getPlayer,
+  savePlayer,
+  updatePlayer,
+  deletePlayer
+};
