@@ -25,10 +25,16 @@ const normalize = str =>
 const checkLevelRequirement = (playerLevel, cardCategory) => {
     let levelRequired = 0;
 
-    if (["ss", "ss+", "ssp", "ss-", "ssm"].includes(cardCategory)) {
+    // 🔶 Cartes OR : niveau 5 minimum
+    if (["or", "gold"].includes(cardCategory)) {
+        levelRequired = 5;
+
+    } else if (["ss", "ss+", "ssp", "ss-", "ssm"].includes(cardCategory)) {
         levelRequired = 15;
+
     } else if (["s+", "sp", "sm"].includes(cardCategory)) {
         levelRequired = 10;
+
     } else if (["s"].includes(cardCategory)) {
         levelRequired = 5;
     }
@@ -36,9 +42,10 @@ const checkLevelRequirement = (playerLevel, cardCategory) => {
     if (playerLevel < levelRequired) {
         return {
             ok: false,
-            message: `❌ Tu n'as pas le niveau requis pour posséder cette carte.\n` +
-                     `Niveau requis: ${levelRequired} ▲, ton niveau: ${playerLevel} ▲
-▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
+            message:
+                `❌ Tu n'as pas le niveau requis pour posséder cette carte.\n` +
+                `Niveau requis: ${levelRequired} ▲, ton niveau: ${playerLevel} ▲  
+▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░  
                               🌀🔆`
         };
     }
