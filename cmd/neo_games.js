@@ -225,9 +225,6 @@ Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣...`
   }
 });
 
-  await rouletteHandler();
-});
-
 function countCards(cardsRaw) {
     if (!cardsRaw || typeof cardsRaw !== "string") return 0;
 
