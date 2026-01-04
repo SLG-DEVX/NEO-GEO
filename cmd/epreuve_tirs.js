@@ -99,7 +99,7 @@ function envoyerTirObligatoire(ms_org, ovl, type, id){
   ovl.sendMessage(ms_org,{
     video:{url:"https://files.catbox.moe/zqm7et.mp4"},
     gifPlayback:true,
-    caption:`🎯 TIR OBLIGATOIRE : *${type.toUpperCase()}*`
+    caption:`🎯⚽ DÉFI DE TIR! 🥅: *${type.toUpperCase()}*`
   });
 }
 
