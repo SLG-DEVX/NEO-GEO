@@ -95,7 +95,7 @@ async function checkJackpot(auteur, ovl, ms_org, ms) {
     await ovl.sendMessage(ms_org, {
       video: { url: "https://files.catbox.moe/vfv2hk.mp4" },
       gifPlayback: true,
-      caption: 
+      caption:
 `FÉLICITATIONS!! 🥳🥳🎉🎉🎉🍾🍾💯 @${auteur.split('@')[0]} a réussi le *JACKPOT* 🎰🔥  
 Tes récompenses ont été ajoutées 🎁🎁
 ╰───────────────────
@@ -115,187 +115,115 @@ ovlcmd({
   desc: 'Lance une roulette aléatoire avec récompenses.'
 }, async (ms_org, ovl, { ms, repondre, auteur_Message }) => {
 
-  const rouletteHandler = async () => {
-    try {
-      const authorizedChats = [
-        '120363024647909493@g.us',
-        '120363307444088356@g.us', 
-        '120363403433342575@g.us', 
-        '22651463203@s.whatsapp.net',
-        '22605463559@s.whatsapp.net'
-      ];
-      if (!authorizedChats.includes(ms_org)) return repondre("Commande non autorisée pour ce chat.");
+  try {
+    const authorizedChats = [
+      '120363024647909493@g.us',
+      '120363307444088356@g.us',
+      '120363403433342575@g.us',
+      '22651463203@s.whatsapp.net',
+      '22605463559@s.whatsapp.net'
+    ];
+    if (!authorizedChats.includes(ms_org))
+      return repondre("Commande non autorisée pour ce chat.");
 
-      const userData = await MyNeoFunctions.getUserData(auteur_Message);
-if (!userData) return repondre("❌ Joueur introuvable dans MyNeo.");
+    const fiche = await getData({ jid: auteur_Message });
+    if (!fiche) return repondre("❌ Fiche All Stars introuvable pour ce joueur.");
 
-const fiche = await getData({ jid: auteur_Message });
-if (!fiche) return repondre("❌ Fiche All Stars introuvable pour ce joueur.");
+    const numbers = generateRandomNumbers(0, 50, 50);
+    const winningNumbers = generateRandomNumbers(0, 50, 3);
+    const rewards = generateRewards();
 
-// -----------------------------------------
-// 🔥 AJOUT ICI : compteur de roulettes d'affilée
-// -----------------------------------------
-let plays_in_row = parseInt(userData.plays_in_row) || 0;
-
-      
-      let valeur_np = parseInt(userData.np) || 0;
-      if (valeur_np < 1) return repondre("❌ Tu n’as pas assez de np (au moins 1 requis).");
-
-      let valeur_nc = parseInt(userData.nc) || 0;
-      let valeur_coupons = parseInt(userData.coupons) || 0;
-      let valeur_golds = parseInt(fiche.golds) || 0;
-
-      const numbers = generateRandomNumbers(0, 50, 50);
-      const winningNumbers = generateRandomNumbers(0, 50, 3);
-      const rewards = generateRewards();
-
-      // --- Message initial ---
-      const msga = `*🎰𝗧𝗘𝗡𝗧𝗘𝗭 𝗩𝗢𝗧𝗥𝗘 𝗖𝗛𝗔𝗡𝗖𝗘🥳 !!*🎉🎉
+    await ovl.sendMessage(ms_org, {
+      video: { url: 'https://files.catbox.moe/amtfgl.mp4' },
+      gifPlayback: true,
+      caption: `*🎰𝗧𝗘𝗡𝗧𝗘𝗭 𝗩𝗢𝗧𝗥𝗘 𝗖𝗛𝗔𝗡𝗖𝗘🥳 !!*🎉🎉
 ▭▬▭▬▭▬▭▬▭▬▭▬════░▒▒▒▒░░
-Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣. Si vous choisissez le bon chiffre alors vous gagnez une récompense 🎁. ⚠️Vous avez 2 chances pour choisir le bon numéro.
-🎊▔▔🎊▔🎊▔🎊▔▔🎊▔▔🎊▔🎊▔🎊
-╭─────〔 🎰CASINO🎰 〕───
-*\ ${numbers.join(', ')}\ *.
- 🎊▔▔🎊▔🎊▔🎊▔▔🎊▔▔🎊▔🎊▔🎊 
- $Gains:  🎁50🔷 🎁100.000🧭 🎁25🎟️ 🎁100.000💵
+Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣...`
+    }, { quoted: ms });
 
-☞ *🎰JACKPOT:*si vous réussissez à gagner 3x de suite c'est la récompense max +1.000.000🧭+1.000.000💶+100🔷+50🎟️ 🎊🎉🎉🍾🍾🎇🎇
-╰───────────────────
+    const getChosenNumber = async (second = false) => {
+      const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
+      const n = parseInt(rep?.message?.conversation || rep?.message?.extendedTextMessage?.text);
+      if (isNaN(n) || n < 0 || n > 50) throw new Error("InvalidNumber");
+      return n;
+    };
 
-🎊Voulez-vous tenter votre chance ? (1min)
-✅: Oui
-❌: Non
-╰────────────────
-▒▒▒▒░░ *NEO🎰CASINO* ▚▙▚▚▚`
-      await ovl.sendMessage(ms_org, {
-        video: { url: 'https://files.catbox.moe/amtfgl.mp4' },
-        caption: msga,
-        gifPlayback: true
-      }, { quoted: ms });
+    const checkNumber = async (num, second = false) => {
+      if (winningNumbers.includes(num)) {
+        const reward = rewards[winningNumbers.indexOf(num)];
+        const user = await MyNeoFunctions.getUserData(auteur_Message);
 
-      const getConfirmation = async (attempt = 1) => {
-        if (attempt > 3) throw new Error('TooManyAttempts');
-        const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
-        const response = (rep?.message?.extendedTextMessage?.text || rep?.message?.conversation || "").trim().toLowerCase();
-        if (response == 'oui') return true;
-        if (response == 'non') throw new Error('GameCancelledByUser');
-        await repondre('❓ Veuillez répondre par Oui ou Non.');
-        return await getConfirmation(attempt + 1);
-      };
-      await getConfirmation();
+        if (reward === '50🔷')
+          await MyNeoFunctions.updateUser(auteur_Message, { nc: (user.nc || 0) + 50 });
+        if (reward === '100.000 G🧭')
+          await setfiche("golds", (parseInt(fiche.golds) || 0) + 100000, auteur_Message);
+        if (reward === '25🎟')
+          await MyNeoFunctions.updateUser(auteur_Message, { coupons: (user.coupons || 0) + 25 });
+        if (reward === '100.000💶')
+          await MyNeoFunctions.updateUser(auteur_Message, { argent: (user.argent || 0) + 100000 });
 
-      valeur_np -= 1;
-      await MyNeoFunctions.updateUser(auteur_Message, { np: valeur_np });
-
-      const getChosenNumber = async (isSecond = false, attempt = 1) => {
-        if (attempt > 3) throw new Error('TooManyAttempts');
         await ovl.sendMessage(ms_org, {
-          video: { url: 'https://files.catbox.moe/amtfgl.mp4' },
-          caption: isSecond ? '🎊😃: *Vous avez une deuxième chance ! Choisissez un autre numéro. Vous avez 1 min ⚠️* (Répondre à ce message)' : '🎊😃: *Choisissez un numéro. Vous avez 1 min ⚠️* (Répondre à ce message)',
-          gifPlayback: true
+          video: { url: 'https://files.catbox.moe/vfv2hk.mp4' },
+          gifPlayback: true,
+          caption: `🎰FÉLICITATIONS ! 🥳🥳 vous avez gagné +${reward} 🎁🎊`
         }, { quoted: ms });
-        const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
-        const number = parseInt(rep?.message?.extendedTextMessage?.text || rep?.message?.conversation);
-        if (isNaN(number) || number < 0 || number > 50) {
-          await repondre('❌ Numéro invalide.');
-          return await getChosenNumber(isSecond, attempt + 1);
-        }
-        return number;
-      };
 
-      const checkNumber = async (num, isSecond = false) => {
-    if (winningNumbers.includes(num)) {
-        const idx = winningNumbers.indexOf(num);
-        let reward = rewards[idx];
+        return true;
+      }
 
-        switch (reward) {
-            case '50🔷':
-                let ficheUserNC = await MyNeoFunctions.getUserData(auteur_Message);
-                let newNC = (parseInt(ficheUserNC.nc) || 0) + 50;
-                await MyNeoFunctions.updateUser(auteur_Message, { nc: newNC });
-                break;
+      if (second) {
+        await ovl.sendMessage(ms_org, {
+          video: { url: 'https://files.catbox.moe/hmhs29.mp4' },
+          gifPlayback: true,
+          caption: `😫😖💔 ▭▬▭▬▭▬▭▬▭▬▭▬▭▬▭▬❌NON ! C'était le mauvais numéro !`
+        }, { quoted: ms });
+      }
+      return false;
+    };
 
-            case '100.000 G🧭':
-                let ficheGolds = await getData("golds", auteur_Message);
-                let newGolds = (parseInt(ficheGolds) || 0) + 100000;
-                await setfiche("golds", newGolds, auteur_Message);
-                break;
+    for (let tour = 1; tour <= 2; tour++) {
 
-            case '25🎟':
-                let ficheUserCoupons = await MyNeoFunctions.getUserData(auteur_Message);
-                let newCoupons = (parseInt(ficheUserCoupons.coupons) || 0) + 25;
-                await MyNeoFunctions.updateUser(auteur_Message, { coupons: newCoupons });
-                break;
+      await repondre(`🎰 *Roulette ${tour}/2* — Bonne chance !`);
 
-            case '100.000💶':
-                let ficheArgent = await MyNeoFunctions.getUserData(auteur_Message);
-                let newArgent = (parseInt(ficheArgent.argent) || 0) + 100000;
-                await MyNeoFunctions.updateUser(auteur_Message, { argent: newArgent });
-                break;
-        }           
-          await ovl.sendMessage(ms_org, {
-            video: { url: 'https://files.catbox.moe/vfv2hk.mp4' },
-            caption: `🎰FÉLICITATIONS ! 🥳🥳 vous avez gagné +${reward} 🎁🎊
-══░▒▒▒▒░░▒░`,
-            gifPlayback: true
-          }, { quoted: ms });
-          return true;
-        } else if (isSecond) {
-          await ovl.sendMessage(ms_org, {
-            video: { url: 'https://files.catbox.moe/hmhs29.mp4' },
-            caption: `😫😖💔 ▭▬▭▬▭▬▭▬▭▬▭▬▭▬▭▬❌NON ! C'était le mauvais numéro ! Dommage tu y étais presque💔▭▬▭▬▭▬▭▬▭▬▭▬▭▬😫😖💔`,
-            gifPlayback: true
-          }, { quoted: ms });
-        }
-        return false;
-      };
-      
-// --- Roulette main ---
-// Le joueur paie 1 NP pour jouer → il aura 2 roulettes
-for (let tour = 1; tour <= 2; tour++) {
+      const freshUser = await MyNeoFunctions.getUserData(auteur_Message);
 
-    await repondre(`🎰 *Roulette ${tour}/2* — Bonne chance !`);
-
-    const chosen1 = await getChosenNumber();
-    const win1 = await checkNumber(chosen1);
-
-    if (win1) {
+      const num1 = await getChosenNumber();
+      if (await checkNumber(num1)) {
         await MyNeoFunctions.updateUser(auteur_Message, {
-            wins_roulette: (parseInt(userData.wins_roulette) || 0) + 1,
-            ns: (parseInt(userData.ns) || 0) + 5
+          wins_roulette: (freshUser.wins_roulette || 0) + 1,
+          ns: (freshUser.ns || 0) + 5
         });
 
-        await ovl.send(ms_org, `
-🎉😎 Félicitations <@${auteur_Message}> tu gagnes **+5👑 royalities xp** 🍾🎉
-        `);
+        await ovl.sendMessage(ms_org, {
+          text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes **+5👑 royalities xp** 🍾🎉`
+        });
 
         await checkJackpot(auteur_Message, ovl, ms_org, ms);
         continue;
-    }
+      }
 
-    const chosen2 = await getChosenNumber(true);
-    const win2 = await checkNumber(chosen2, true);
-
-    if (win2) {
+      const num2 = await getChosenNumber(true);
+      if (await checkNumber(num2, true)) {
         await MyNeoFunctions.updateUser(auteur_Message, {
-            wins_roulette: (parseInt(userData.wins_roulette) || 0) + 1,
-            ns: (parseInt(userData.ns) || 0) + 5
+          wins_roulette: (freshUser.wins_roulette || 0) + 1,
+          ns: (freshUser.ns || 0) + 5
         });
 
-        await ovl.send(ms_org, `
-🎉😎 Félicitations <@${auteur_Message}> tu gagnes **+5👑 royalities xp** 🍾🎉
-        `);
+        await ovl.sendMessage(ms_org, {
+          text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes **+5👑 royalities xp** 🍾🎉`
+        });
 
         await checkJackpot(auteur_Message, ovl, ms_org, ms);
-    } else {
+      } else {
         await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: 0 });
+      }
     }
-}            
-    } catch (e) {
-      console.error('Erreur roulette:', e);
-      repondre("❌ Une erreur est survenue.");
-    }
-  };
+
+  } catch (e) {
+    console.error("Erreur roulette:", e);
+    repondre("❌ Une erreur est survenue.");
+  }
+});
 
   await rouletteHandler();
 });
@@ -326,8 +254,7 @@ ovlcmd({
         '120363403433342575@g.us', 
         '22651463203@s.whatsapp.net',
         '22605463559@s.whatsapp.net', 
-        
-      ];
+        ];
       if (!autorises.includes(ms_org)) return;
 
       // IMAGE DE DÉBUT
