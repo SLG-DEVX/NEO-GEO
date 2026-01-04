@@ -104,10 +104,10 @@ ovlcmd({
 }, async (ms_org, ovl, { arg, ms }) => {
 
     const duel = duelsEnCours[ms_org];
-    if (!duel) return;
 
-    // 📌 Juste afficher la fiche
+    // 📌 Affichage fiche duel si pas d'argument
     if (!arg.length) {
+        if (!duel) return;
         return ovl.sendMessage(ms_org, {
             image: { url: duel.arene.image },
             caption: generateFicheDuel(duel)
@@ -115,27 +115,59 @@ ovlcmd({
     }
 
     const input = arg.join(' ');
-    const [name, rest] = input.split('=').map(v => v.trim());
-    if (!name || !rest) return;
+    const [left, rest] = input.split('=').map(v => v.trim());
+    if (!left || !rest) return;
+
+    // =======================
+    // 🟡 BASE DE DONNÉES STRIKES / ATTAQUES
+    // =======================
+    if (left.startsWith('@')) {
+        const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const tag = clean(left.replace('@', ''));
+        const jid = mentions.find(j => j.toLowerCase().includes(tag.toLowerCase()));
+        if (!jid) return;
+
+        const data = await getData({ jid });
+        if (!data) return;
+
+        let confirm = [];
+
+        for (const p of rest.split(',')) {
+            const m = p.match(/(attaques|strikes)\s*\+\s*(\d+)/i);
+            if (!m) continue;
+            const field = m[1].toLowerCase();
+            const value = Number(m[2]);
+            await setfiche(field, (Number(data[field]) || 0) + value, jid);
+            confirm.push(`➕ ${field.charAt(0).toUpperCase() + field.slice(1)}: +${value}`);
+        }
+
+        if (confirm.length) {
+            return ovl.sendMessage(ms_org, {
+                text: `✅ Stats mises à jour pour ${left}\n${confirm.join('\n')}`
+            }, { quoted: ms });
+        }
+
+        return;
+    }
+
+    // =======================
+    // 🔵 STATS DUEL (STA / ENERGIE / PV)
+    // =======================
+    if (!duel) return;
 
     const joueur =
-        duel.equipe1.find(j => j.nom.toLowerCase() === name.toLowerCase()) ||
-        duel.equipe2.find(j => j.nom.toLowerCase() === name.toLowerCase());
+        duel.equipe1.find(j => j.nom.toLowerCase() === left.toLowerCase()) ||
+        duel.equipe2.find(j => j.nom.toLowerCase() === left.toLowerCase());
 
     if (!joueur) return;
 
-    // 🔥 Application des stats
-    rest.split(',').forEach(p => {
+    for (const p of rest.split(',')) {
         const m = p.match(/(sta|energie|pv)\s*([+-])\s*(\d+)/i);
-        if (!m) return;
+        if (!m) continue;
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
-    });
+    }
 
-    // ✅ ENVOI UNIQUE DE LA FICHE MISE À JOUR
-    await ovl.sendMessage(ms_org, {
-        image: { url: duel.arene.image },
-        caption: generateFicheDuel(duel)
-    }, { quoted: ms });
+    // ❌ Mise à jour silencieuse
 });
 
 //================= +ENDMATCH =================
@@ -162,14 +194,9 @@ ovlcmd({
     await ovl.sendMessage(ms_org, {
         text: `.                    ⚡RAZORX™ LIVE▶️
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-
-\`📊PERFORMANCES\`
-@Joueur 1 → Strikes:    | Attaques:     
-@Joueur 2 → Strikes:    | Attaques:     
-
 🏆\`RESULTAT\`: 
-@Joueur 1:    
-@Joueur 2:  
+Win = @tag
+Lose = @tag
 ⏱️Durée: 
 
 ╰───────────────────
@@ -186,57 +213,68 @@ ovlcmd({
 
     const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-    //---------- PERFORMANCES ----------
-    if (texte.includes("📊PERFORMANCES")) {
-        for (const line of texte.split('\n')) {
-            const m = line.match(/@(.+?)\s*→.*?Strikes:\s*(\d+).*?Attaques:\s*(\d+)/i);
-            if (!m) continue;
-
-            const tag = clean(m[1]);
-            const jid = mentions.find(j => j.toLowerCase().includes(tag.toLowerCase()));
-            if (!jid) continue;
-
-            const data = await getData({ jid });
-            if (!data) continue;
-
-            await setfiche("strikes", (Number(data.strikes) || 0) + Number(m[2]), jid);
-            await setfiche("attaques", (Number(data.attaques) || 0) + Number(m[3]), jid);
-        }
-    }
-
-    //---------- RESULTAT ----------
     if (texte.includes("🏆`RESULTAT`")) {
+
+        let duree = null;
+        const dureeMatch = texte.match(/Durée:\s*(\d+)/i);
+        if (dureeMatch) duree = Number(dureeMatch[1]);
+
+        let loserJid = null;
+
         for (const line of texte.split('\n')) {
-            const m = line.match(/@(.+?)\s*:\s*(victoire|defaite|défaite)(?:\s*\+\s*([✅❌]))?/i);
+            const m = line.match(/(Win|Lose)\s*=\s*@(.+?)(?:\s*\+\s*([✅❌]))?/i);
             if (!m) continue;
 
-            const tag = clean(m[1]);
+            const type = m[1].toLowerCase();
+            const tag = clean(m[2]);
+            const symbol = m[3] || null;
+
             const jid = mentions.find(j => j.toLowerCase().includes(tag.toLowerCase()));
             if (!jid) continue;
 
             const data = await getData({ jid });
             if (!data) continue;
 
-            let { exp = 0, fans = 0, talent = 0, victoires = 0, defaites = 0 } = data;
+            let { exp = 0, talent = 0, victoires = 0, defaites = 0 } = data;
 
-            if (m[2].startsWith('v')) {
+            if (type === "win") {
                 victoires++;
-                exp += m[3] === '✅' ? 10 : 5;
-                fans += m[3] === '✅' ? 1000 : 500;
-                if (m[3] === '✅') talent++;
-            } else {
+                if (symbol === "✅") {
+                    exp += 10;
+                    talent += 10;
+                } else if (symbol === "❌") {
+                    exp = Math.max(0, exp - 3);
+                    talent = Math.max(0, talent - 3);
+                } else {
+                    exp += 2;
+                }
+            }
+
+            if (type === "lose") {
                 defaites++;
-                if (m[3] === '❌') {
+                loserJid = jid;
+                if (symbol === "❌") {
                     exp = Math.max(0, exp - 5);
-                    fans = Math.max(0, fans - 500);
-                } else exp += 2;
+                    talent = Math.max(0, talent - 5);
+                }
             }
 
             await setfiche("exp", exp, jid);
-            await setfiche("fans", fans, jid);
             await setfiche("talent", talent, jid);
             await setfiche("victoires", victoires, jid);
             await setfiche("defaites", defaites, jid);
+        }
+
+        // ---------- MALUS DURÉE < 3 ----------
+        if (duree !== null && duree < 3 && loserJid) {
+            const data = await getData({ jid: loserJid });
+            if (data) {
+                await setfiche(
+                    "talent",
+                    Math.max(0, (Number(data.talent) || 0) - 5),
+                    loserJid
+                );
+            }
         }
     }
 });
