@@ -28,7 +28,17 @@ function normalize(t){
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g,"")
     .replace(/[^\w\s]/g,"")
+    .replace(/\s+/g," ")
     .trim();
+}
+
+// ---------------- UTIL : NOM JOUEUR ----------------
+async function getPlayerName(userId){
+  try{
+    const fiche = await getTeam(userId);
+    if(fiche && fiche.player) return fiche.player;
+  }catch(e){}
+  return userId.split('@')[0];
 }
 
 // ---------------- TIR IMPOSÉ ----------------
@@ -39,15 +49,28 @@ function tirerTypeImpose(){
   return "tir enroulé";
 }
 
-// ---------------- DÉTECTION DU TIR ----------------
+// ---------------- DÉTECTION DU TIR (RP SOLIDE) ----------------
 function detectTir(text){
   const t = normalize(text);
-  for(const m of MODELES_TIRS){
-    if(!t.includes(m.type)) continue;
-    const zone = m.zones.find(z => t.includes(normalize(z)));
-    if(zone) return { type:m.type, zone };
+
+  let type = null;
+  if(t.includes("tir enroule")) type = "tir enroulé";
+  else if(t.includes("tir trivela")) type = "tir trivela";
+  else if(t.includes("tir direct")) type = "tir direct";
+
+  if(!type) return { type:"MISSED" };
+
+  let zone = null;
+  for(const z of ZONES){
+    if(t.includes(normalize(z))){
+      zone = z;
+      break;
+    }
   }
-  return { type:"MISSED" };
+
+  if(!zone) return { type:"MISSED" };
+
+  return { type, zone };
 }
 
 // ---------------- CHANCE ----------------
@@ -115,11 +138,23 @@ Souhaitez-vous lancer l'exercice ? :
 
     const rep = await ovl.recup_msg({ auteur:auteur_Message, ms_org, temps:60000 });
     const res = rep?.message?.conversation?.toLowerCase()?.trim();
-    if(!res) return;
 
-    if(res === "non") return repondre("❌ Lancement de l'exercice annulé...");
-    if(res === "records"){ await afficherRecords(ms_org, ovl); return; }
-    if(res !== "oui") return;
+    if(!res){
+      return ovl.sendMessage(ms_org,{ text:"⏱️ Temps écoulé. Session fermée ❌" });
+    }
+
+    if(res === "non"){
+      return ovl.sendMessage(ms_org,{ text:"❌ Lancement de l'exercice annulé." });
+    }
+
+    if(res === "records"){
+      await afficherRecords(ms_org, ovl);
+      return;
+    }
+
+    if(res !== "oui"){
+      return ovl.sendMessage(ms_org,{ text:"❌ Réponse invalide. Session fermée." });
+    }
 
     joueurs.set(auteur_Message,{
       id:auteur_Message,
@@ -143,7 +178,6 @@ Souhaitez-vous lancer l'exercice ? :
 ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_Message, texte })=>{
   const j = joueurs.get(auteur_Message);
   if(!j || !j.en_cours) return;
-
   if(!texte || texte.trim().length < 5) return;
 
   const tir = detectTir(texte);
@@ -151,17 +185,7 @@ ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_M
 
   clearTimeout(j.timer);
 
-  if(tir.type !== j.tirImpose){
-    j.en_cours = false;
-    await ovl.sendMessage(ms_org,{
-      video:{url:"https://files.catbox.moe/9k5b3v.mp4"},
-      gifPlayback:true,
-      caption:"❌MISSED : Tir manqué! Fin de l'exercice"
-    });
-    return envoyerResultats(ms_org, ovl, j);
-  }
-
-  if(Math.random() > chance(tir.type)){
+  if(tir.type !== j.tirImpose || Math.random() > chance(tir.type)){
     j.en_cours = false;
     await ovl.sendMessage(ms_org,{
       video:{url:"https://files.catbox.moe/9k5b3v.mp4"},
@@ -229,18 +253,23 @@ ${titre}
 
 // ---------------- RECORDS ----------------
 async function afficherRecords(ms_org, ovl){
-  if(recordsGlobal.size === 0)
+  if(recordsGlobal.size === 0){
     return ovl.sendMessage(ms_org,{ text:"🏆 Aucun record enregistré pour le moment." });
+  }
 
-  let msg = "🏆 *RECORDS BLUE LOCK⚽*\n";
-  [...recordsGlobal.entries()]
+  let msg = "🏆 *RECORDS BLUE LOCK⚽*\n\n";
+
+  const sorted = [...recordsGlobal.entries()]
     .sort((a,b)=>b[1].buts - a[1].buts)
-    .slice(0,10)
-    .forEach(([id,r],i)=>{
-      msg += `#${i+1} @${id.split('@')[0]} – ${r.buts} buts (${r.rank})\n`;
-    });
+    .slice(0,10);
 
-  ovl.sendMessage(ms_org,{ text:msg });
+  for(let i=0;i<sorted.length;i++){
+    const [id,r] = sorted[i];
+    const name = await getPlayerName(id);
+    msg += `${i+1}- ${name} (${r.buts} buts)\n`;
+  }
+
+  await ovl.sendMessage(ms_org,{ text: msg });
 }
 
 // ---------------- STOP ----------------
