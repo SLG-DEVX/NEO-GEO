@@ -14,6 +14,7 @@ const arenes = [
     { nom: 'Cathédrale⛩️', image: 'https://files.catbox.moe/ie6jvx.jpg' }
 ];
 
+//================= DUELS PAR GROUPE =================
 const duelsEnCours = {};
 let lastArenaIndex = -1;
 
@@ -34,7 +35,7 @@ function clean(txt) {
     return txt.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
 }
 
-//================= FICHE DUEL (INCHANGÉE) =================
+//================= FICHE DUEL =================
 function generateFicheDuel(duel) {
     return `*🆚VERSUS ARENA BATTLE🏆🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒░░▒░
@@ -58,13 +59,13 @@ function generateFicheDuel(duel) {
 🏆NSL PRO ESPORT ARENA® | RAZORX⚡™ `;
 }
 
-//================= +DUEL (GIF RESTAURÉ) =================
+//================= +DUEL =================
 ovlcmd({
     nom_cmd: "duel",
     classe: "Duel",
     react: "⚔️"
 }, async (ms_org, ovl, { arg, ms }) => {
-    if (!arg[0]) return;
+    if (!arg.length) return;
 
     const input = arg.join(' ');
     const [players, statsCustom] = input.split('/').map(v => v.trim());
@@ -75,21 +76,23 @@ ovlcmd({
     const equipe2 = [{ nom: p2, stats: { sta: 100, energie: 100, pv: 100 } }];
 
     const arene = tirerAr();
-    const key = `${p1} vs ${p2}`;
 
-    duelsEnCours[key] = { equipe1, equipe2, arene, statsCustom };
+    duelsEnCours[ms_org] = {
+        equipe1,
+        equipe2,
+        arene,
+        statsCustom: statsCustom || null
+    };
 
-    // GIF DE PRÉPARATION (REMIS)
     await ovl.sendMessage(ms_org, {
         video: { url: 'https://files.catbox.moe/yyxzt2.mp4' },
         gifPlayback: true,
-        caption: ` 🌀Préparation de match...`
+        caption: `🌀Préparation de match...`
     }, { quoted: ms });
 
-    // FICHE DUEL
     await ovl.sendMessage(ms_org, {
         image: { url: arene.image },
-        caption: generateFicheDuel(duelsEnCours[key])
+        caption: generateFicheDuel(duelsEnCours[ms_org])
     }, { quoted: ms });
 });
 
@@ -100,11 +103,10 @@ ovlcmd({
     react: "📉"
 }, async (ms_org, ovl, { arg, ms }) => {
 
-    const duelKey = Object.keys(duelsEnCours)[0];
-    if (!duelKey) return;
+    const duel = duelsEnCours[ms_org];
+    if (!duel) return;
 
-    const duel = duelsEnCours[duelKey];
-
+    // 📌 Juste afficher la fiche
     if (!arg.length) {
         return ovl.sendMessage(ms_org, {
             image: { url: duel.arene.image },
@@ -114,7 +116,7 @@ ovlcmd({
 
     const input = arg.join(' ');
     const [name, rest] = input.split('=').map(v => v.trim());
-    if (!rest) return;
+    if (!name || !rest) return;
 
     const joueur =
         duel.equipe1.find(j => j.nom.toLowerCase() === name.toLowerCase()) ||
@@ -122,15 +124,32 @@ ovlcmd({
 
     if (!joueur) return;
 
+    // 🔥 Application des stats
     rest.split(',').forEach(p => {
         const m = p.match(/(sta|energie|pv)\s*([+-])\s*(\d+)/i);
         if (!m) return;
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     });
 
+    // ✅ ENVOI UNIQUE DE LA FICHE MISE À JOUR
     await ovl.sendMessage(ms_org, {
         image: { url: duel.arene.image },
         caption: generateFicheDuel(duel)
+    }, { quoted: ms });
+});
+
+//================= +ENDMATCH =================
+ovlcmd({
+    nom_cmd: "endmatch",
+    classe: "Duel",
+    react: "🏁"
+}, async (ms_org, ovl, { ms }) => {
+    if (!duelsEnCours[ms_org]) return;
+
+    delete duelsEnCours[ms_org];
+
+    await ovl.sendMessage(ms_org, {
+        text: "🏁 *Le duel est terminé. L’arène est désormais libre.*"
     }, { quoted: ms });
 });
 
