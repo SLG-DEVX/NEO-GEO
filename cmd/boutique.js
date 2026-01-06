@@ -22,21 +22,48 @@ const normalize = str =>
         .replace(/[^a-z0-9]/g, "");
 
 //-------- VERIFICATION NIVEAU POUR ACHAT
-const checkLevelRequirement = (playerLevel, cardCategory) => {
+const checkLevelRequirement = (playerLevel, cardCategory, cardGrade) => {
     let levelRequired = 0;
 
-    // 🔶 Cartes OR : niveau 5 minimum
+    // 🔶 CARTES OR
     if (["or", "gold"].includes(cardCategory)) {
-        levelRequired = 5;
 
-    } else if (["ss", "ss+", "ssp", "ss-", "ssm"].includes(cardCategory)) {
+        // OR S+
+        if (["s+", "sp", "sm"].includes(cardGrade)) {
+            levelRequired = 10;
+        } 
+        // OR S
+        else if (cardGrade === "s") {
+            levelRequired = 5;
+        }
+
+    // ⚪ CARTES ARGENT
+    } else if (["argent", "silver"].includes(cardCategory)) {
+
+        // ARGENT S+
+        if (["s+", "sp", "sm"].includes(cardGrade)) {
+            levelRequired = 5;
+        } 
+        // ARGENT S
+        else if (cardGrade === "s") {
+            levelRequired = 5;
+        }
+
+    // 🟤 CARTES BRONZE
+    } else if (["bronze"].includes(cardCategory)) {
+
+        // BRONZE S+
+        if (["s+", "sp", "sm"].includes(cardGrade)) {
+            levelRequired = 3;
+        } 
+        // BRONZE S
+        else if (cardGrade === "s") {
+            levelRequired = 3;
+        }
+
+    // 💠 SS (TOUS MÉTAUX)
+    } else if (["ss", "ss+", "ssp", "ss-", "ssm"].includes(cardGrade)) {
         levelRequired = 15;
-
-    } else if (["s+", "sp", "sm"].includes(cardCategory)) {
-        levelRequired = 10;
-
-    } else if (["s"].includes(cardCategory)) {
-        levelRequired = 5;
     }
 
     if (playerLevel < levelRequired) {
@@ -242,8 +269,12 @@ const playerLevel = parseInt(
 );
 
 // Vérification du niveau requis
-const levelCheck = checkLevelRequirement(playerLevel, card.category);
-
+const levelCheck = checkLevelRequirement(
+    playerLevel,
+    card.category,
+    card.grade.toLowerCase()
+);
+                    
 if (!levelCheck.ok) {
     await repondre(levelCheck.message);
     userInput = await waitFor();
