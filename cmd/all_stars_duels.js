@@ -105,7 +105,6 @@ ovlcmd({
 
     const duel = duelsEnCours[ms_org];
 
-    // 📌 Affichage fiche duel si pas d'argument
     if (!arg.length) {
         if (!duel) return;
         return ovl.sendMessage(ms_org, {
@@ -118,14 +117,16 @@ ovlcmd({
     const [left, rest] = input.split('=').map(v => v.trim());
     if (!left || !rest) return;
 
-    // =======================
-    // 🟡 BASE DE DONNÉES STRIKES / ATTAQUES
-    // =======================
-    if (left.startsWith('@')) {
-        const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-if (!mentions.length) return;
-const jid = mentions[0];
+    // ===== FIX STATS ALL STARS =====
+    const context =
+        ms.message?.extendedTextMessage?.contextInfo ||
+        ms.message?.imageMessage?.contextInfo ||
+        ms.message?.videoMessage?.contextInfo;
 
+    const mentions = context?.mentionedJid || [];
+
+    if (mentions.length && left.startsWith('@')) {
+        const jid = mentions[0];
         const data = await getData({ jid });
         if (!data) return;
 
@@ -134,8 +135,10 @@ const jid = mentions[0];
         for (const p of rest.split(',')) {
             const m = p.match(/(attaques|strikes)\s*\+\s*(\d+)/i);
             if (!m) continue;
+
             const field = m[1].toLowerCase();
             const value = Number(m[2]);
+
             await setfiche(field, (Number(data[field]) || 0) + value, jid);
             confirm.push(`➕ ${field.charAt(0).toUpperCase() + field.slice(1)}: +${value}`);
         }
@@ -145,13 +148,10 @@ const jid = mentions[0];
                 text: `✅ Stats mises à jour pour ${left}\n${confirm.join('\n')}`
             }, { quoted: ms });
         }
-
         return;
     }
 
-    // =======================
-    // 🔵 STATS DUEL (STA / ENERGIE / PV)
-    // =======================
+    // ===== STATS DUEL =====
     if (!duel) return;
 
     const joueur =
@@ -165,8 +165,6 @@ const jid = mentions[0];
         if (!m) continue;
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     }
-
-    // ❌ Mise à jour silencieuse
 });
 
 //================= +ENDMATCH =================
@@ -207,10 +205,21 @@ Lose = @tag
 ovlcmd({
     nom: "razorx_auto",
     isfunc: true
-}, async (ms_org, ovl, { texte, ms }) => {
-    if (!texte?.includes("⚡RAZORX™")) return;
+}, async (ms_org, ovl, { ms }) => {
 
-    const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    const texte =
+        ms.message?.conversation ||
+        ms.message?.extendedTextMessage?.text ||
+        ms.message?.imageMessage?.caption;
+
+    if (!texte || !texte.includes("⚡RAZORX™")) return;
+
+    const context =
+        ms.message?.extendedTextMessage?.contextInfo ||
+        ms.message?.imageMessage?.contextInfo ||
+        ms.message?.videoMessage?.contextInfo;
+
+    const mentions = context?.mentionedJid || [];
 
     if (texte.includes("🏆`RESULTAT`")) {
 
@@ -219,21 +228,18 @@ ovlcmd({
         if (dureeMatch) duree = Number(dureeMatch[1]);
 
         let loserJid = null;
+        let indexMention = 0;
 
-       let indexMention = 0;
+        for (const line of texte.split('\n')) {
+            const m = line.match(/(Win|Lose)\s*=/i);
+            if (!m) continue;
 
-for (const line of texte.split('\n')) {
-    const m = line.match(/(Win|Lose)\s*=/i);
-    if (!m) continue;
+            const type = m[1].toLowerCase();
+            const jid = mentions[indexMention++];
+            if (!jid) continue;
 
-    const type = m[1].toLowerCase();
-    const jid = mentions[indexMention];
-    indexMention++;
-
-    if (!jid) continue;
-
-    const symbolMatch = line.match(/[✅❌]/);
-    const symbol = symbolMatch ? symbolMatch[0] : null; 
+            const symbolMatch = line.match(/[✅❌]/);
+            const symbol = symbolMatch ? symbolMatch[0] : null;
 
             const data = await getData({ jid });
             if (!data) continue;
@@ -242,15 +248,11 @@ for (const line of texte.split('\n')) {
 
             if (type === "win") {
                 victoires++;
-                if (symbol === "✅") {
-                    exp += 10;
-                    talent += 10;
-                } else if (symbol === "❌") {
+                if (symbol === "✅") { exp += 10; talent += 10; }
+                else if (symbol === "❌") {
                     exp = Math.max(0, exp - 3);
                     talent = Math.max(0, talent - 3);
-                } else {
-                    exp += 2;
-                }
+                } else exp += 2;
             }
 
             if (type === "lose") {
@@ -268,16 +270,15 @@ for (const line of texte.split('\n')) {
             await setfiche("defaites", defaites, jid);
         }
 
-        // ---------- MALUS DURÉE < 3 ----------
         if (duree !== null && duree < 3 && loserJid) {
             const data = await getData({ jid: loserJid });
             if (data) {
-                await setfiche(
-                    "talent",
-                    Math.max(0, (Number(data.talent) || 0) - 5),
-                    loserJid
-                );
+                await setfiche("talent", Math.max(0, (Number(data.talent) || 0) - 5), loserJid);
             }
         }
+
+        await ovl.sendMessage(ms_org, {
+            text: "✅ Résultats mise à jour pour le match !"
+        }, { quoted: ms });
     }
 });
