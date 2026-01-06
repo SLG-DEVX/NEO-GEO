@@ -61,9 +61,9 @@ const fallenAngeles = [
     dislikes: ["Animaux", "Études", "Politique"],
     friends: [],
     lovers: [],
-    image: "",
+    image: "https://files.catbox.moe/tel9ci.jpg",
     image_home: "",
-    image_extra: "",
+    image_extra: "https://files.catbox.moe/ra9gmg.jpg",
     image_hot: "",
     conversation_styles: {
       texto: [
