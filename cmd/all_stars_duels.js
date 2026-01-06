@@ -123,9 +123,8 @@ ovlcmd({
     // =======================
     if (left.startsWith('@')) {
         const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        const tag = clean(left.replace('@', ''));
-        const jid = mentions.find(j => j.toLowerCase().includes(tag.toLowerCase()));
-        if (!jid) return;
+if (!mentions.length) return;
+const jid = mentions[0];
 
         const data = await getData({ jid });
         if (!data) return;
@@ -221,16 +220,20 @@ ovlcmd({
 
         let loserJid = null;
 
-        for (const line of texte.split('\n')) {
-            const m = line.match(/(Win|Lose)\s*=\s*@(.+?)(?:\s*\+\s*([✅❌]))?/i);
-            if (!m) continue;
+       let indexMention = 0;
 
-            const type = m[1].toLowerCase();
-            const tag = clean(m[2]);
-            const symbol = m[3] || null;
+for (const line of texte.split('\n')) {
+    const m = line.match(/(Win|Lose)\s*=/i);
+    if (!m) continue;
 
-            const jid = mentions.find(j => j.toLowerCase().includes(tag.toLowerCase()));
-            if (!jid) continue;
+    const type = m[1].toLowerCase();
+    const jid = mentions[indexMention];
+    indexMention++;
+
+    if (!jid) continue;
+
+    const symbolMatch = line.match(/[✅❌]/);
+    const symbol = symbolMatch ? symbolMatch[0] : null; 
 
             const data = await getData({ jid });
             if (!data) continue;
