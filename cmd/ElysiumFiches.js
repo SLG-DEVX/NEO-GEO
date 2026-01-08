@@ -12,12 +12,17 @@ function normalizeText(text) {
     .trim();
 }
 
-function resolveJid(arg, sender) {
+function resolveJid(arg, ms_org) {
+  // si mention
   if (arg && arg.length && arg[0]) {
-    return arg[0].replace(/[^\d]/g, "") + "@s.whatsapp.net";
+    const num = arg[0].replace(/[^\d]/g, "");
+    if (num.length > 5) return num + "@s.whatsapp.net";
   }
-  if (sender && typeof sender === "object" && sender.id) return sender.id;
-  if (typeof sender === "string") return sender;
+
+  // auteur du message
+  if (ms_org?.key?.participant) return ms_org.key.participant;
+  if (ms_org?.sender) return ms_org.sender;
+
   return null;
 }
 
@@ -30,7 +35,8 @@ ovlcmd({
   react: "💠"
 }, async (ms_org, ovl, { repondre, arg, ms }) => {
 
-  const jid = resolveJid(arg, ms_org.sender);
+  
+  const jid = resolveJid(arg, ms_org);
   if (!jid) return repondre("❌ Impossible de récupérer le JID.");
 
   try {
@@ -170,7 +176,7 @@ ovlcmd({
   classe: "Elysium",
   react: "🖼️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  const jid = resolveJid(arg, ms_org.sender);
+  const jid = resolveJid(arg, ms_org);
   if (!jid) return repondre("❌ Impossible de récupérer le JID.");
 
   try {
@@ -193,7 +199,7 @@ ovlcmd({
 }, async (ms_org, ovl, { repondre, arg }) => {
   if (!arg.length) return repondre("❌ Syntaxe : +add💠 @tag");
 
-  const jid = resolveJid(arg, ms_org.sender);
+  const jid = resolveJid(arg, ms_org);
   if (!jid) return repondre("❌ JID invalide.");
 
   const existing = await PlayerFunctions.getPlayer({ jid });
@@ -236,7 +242,7 @@ ovlcmd({
 }, async (ms_org, ovl, { repondre, arg }) => {
   if (!arg.length) return repondre("❌ Syntaxe : +del💠 @tag");
 
-  const jid = resolveJid(arg, ms_org.sender);
+  const jid = resolveJid(arg, ms_org);
   if (!jid) return repondre("❌ JID invalide.");
 
   const deleted = await PlayerFunctions.deletePlayer(jid);
