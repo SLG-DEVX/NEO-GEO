@@ -125,7 +125,7 @@ ovlcmd({
 
     const mentions = context?.mentionedJid || [];
 
-    if (mentions.length && left.startsWith('@')) {
+    if (left.startsWith('@') && mentions.length > 0) {
         const jid = mentions[0];
         const data = await getData({ jid });
         if (!data) return;
@@ -230,46 +230,49 @@ ovlcmd({
         let loserJid = null;
         let indexMention = 0;
 
-        for (const line of texte.split('\n')) {
-            const m = line.match(/(Win|Lose)\s*=/i);
-            if (!m) continue;
+        const lines = texte.split('\n');
 
-            const type = m[1].toLowerCase();
-            const jid = mentions[indexMention++];
-            if (!jid) continue;
+for (const line of lines) {
+    const m = line.match(/(Win|Lose)\s*=\s*@/i);
+    if (!m) continue;
 
-            const symbolMatch = line.match(/[✅❌]/);
-            const symbol = symbolMatch ? symbolMatch[0] : null;
+    const type = m[1].toLowerCase();
 
-            const data = await getData({ jid });
-            if (!data) continue;
+    const mentionIndex = lines
+        .slice(0, lines.indexOf(line) + 1)
+        .join('\n')
+        .match(/@/g)?.length - 1;
 
-            let { exp = 0, talent = 0, victoires = 0, defaites = 0 } = data;
+    const jid = mentions?.[mentionIndex];
+    if (!jid) continue;
 
-            if (type === "win") {
-                victoires++;
-                if (symbol === "✅") { exp += 10; talent += 10; }
-                else if (symbol === "❌") {
-                    exp = Math.max(0, exp - 3);
-                    talent = Math.max(0, talent - 3);
-                } else exp += 2;
-            }
+    const data = await getData({ jid });
+    if (!data) continue;
 
-            if (type === "lose") {
-                defaites++;
-                loserJid = jid;
-                if (symbol === "❌") {
-                    exp = Math.max(0, exp - 5);
-                    talent = Math.max(0, talent - 5);
-                }
-            }
+    let {
+        exp = 0,
+        talent = 0,
+        victoires = 0,
+        defaites = 0
+    } = data;
 
-            await setfiche("exp", exp, jid);
-            await setfiche("talent", talent, jid);
-            await setfiche("victoires", victoires, jid);
-            await setfiche("defaites", defaites, jid);
-        }
+    if (type === "win") {
+        victoires++;
+        exp += 10;
+        talent += 10;
+    }
 
+    if (type === "lose") {
+        defaites++;
+        exp = Math.max(0, exp - 5);
+        talent = Math.max(0, talent - 5);
+    }
+
+    await setfiche("exp", exp, jid);
+    await setfiche("talent", talent, jid);
+    await setfiche("victoires", victoires, jid);
+    await setfiche("defaites", defaites, jid);
+}        
         if (duree !== null && duree < 3 && loserJid) {
             const data = await getData({ jid: loserJid });
             if (data) {
