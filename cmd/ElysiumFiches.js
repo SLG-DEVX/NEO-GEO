@@ -1,3 +1,7 @@
+// ============================
+// ElysiumCommands.js
+// ============================
+
 const { ovlcmd } = require("../lib/ovlcmd");
 const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 
@@ -31,10 +35,8 @@ function addElysiumFiche(code_fiche, jid) {
     classe: "Elysium",
     react: "💠"
   }, async (ms_org, ovl, { repondre, ms }) => {
-
     try {
       const data = await PlayerFunctions.getPlayer({ jid });
-      if (!data) return repondre("❌ Aucune fiche trouvée.");
 
       data.cyberwares ||= "";
       data.oc_url ||= "";
@@ -75,16 +77,9 @@ function addElysiumFiche(code_fiche, jid) {
 ░▒░▒░ \`A C H I E V M E N T S\` 💠
 🏆Trophies: ${data.trophies} 🏆`;
 
-      const payload = data.oc_url
-        ? { image: { url: data.oc_url } }
-        : {};
+      const payload = data.oc_url ? { image: { url: data.oc_url } } : {};
 
-      return ovl.sendMessage(
-        ms_org,
-        { ...payload, caption: fiche },
-        { quoted: ms || ms_org }
-      );
-
+      return ovl.sendMessage(ms_org, { ...payload, caption: fiche }, { quoted: ms || ms_org });
     } catch (err) {
       console.error("[ELY-FICHE]", err);
       return repondre("❌ Une erreur est survenue.");
@@ -93,7 +88,7 @@ function addElysiumFiche(code_fiche, jid) {
 }
 
 // ============================
-// INIT AUTO (COMME ALL STARS)
+// INIT AUTO (ENREGISTRE COMMANDES EXISTANTES)
 // ============================
 async function initElysiumFiches() {
   try {
@@ -113,82 +108,6 @@ async function initElysiumFiches() {
 
 initElysiumFiches();
 
-// ============================
-// SYSTEME UPDATE (INCHANGÉ)
-// ============================
-async function processUpdates(args, jid) {
-  const updates = [];
-  const data = await PlayerFunctions.getPlayer({ jid });
-  const columns = Object.keys(data.dataValues);
-
-  let i = 0;
-  while (i < args.length) {
-    const object = args[i++];
-    const signe = args[i++];
-
-    let texte = [];
-    while (
-      i < args.length &&
-      !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
-      !columns.includes(args[i])
-    ) {
-      texte.push(args[i++]);
-    }
-
-    if (!columns.includes(object))
-      throw new Error(`❌ La colonne '${object}' n'existe pas.`);
-
-    const oldValue = data[object];
-    let newValue;
-
-    if (object === "cyberwares") {
-      let list = (oldValue || "").split("\n").filter(x => x.trim());
-      const items = texte.join(" ").split(",").map(x => x.trim()).filter(Boolean);
-
-      if (signe === "+") {
-        for (const item of items) {
-          if (!list.some(c => normalizeText(c) === normalizeText(item)))
-            list.push(item);
-        }
-      } else if (signe === "-") {
-        const rm = items.map(normalizeText);
-        list = list.filter(c => !rm.includes(normalizeText(c)));
-      } else if (signe === "=") {
-        list = items;
-      } else {
-        throw new Error("❌ cyberwares accepte uniquement '+', '-' ou '='");
-      }
-
-      updates.push({ colonne: object, oldValue, newValue: list.join("\n") });
-      continue;
-    }
-
-    if (signe === "+" || signe === "-") {
-      const n1 = Number(oldValue) || 0;
-      const n2 = Number(texte.join(" ")) || 0;
-      newValue = signe === "+" ? n1 + n2 : n1 - n2;
-    } else if (signe === "=") {
-      newValue = texte.join(" ");
-    } else if (signe === "add") {
-      newValue = (oldValue + " " + texte.join(" ")).trim();
-    } else if (signe === "supp") {
-      const regex = new RegExp(normalizeText(texte.join(" ")), "gi");
-      newValue = normalizeText(oldValue).replace(regex, "").trim();
-    } else {
-      throw new Error(`❌ Signe non reconnu : ${signe}`);
-    }
-
-    updates.push({ colonne: object, oldValue, newValue });
-  }
-
-  return updates;
-}
-
-async function updatePlayerData(updates, jid) {
-  for (const u of updates) {
-    await PlayerFunctions.setPlayer(u.colonne, u.newValue, jid);
-  }
-}
 // ============================
 // COMMANDE +add💠
 // ============================
@@ -232,7 +151,6 @@ ovlcmd({
     trophies: 0
   });
 
-  // 🔥 ENREGISTRE LA COMMANDE IMMÉDIATEMENT
   addElysiumFiche(code_fiche, jid);
 
   return repondre(
@@ -243,7 +161,7 @@ ovlcmd({
 });
 
 // ============================
-// +del💠
+// COMMANDE +del💠
 // ============================
 ovlcmd({
   nom_cmd: "del💠",
