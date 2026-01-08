@@ -89,8 +89,10 @@ ovlcmd({
   desc: "Enregistrer un HUD pour un joueur"
 }, async (ms_org, ovl, { arg, repondre, prenium_id }) => {
   if (!prenium_id) return repondre("⚠️ Seuls les membres de la NS peuvent enregistrer un HUD.");
-  const type = arg[0]?.toLowerCase();
-  const rawMention = arg[1] || arg[0];
+
+  const rawMention = arg[0];       // le premier argument : @Damian
+  const type = arg[1]?.toLowerCase(); // le deuxième argument : hud💠
+
   if (!rawMention) return repondre("⚠️ Mentionne un utilisateur.");
   const mention = normalizeJid(rawMention);
 
@@ -127,8 +129,10 @@ ovlcmd({
   desc: "Supprimer le HUD d’un joueur"
 }, async (ms_org, ovl, { arg, repondre, prenium_id }) => {
   if (!prenium_id) return repondre("⚠️ Seuls les membres de la NS peuvent supprimer un HUD.");
-  const type = arg[0]?.toLowerCase();
-  const rawMention = arg[1] || arg[0];
+
+  const rawMention = arg[0];       // le premier argument : @Damian
+  const type = arg[1]?.toLowerCase(); // le deuxième argument : hud💠
+
   if (!rawMention) return repondre("⚠️ Mentionne un utilisateur.");
   const mention = normalizeJid(rawMention);
 
