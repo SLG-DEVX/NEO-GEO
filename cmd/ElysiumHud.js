@@ -1,5 +1,6 @@
-
 const { ovlcmd } = require('../lib/ovlcmd');
+const { HUDFunctions } = require("../DataBase/ElysiumHudDB"); 
+const { saveUser: saveHUD, deleteUser: delHUD, getUserData: getHUD, updateUser: updateHUD, updateBulk: updateHUDBulk } = HUDFunctions;
 const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 
 // ============================
