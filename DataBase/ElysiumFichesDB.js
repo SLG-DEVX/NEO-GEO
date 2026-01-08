@@ -1,3 +1,7 @@
+// ============================
+// ElysiumFichesDB.js
+// ============================
+
 const { Sequelize, DataTypes } = require('sequelize');
 const config = require('../set');
 const db = config.DATABASE;
@@ -8,12 +12,14 @@ let sequelize;
 // CONNEXION DB
 // ============================
 if (!db) {
+  // Base locale SQLite
   sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: './database.db',
     logging: false,
   });
 } else {
+  // Base Supabase/Postgres
   sequelize = new Sequelize(db, {
     dialect: 'postgres',
     dialectOptions: {
@@ -31,40 +37,29 @@ if (!db) {
 // ============================
 const ElysiumFiche = sequelize.define('ElysiumFiche', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-
   jid: { type: DataTypes.STRING, unique: true },
-
   pseudo: { type: DataTypes.STRING, defaultValue: 'aucun' },
   user: { type: DataTypes.STRING, defaultValue: 'aucun' },
-
   exp: { type: DataTypes.INTEGER, defaultValue: 0 },
   niveau: { type: DataTypes.INTEGER, defaultValue: 1 },
   rang: { type: DataTypes.STRING, defaultValue: 'Novice🥉' },
-
   ecash: { type: DataTypes.INTEGER, defaultValue: 0 },
   lifestyle: { type: DataTypes.INTEGER, defaultValue: 0 },
   charisme: { type: DataTypes.INTEGER, defaultValue: 0 },
   reputation: { type: DataTypes.INTEGER, defaultValue: 0 },
-
   cyberwares: { type: DataTypes.TEXT, defaultValue: '' },
-
   missions: { type: DataTypes.INTEGER, defaultValue: 0 },
   gameover: { type: DataTypes.INTEGER, defaultValue: 0 },
   pvp: { type: DataTypes.INTEGER, defaultValue: 0 },
-
   points_combat: { type: DataTypes.INTEGER, defaultValue: 0 },
   points_chasse: { type: DataTypes.INTEGER, defaultValue: 0 },
   points_recoltes: { type: DataTypes.INTEGER, defaultValue: 0 },
   points_hacking: { type: DataTypes.INTEGER, defaultValue: 0 },
   points_conduite: { type: DataTypes.INTEGER, defaultValue: 0 },
   points_exploration: { type: DataTypes.INTEGER, defaultValue: 0 },
-
   trophies: { type: DataTypes.INTEGER, defaultValue: 0 },
-
   oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' },
-
   code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
-
 }, {
   tableName: 'elysium_fiches',
   freezeTableName: true,
@@ -92,7 +87,29 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
 async function getPlayer(where = {}) {
   const [player] = await ElysiumFiche.findOrCreate({
     where,
-    defaults: {}
+    defaults: {
+      code_fiche: 'aucun',
+      pseudo: 'Nouveau Joueur',
+      user: where.jid || 'inconnu',
+      exp: 0,
+      niveau: 1,
+      rang: 'Novice🥉',
+      ecash: 50000,
+      lifestyle: 0,
+      charisme: 0,
+      reputation: 0,
+      cyberwares: '',
+      missions: 0,
+      gameover: 0,
+      pvp: 0,
+      points_combat: 0,
+      points_chasse: 0,
+      points_recoltes: 0,
+      points_hacking: 0,
+      points_conduite: 0,
+      points_exploration: 0,
+      trophies: 0
+    }
   });
   return player;
 }
