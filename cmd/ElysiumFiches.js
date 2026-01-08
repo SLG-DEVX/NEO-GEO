@@ -1,14 +1,7 @@
-// ============================
-// ElysiumCommands.js
-// ============================
-
 const { ovlcmd } = require("../lib/ovlcmd");
 const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 
-// ============================
-// REGISTRE COMMANDES
-// ============================
-const registeredFiches = new Set();
+const registeredFiches = new Map(); // code_fiche => jid
 
 // ============================
 // UTILS
@@ -22,30 +15,20 @@ function normalizeText(text) {
 }
 
 // ============================
-// AJOUT COMMANDE DYNAMIQUE (COMME ALL STARS)
+// FONCTION POUR ENVOYER UNE FICHE
 // ============================
-function addElysiumFiche(code_fiche, jid) {
-  if (!code_fiche || !jid) return;
-  if (registeredFiches.has(code_fiche)) return;
+async function sendFiche(ms_org, ovl, jid, quoted) {
+  const data = await PlayerFunctions.getPlayer({ jid });
+  if (!data) return ovl.sendMessage(ms_org, { text: "❌ Fiche introuvable." }, { quoted });
 
-  registeredFiches.add(code_fiche);
+  data.cyberwares ||= "";
+  data.oc_url ||= "";
 
-  ovlcmd({
-    nom_cmd: code_fiche,
-    classe: "Elysium",
-    react: "💠"
-  }, async (ms_org, ovl, { repondre, ms }) => {
-    try {
-      const data = await PlayerFunctions.getPlayer({ jid });
+  const cyberwaresCount = data.cyberwares
+    ? data.cyberwares.split("\n").filter(c => c.trim()).length
+    : 0;
 
-      data.cyberwares ||= "";
-      data.oc_url ||= "";
-
-      const cyberwaresCount = data.cyberwares
-        ? data.cyberwares.split("\n").filter(c => c.trim()).length
-        : 0;
-
-      const fiche = `➤ ──⦿ P L A Y E R | ⦿──
+  const fiche = `➤ ──⦿ P L A Y E R | ⦿──
 
 🫆Pseudo:  ➤ ${data.pseudo}
 🫆User:    ➤ ${data.user}
@@ -77,30 +60,37 @@ function addElysiumFiche(code_fiche, jid) {
 ░▒░▒░ \`A C H I E V M E N T S\` 💠
 🏆Trophies: ${data.trophies} 🏆`;
 
-      const payload = data.oc_url ? { image: { url: data.oc_url } } : {};
+  const payload = data.oc_url ? { image: { url: data.oc_url } } : {};
+  return ovl.sendMessage(ms_org, { ...payload, caption: fiche }, { quoted });
+}
 
-      return ovl.sendMessage(ms_org, { ...payload, caption: fiche }, { quoted: ms || ms_org });
-    } catch (err) {
-      console.error("[ELY-FICHE]", err);
-      return repondre("❌ Une erreur est survenue.");
-    }
+// ============================
+// AJOUT COMMANDE DYNAMIQUE
+// ============================
+function registerFicheCommand(code_fiche, jid) {
+  if (!code_fiche || !jid || registeredFiches.has(code_fiche)) return;
+
+  registeredFiches.set(code_fiche, jid);
+
+  ovlcmd({
+    nom_cmd: code_fiche,
+    classe: "Elysium",
+    react: "💠"
+  }, async (ms_org, ovl, { ms }) => {
+    await sendFiche(ms_org, ovl, jid, ms || ms_org);
   });
 }
 
 // ============================
-// INIT AUTO (ENREGISTRE COMMANDES EXISTANTES)
+// INIT AUTOMATIQUE
 // ============================
 async function initElysiumFiches() {
   try {
     const all = await PlayerFunctions.getAllPlayers();
-
     for (const p of all) {
-      if (!p.code_fiche || p.code_fiche === "aucun") continue;
-      if (!p.jid) continue;
-
-      addElysiumFiche(p.code_fiche, p.jid);
+      if (!p.code_fiche || p.code_fiche === "aucun" || !p.jid) continue;
+      registerFicheCommand(p.code_fiche, p.jid);
     }
-
   } catch (e) {
     console.error("[INIT ELYSIUM]", e);
   }
@@ -116,14 +106,12 @@ ovlcmd({
   classe: "Elysium",
   react: "➕"
 }, async (ms_org, ovl, { repondre, arg }) => {
-
-  if (arg.length < 2)
-    return repondre("❌ Syntaxe : +add💠 <jid> <code_fiche>");
+  if (arg.length < 2) return repondre("❌ Syntaxe : +add💠 <jid> <code_fiche>");
 
   const jid = arg[0];
   const code_fiche = arg.slice(1).join(" ");
-
   const existing = await PlayerFunctions.getPlayer({ jid });
+
   if (existing && existing.code_fiche !== "aucun")
     return repondre("❌ Ce joueur possède déjà une fiche.");
 
@@ -151,13 +139,9 @@ ovlcmd({
     trophies: 0
   });
 
-  addElysiumFiche(code_fiche, jid);
+  registerFicheCommand(code_fiche, jid);
 
-  return repondre(
-    `✅ Fiche créée :\n` +
-    `• JID : ${jid}\n` +
-    `• Commande : +${code_fiche}`
-  );
+  return repondre(`✅ Fiche créée :\n• JID : ${jid}\n• Commande : +${code_fiche}`);
 });
 
 // ============================
@@ -168,19 +152,43 @@ ovlcmd({
   classe: "Elysium",
   react: "🗑️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-
-  if (!arg.length)
-    return repondre("❌ Syntaxe : +del💠 <code_fiche>");
+  if (!arg.length) return repondre("❌ Syntaxe : +del💠 <code_fiche>");
 
   const code_fiche = arg.join(" ");
-  const all = await PlayerFunctions.getAllPlayers();
-  const player = all.find(p => p.code_fiche === code_fiche);
+  const player = await PlayerFunctions.getAllPlayers()
+    .then(all => all.find(p => p.code_fiche === code_fiche));
 
   if (!player) return repondre("❌ Aucune fiche trouvée.");
 
   await PlayerFunctions.deletePlayer(player.jid);
   registeredFiches.delete(code_fiche);
-  await initElysiumFiches();
 
   return repondre(`✅ Fiche supprimée : ${code_fiche}`);
+});
+
+// ============================
+// COMMANDE +ElysiumMe💠 (SELF & TAG)
+// ============================
+ovlcmd({
+  nom_cmd: "ElysiumMe💠",
+  classe: "Elysium",
+  react: "💠"
+}, async (ms_org, ovl, { repondre, from, mentions }) => {
+  try {
+    const jidToFetch = mentions && Object.keys(mentions).length > 0
+      ? Object.keys(mentions)[0]
+      : from;
+
+    const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
+    if (!player || !player.code_fiche || player.code_fiche === "aucun")
+      return repondre("❌ Fiche introuvable pour ce joueur.");
+
+    // Enregistrement dynamique si nécessaire
+    registerFicheCommand(player.code_fiche, jidToFetch);
+
+    await sendFiche(ms_org, ovl, jidToFetch, ms_org);
+  } catch (err) {
+    console.error("[ELY-ME]", err);
+    return repondre("❌ Une erreur est survenue.");
+  }
 });
