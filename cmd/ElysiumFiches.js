@@ -31,10 +31,10 @@ ovlcmd({
 }, async (ms_org, ovl, { repondre, arg, ms }) => {
 
   const jid = resolveJid(arg, ms_org.sender);
-  if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
+  if (!jid) return repondre("❌ Impossible de récupérer le JID.");
 
   try {
-    const data = await PlayerFunctions.getPlayer({ id: jid });
+    const data = await PlayerFunctions.getPlayer({ jid });
     if (!data) return repondre("❌ Aucune fiche trouvée.");
 
     data.cyberwares = data.cyberwares || "";
@@ -88,11 +88,11 @@ ovlcmd({
 });
 
 // ============================
-// SYSTEME UPDATE (clone NS)
+// SYSTEME UPDATE
 // ============================
 async function processUpdates(args, jid) {
   const updates = [];
-  const data = await PlayerFunctions.getPlayer({ id: jid });
+  const data = await PlayerFunctions.getPlayer({ jid });
   const columns = Object.keys(data.dataValues || data);
 
   let i = 0;
@@ -116,31 +116,25 @@ async function processUpdates(args, jid) {
     const oldValue = data[object];
     let newValue;
 
-    // --- CYBERWARES (identique cards) ---
     if (object === "cyberwares") {
       let list = (oldValue || "").split("\n").filter(x => x.trim());
       const items = texte.join(" ").split(",").map(x => x.trim()).filter(Boolean);
 
       if (signe === "+") {
         for (const item of items) {
-          if (!list.some(c => normalizeText(c) === normalizeText(item))) {
-            list.push(item);
-          }
+          if (!list.some(c => normalizeText(c) === normalizeText(item))) list.push(item);
         }
       } else if (signe === "-") {
         const rm = items.map(normalizeText);
         list = list.filter(c => !rm.includes(normalizeText(c)));
       } else if (signe === "=") {
         list = items;
-      } else {
-        throw new Error("❌ cyberwares accepte uniquement '+', '-' ou '='");
-      }
+      } else throw new Error("❌ cyberwares accepte uniquement '+', '-' ou '='");
 
       updates.push({ colonne: object, oldValue, newValue: list.join("\n") });
       continue;
     }
 
-    // --- Colonnes standards ---
     if (signe === "+" || signe === "-") {
       const n1 = Number(oldValue) || 0;
       const n2 = Number(texte.join(" ")) || 0;
@@ -169,21 +163,20 @@ async function updatePlayerData(updates, jid) {
 }
 
 // ============================
-// COMMANDE +oc💠 (GENERIC)
+// COMMANDE +oc💠
 // ============================
 ovlcmd({
   nom_cmd: "oc💠",
   classe: "Elysium",
   react: "🖼️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-
   const jid = resolveJid(arg, ms_org.sender);
   if (!jid) return repondre("❌ Impossible de récupérer le JID.");
 
   try {
     const updates = await processUpdates(arg.slice(1), jid);
     await updatePlayerData(updates, jid);
-    return repondre("✅ Image/GIF du joueur mise à jour avec succès !");
+    return repondre("✅ Image/GIF du joueur mise à jour !");
   } catch (err) {
     console.error("[OC💠]", err);
     return repondre("❌ Erreur lors de la mise à jour du OC.");
@@ -198,33 +191,17 @@ ovlcmd({
   classe: "Elysium",
   react: "➕"
 }, async (ms_org, ovl, { repondre, arg }) => {
-
   if (!arg.length) return repondre("❌ Syntaxe : +add💠 @tag");
 
   const jid = resolveJid(arg, ms_org.sender);
   if (!jid) return repondre("❌ JID invalide.");
 
-  const existing = await PlayerFunctions.getPlayer({ id: jid });
+  const existing = await PlayerFunctions.getPlayer({ jid });
   if (existing) return repondre("❌ Ce joueur possède déjà une fiche.");
 
   await PlayerFunctions.addPlayer(jid, {
     pseudo: "Nouveau Joueur",
     user: arg[0],
-    besoins: 100,
-    pv: 100,
-    energie: 100,
-    forme: 100,
-    stamina: 100,
-    plaisir: 100,
-    intelligence: 1,
-    force: 1,
-    vitesse: 1,
-    reflexes: 1,
-    resistance: 1,
-    gathering: 0,
-    driving: 0,
-    hacking: 0,
-    cyberwares: "",
     exp: 0,
     niveau: 1,
     rang: "Novice🥉",
@@ -232,6 +209,7 @@ ovlcmd({
     lifestyle: 0,
     charisme: 0,
     reputation: 0,
+    cyberwares: "",
     missions: 0,
     gameover: 0,
     pvp: 0,
@@ -256,7 +234,6 @@ ovlcmd({
   classe: "Elysium",
   react: "🗑️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-
   if (!arg.length) return repondre("❌ Syntaxe : +del💠 @tag");
 
   const jid = resolveJid(arg, ms_org.sender);
