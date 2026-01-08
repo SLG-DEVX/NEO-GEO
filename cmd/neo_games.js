@@ -230,24 +230,46 @@ Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣. Si 
       await repondre(`🎰 *Roulette ${tour}/2* — Bonne chance !`);
       const num1 = await getChosenNumber();
       if (await checkNumber(num1)) {
-        await MyNeoFunctions.updateUser(auteur_Message, {
-          wins_roulette: (parseInt(userData.wins_roulette) || 0) + 1,
-          ns: (parseInt(userData.ns) || 0) + 5
-        });
-        await ovl.sendMessage(ms_org, { text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes **+5👑 royalities xp** 🍾🎉` });
-        await checkJackpot(auteur_Message, ovl, ms_org, ms);
-        continue;
+  const freshUser = await MyNeoFunctions.getUserData(auteur_Message);
+
+  const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
+
+  await MyNeoFunctions.updateUser(auteur_Message, {
+    wins_roulette: newWins,
+    ns: (parseInt(freshUser.ns) || 0) + 5
+  });
+
+  await ovl.sendMessage(ms_org, {
+    text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes +5👑 royalities xp 🍾🎉`
+  });
+
+  if (newWins >= 3) {
+    await checkJackpot(auteur_Message, ovl, ms_org, ms);
+  }
+
+  continue;
       }
 
       const num2 = await getChosenNumber(true);
-      if (await checkNumber(num2, true)) {
-        await MyNeoFunctions.updateUser(auteur_Message, {
-          wins_roulette: (parseInt(userData.wins_roulette) || 0) + 1,
-          ns: (parseInt(userData.ns) || 0) + 5
-        });
-        await ovl.sendMessage(ms_org, { text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes **+5👑 royalities xp** 🍾🎉` });
-        await checkJackpot(auteur_Message, ovl, ms_org, ms);
-      } else {
+     if (await checkNumber(num2, true)) {
+  const freshUser = await MyNeoFunctions.getUserData(auteur_Message);
+
+  const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
+
+  await MyNeoFunctions.updateUser(auteur_Message, {
+    wins_roulette: newWins,
+    ns: (parseInt(freshUser.ns) || 0) + 5
+  });
+
+  await ovl.sendMessage(ms_org, {
+    text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes +5👑 royalities xp🍾🎉`
+  });
+
+  if (newWins >= 3) {
+    await checkJackpot(auteur_Message, ovl, ms_org, ms);
+  }
+} 
+       else {
         await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: 0 });
       }
     }
