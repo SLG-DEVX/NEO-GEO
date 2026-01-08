@@ -16,11 +16,11 @@ if (!db) {
 } else {
   sequelize = new Sequelize(db, {
     dialect: 'postgres',
-    protocol: 'postgres',
-    ssl: true,
     dialectOptions: {
-      native: true,
-      ssl: { require: true, rejectUnauthorized: false },
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
     },
     logging: false,
   });
@@ -61,20 +61,18 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
 
   trophies: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-  oc_url: {
-    type: DataTypes.STRING,
-    defaultValue: 'https://files.catbox.moe/4quw3r.jpg'
-  },
+  oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' },
 
   code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
 
 }, {
   tableName: 'elysium_fiches',
+  freezeTableName: true,
   timestamps: false
 });
 
 // ============================
-// SYNC AUTO (CORRECTION MAJEURE)
+// SYNC AUTO
 // ============================
 (async () => {
   try {
@@ -87,39 +85,46 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
 })();
 
 // ============================
-// FONCTIONS DB
+// FONCTIONS DB (MODE ALL STARS)
 // ============================
 
-// 🔒 NE CRÉE PLUS DE JOUEUR FANTÔME
+// 🔒 Récupère ou crée automatiquement une fiche
 async function getPlayer(where = {}) {
-  return await ElysiumFiche.findOne({ where });
+  const [player] = await ElysiumFiche.findOrCreate({
+    where,
+    defaults: {}
+  });
+  return player;
 }
 
+// 🔧 Met à jour une colonne spécifique
 async function setPlayer(colonne, valeur, jid) {
   const updateData = {};
   updateData[colonne] = valeur;
 
-  const [updated] = await ElysiumFiche.update(updateData, {
-    where: { jid }
-  });
-
+  const [updated] = await ElysiumFiche.update(updateData, { where: { jid } });
   if (!updated) throw new Error(`❌ Aucun joueur trouvé pour jid : ${jid}`);
   console.log(`✔ [ELY] ${colonne} mis à jour → ${valeur}`);
 }
 
+// ➕ Ajoute un joueur explicitement (si pas déjà présent)
 async function addPlayer(jid, data = {}) {
   if (!jid) throw new Error("JID requis");
 
   const exists = await ElysiumFiche.findOne({ where: { jid } });
   if (exists) return null;
 
-  return await ElysiumFiche.create({ jid, ...data });
+  const created = await ElysiumFiche.create({ jid, ...data });
+  console.log("✔ [ELY CREATE]", created.toJSON());
+  return created;
 }
 
+// ❌ Supprime un joueur par JID
 async function deletePlayer(jid) {
   return await ElysiumFiche.destroy({ where: { jid } });
 }
 
+// 📜 Récupère toutes les fiches
 async function getAllPlayers() {
   return await ElysiumFiche.findAll();
 }
