@@ -28,6 +28,7 @@ const MyNeo = sequelize.define("MyNeo", {
   nc: { type: DataTypes.INTEGER, defaultValue: 0 },
   np: { type: DataTypes.INTEGER, defaultValue: 0 },
   coupons: { type: DataTypes.INTEGER, defaultValue: 0 },
+  lastRewardNS: { type: DataTypes.INTEGER, defaultValue: 0 },
   gift_box: { type: DataTypes.INTEGER, defaultValue: 0 },
   all_stars: { type: DataTypes.STRING, defaultValue: "aucun" },
   blue_lock: { type: DataTypes.STRING, defaultValue: "+Team⚽" },
