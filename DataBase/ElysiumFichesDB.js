@@ -16,8 +16,8 @@ if (!db) {
 } else {
   sequelize = new Sequelize(db, {
     dialect: 'postgres',
-    ssl: true,
     protocol: 'postgres',
+    ssl: true,
     dialectOptions: {
       native: true,
       ssl: { require: true, rejectUnauthorized: false },
@@ -27,7 +27,7 @@ if (!db) {
 }
 
 // ============================
-// MODELE ELYSIUM (FICHE MINIMALE)
+// MODELE ELYSIUM
 // ============================
 const ElysiumFiche = sequelize.define('ElysiumFiche', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -61,8 +61,12 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
 
   trophies: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-  oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' }, 
-code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
+  oc_url: {
+    type: DataTypes.STRING,
+    defaultValue: 'https://files.catbox.moe/4quw3r.jpg'
+  },
+
+  code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
 
 }, {
   tableName: 'elysium_fiches',
@@ -70,14 +74,25 @@ code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
 });
 
 // ============================
+// SYNC AUTO (CORRECTION MAJEURE)
+// ============================
+(async () => {
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync();
+    console.log("✔ [ELY] Base de données synchronisée");
+  } catch (e) {
+    console.error("❌ [ELY DB ERROR]", e);
+  }
+})();
+
+// ============================
 // FONCTIONS DB
 // ============================
+
+// 🔒 NE CRÉE PLUS DE JOUEUR FANTÔME
 async function getPlayer(where = {}) {
-  const [player] = await ElysiumFiche.findOrCreate({
-    where,
-    defaults: {}
-  });
-  return player;
+  return await ElysiumFiche.findOne({ where });
 }
 
 async function setPlayer(colonne, valeur, jid) {
