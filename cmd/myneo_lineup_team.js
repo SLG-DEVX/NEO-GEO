@@ -223,16 +223,20 @@ ovlcmd({
   return repondre(msg);
 });
 
-// MYNEO🔷
-ovlcmd({
+  ovlcmd({
   nom_cmd: "myneo🔷",
   classe: "Other",
   react: "🪪",
   desc: "Afficher ou modifier les données NEO d'un joueur.",
 }, async (ms_org, ovl, cmd_options) => {
   const { arg, auteur_Message, prenium_id, repondre } = cmd_options;
-  let userId = normalizeJid(auteur_Message);
-  if (arg.length >= 1) userId = normalizeJid(arg[0]);
+  let userId;
+
+  if (arg.length >= 1 && arg[0].includes("@")) {
+    userId = normalizeJid(arg[0]);
+  } else {
+    userId = auteur_Message; // JID original, NE PAS normaliser
+  }
 
   try {
     const data = await getNeo(userId);
