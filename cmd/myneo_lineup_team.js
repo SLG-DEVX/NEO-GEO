@@ -314,7 +314,11 @@ async function checkNeoScoreRewards(userId, ovl, ms_org) {
     if(!myneoData) return;
 
     const nsActuel = myneoData.ns || 0;
-    const lastPalier = myneoData.lastRewardNS || 0;
+    const lastReward = Number.isFinite(myneoData.lastRewardNS)
+  ? myneoData.lastRewardNS
+  : 0;
+
+const dernierPalier = Math.floor(lastReward / 100);
     const palierActuel = Math.floor(nsActuel/100);
     const dernierPalier = Math.floor(lastPalier/100);
 
@@ -322,9 +326,12 @@ async function checkNeoScoreRewards(userId, ovl, ms_org) {
       const paliersGagnes = palierActuel - dernierPalier;
       const recompenses = { golds: 500_000*paliersGagnes, nc:50*paliersGagnes, coupons:25*paliersGagnes };
 
-      // Update MyNeo NC & coupons + lastRewardNS
-      await updateMyNeo(userId, { nc:(myneoData.nc||0)+recompenses.nc, coupons:(myneoData.coupons||0)+recompenses.coupons, lastRewardNS:nsActuel });
-
+      // ✅ Update MyNeo : récompenses + verrouillage du palier
+await updateMyNeo(userId, {
+  nc: (myneoData.nc || 0) + recompenses.nc,
+  coupons: (myneoData.coupons || 0) + recompenses.coupons,
+  lastRewardNS: palierActuel * 100
+});
       // Update All Stars golds
       const allStarsFiche = await getData({ jid:userId });
       await setfiche("golds", (allStarsFiche.golds||0)+recompenses.golds, userId);
