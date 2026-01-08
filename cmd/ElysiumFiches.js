@@ -205,7 +205,8 @@ ovlcmd({
   const code_fiche = arg.slice(1).join(" ");
 
   const existing = await PlayerFunctions.getPlayer({ jid });
-  if (existing) return repondre("❌ Ce joueur possède déjà une fiche.");
+  if (existing && existing.code_fiche !== "aucun")
+    return repondre("❌ Ce joueur possède déjà une fiche.");
 
   await PlayerFunctions.addPlayer(jid, {
     code_fiche,
@@ -231,7 +232,8 @@ ovlcmd({
     trophies: 0
   });
 
-  await initElysiumFiches();
+  // 🔥 ENREGISTRE LA COMMANDE IMMÉDIATEMENT
+  addElysiumFiche(code_fiche, jid);
 
   return repondre(
     `✅ Fiche créée :\n` +
@@ -239,7 +241,6 @@ ovlcmd({
     `• Commande : +${code_fiche}`
   );
 });
-
 
 // ============================
 // +del💠
