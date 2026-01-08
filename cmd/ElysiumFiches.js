@@ -2,7 +2,12 @@ const { ovlcmd } = require("../lib/ovlcmd");
 const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 
 // ============================
-// UTILITAIRES
+// REGISTRE COMMANDES
+// ============================
+const registeredFiches = new Set();
+
+// ============================
+// UTILS
 // ============================
 function normalizeText(text) {
   return text
@@ -12,45 +17,32 @@ function normalizeText(text) {
     .trim();
 }
 
-function resolveJid(arg, ms_org) {
-  // si mention
-  if (arg && arg.length && arg[0]) {
-    const num = arg[0].replace(/[^\d]/g, "");
-    if (num.length > 5) return num + "@s.whatsapp.net";
-  }
-
-  // auteur du message
-  if (ms_org?.key?.participant) return ms_org.key.participant;
-  if (ms_org?.sender) return ms_org.sender;
-
-  return null;
-}
-
 // ============================
-// COMMANDE +elysiumme💠
+// AJOUT COMMANDE DYNAMIQUE (COMME ALL STARS)
 // ============================
-ovlcmd({
-  nom_cmd: "elysiumme💠",
-  classe: "Elysium",
-  react: "💠"
-}, async (ms_org, ovl, { repondre, arg, ms }) => {
+function addElysiumFiche(code_fiche, jid) {
+  if (!code_fiche || !jid) return;
+  if (registeredFiches.has(code_fiche)) return;
 
-  
-  const jid = resolveJid(arg, ms_org);
-  if (!jid) return repondre("❌ Impossible de récupérer le JID.");
+  registeredFiches.add(code_fiche);
 
-  try {
-    const data = await PlayerFunctions.getPlayer({ jid });
-    if (!data) return repondre("❌ Aucune fiche trouvée.");
+  ovlcmd({
+    nom_cmd: code_fiche,
+    classe: "Elysium",
+    react: "💠"
+  }, async (ms_org, ovl, { repondre, ms }) => {
 
-    data.cyberwares = data.cyberwares || "";
-    data.oc_url = data.oc_url || "";
+    try {
+      const data = await PlayerFunctions.getPlayer({ jid });
+      if (!data) return repondre("❌ Aucune fiche trouvée.");
 
-    const cyberwaresCount = data.cyberwares
-      ? data.cyberwares.split("\n").filter(c => c.trim()).length
-      : 0;
+      data.cyberwares ||= "";
+      data.oc_url ||= "";
 
-    if (!arg.length) {
+      const cyberwaresCount = data.cyberwares
+        ? data.cyberwares.split("\n").filter(c => c.trim()).length
+        : 0;
+
       const fiche = `➤ ──⦿ P L A Y E R | ⦿──
 
 🫆Pseudo:  ➤ ${data.pseudo}
@@ -83,23 +75,51 @@ ovlcmd({
 ░▒░▒░ \`A C H I E V M E N T S\` 💠
 🏆Trophies: ${data.trophies} 🏆`;
 
-      const payload = data.oc_url ? { image: { url: data.oc_url } } : {};
-      return ovl.sendMessage(ms_org, { ...payload, caption: fiche }, { quoted: ms || ms_org });
-    }
+      const payload = data.oc_url
+        ? { image: { url: data.oc_url } }
+        : {};
 
-  } catch (err) {
-    console.error("[ELYME]", err);
-    return repondre("❌ Une erreur est survenue.");
-  }
-});
+      return ovl.sendMessage(
+        ms_org,
+        { ...payload, caption: fiche },
+        { quoted: ms || ms_org }
+      );
+
+    } catch (err) {
+      console.error("[ELY-FICHE]", err);
+      return repondre("❌ Une erreur est survenue.");
+    }
+  });
+}
 
 // ============================
-// SYSTEME UPDATE
+// INIT AUTO (COMME ALL STARS)
+// ============================
+async function initElysiumFiches() {
+  try {
+    const all = await PlayerFunctions.getAllPlayers();
+
+    for (const p of all) {
+      if (!p.code_fiche || p.code_fiche === "aucun") continue;
+      if (!p.jid) continue;
+
+      addElysiumFiche(p.code_fiche, p.jid);
+    }
+
+  } catch (e) {
+    console.error("[INIT ELYSIUM]", e);
+  }
+}
+
+initElysiumFiches();
+
+// ============================
+// SYSTEME UPDATE (INCHANGÉ)
 // ============================
 async function processUpdates(args, jid) {
   const updates = [];
   const data = await PlayerFunctions.getPlayer({ jid });
-  const columns = Object.keys(data.dataValues || data);
+  const columns = Object.keys(data.dataValues);
 
   let i = 0;
   while (i < args.length) {
@@ -115,9 +135,8 @@ async function processUpdates(args, jid) {
       texte.push(args[i++]);
     }
 
-    if (!columns.includes(object)) {
+    if (!columns.includes(object))
       throw new Error(`❌ La colonne '${object}' n'existe pas.`);
-    }
 
     const oldValue = data[object];
     let newValue;
@@ -128,14 +147,17 @@ async function processUpdates(args, jid) {
 
       if (signe === "+") {
         for (const item of items) {
-          if (!list.some(c => normalizeText(c) === normalizeText(item))) list.push(item);
+          if (!list.some(c => normalizeText(c) === normalizeText(item)))
+            list.push(item);
         }
       } else if (signe === "-") {
         const rm = items.map(normalizeText);
         list = list.filter(c => !rm.includes(normalizeText(c)));
       } else if (signe === "=") {
         list = items;
-      } else throw new Error("❌ cyberwares accepte uniquement '+', '-' ou '='");
+      } else {
+        throw new Error("❌ cyberwares accepte uniquement '+', '-' ou '='");
+      }
 
       updates.push({ colonne: object, oldValue, newValue: list.join("\n") });
       continue;
@@ -167,28 +189,6 @@ async function updatePlayerData(updates, jid) {
     await PlayerFunctions.setPlayer(u.colonne, u.newValue, jid);
   }
 }
-
-// ============================
-// COMMANDE +oc💠
-// ============================
-ovlcmd({
-  nom_cmd: "oc💠",
-  classe: "Elysium",
-  react: "🖼️"
-}, async (ms_org, ovl, { repondre, arg }) => {
-  const jid = resolveJid(arg, ms_org);
-  if (!jid) return repondre("❌ Impossible de récupérer le JID.");
-
-  try {
-    const updates = await processUpdates(arg.slice(1), jid);
-    await updatePlayerData(updates, jid);
-    return repondre("✅ Image/GIF du joueur mise à jour !");
-  } catch (err) {
-    console.error("[OC💠]", err);
-    return repondre("❌ Erreur lors de la mise à jour du OC.");
-  }
-});
-
 // ============================
 // COMMANDE +add💠
 // ============================
@@ -197,17 +197,20 @@ ovlcmd({
   classe: "Elysium",
   react: "➕"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  if (!arg.length) return repondre("❌ Syntaxe : +add💠 @tag");
 
-  const jid = resolveJid(arg, ms_org);
-  if (!jid) return repondre("❌ JID invalide.");
+  if (arg.length < 2)
+    return repondre("❌ Syntaxe : +add💠 <jid> <code_fiche>");
+
+  const jid = arg[0];
+  const code_fiche = arg.slice(1).join(" ");
 
   const existing = await PlayerFunctions.getPlayer({ jid });
   if (existing) return repondre("❌ Ce joueur possède déjà une fiche.");
 
   await PlayerFunctions.addPlayer(jid, {
+    code_fiche,
     pseudo: "Nouveau Joueur",
-    user: arg[0],
+    user: jid,
     exp: 0,
     niveau: 1,
     rang: "Novice🥉",
@@ -225,28 +228,40 @@ ovlcmd({
     points_hacking: 0,
     points_conduite: 0,
     points_exploration: 0,
-    trophies: 0,
-    oc_url: ""
+    trophies: 0
   });
 
-  return repondre(`✅ Fiche créée pour le joueur : ${arg[0]} (JID : ${jid})`);
+  await initElysiumFiches();
+
+  return repondre(
+    `✅ Fiche créée :\n` +
+    `• JID : ${jid}\n` +
+    `• Commande : +${code_fiche}`
+  );
 });
 
+
 // ============================
-// COMMANDE +del💠
+// +del💠
 // ============================
 ovlcmd({
   nom_cmd: "del💠",
   classe: "Elysium",
   react: "🗑️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  if (!arg.length) return repondre("❌ Syntaxe : +del💠 @tag");
 
-  const jid = resolveJid(arg, ms_org);
-  if (!jid) return repondre("❌ JID invalide.");
+  if (!arg.length)
+    return repondre("❌ Syntaxe : +del💠 <code_fiche>");
 
-  const deleted = await PlayerFunctions.deletePlayer(jid);
-  if (!deleted) return repondre("❌ Aucune fiche trouvée.");
+  const code_fiche = arg.join(" ");
+  const all = await PlayerFunctions.getAllPlayers();
+  const player = all.find(p => p.code_fiche === code_fiche);
 
-  return repondre(`✅ Fiche supprimée pour le joueur : ${arg[0]} (JID : ${jid})`);
+  if (!player) return repondre("❌ Aucune fiche trouvée.");
+
+  await PlayerFunctions.deletePlayer(player.jid);
+  registeredFiches.delete(code_fiche);
+  await initElysiumFiches();
+
+  return repondre(`✅ Fiche supprimée : ${code_fiche}`);
 });
