@@ -310,44 +310,57 @@ ovlcmd({
 // --- Fonction Auto Récompenses NEO SCORE ---
 async function checkNeoScoreRewards(userId, ovl, ms_org) {
   try {
+    // 1️⃣ Récupérer les données du joueur
     const myneoData = await getNeo(userId);
-    if(!myneoData) return;
+    if (!myneoData) return;
 
     const nsActuel = myneoData.ns || 0;
-    const lastReward = Number.isFinite(myneoData.lastRewardNS)
-  ? myneoData.lastRewardNS
-  : 0;
 
-const dernierPalier = Math.floor(lastReward / 100);
-    const palierActuel = Math.floor(nsActuel/100);
-    const dernierPalier = Math.floor(lastPalier/100);
+    // 2️⃣ Vérifier lastRewardNS de façon sécurisée
+    const lastReward = Number.isFinite(myneoData.lastRewardNS) ? myneoData.lastRewardNS : 0;
 
-    if(palierActuel>dernierPalier){
+    // 3️⃣ Calcul des paliers
+    const palierActuel = Math.floor(nsActuel / 100);
+    const dernierPalier = Math.floor(lastReward / 100);
+
+    // 4️⃣ Si joueur a franchi un palier
+    if (palierActuel > dernierPalier) {
       const paliersGagnes = palierActuel - dernierPalier;
-      const recompenses = { golds: 500_000*paliersGagnes, nc:50*paliersGagnes, coupons:25*paliersGagnes };
 
-      // ✅ Update MyNeo : récompenses + verrouillage du palier
-await updateMyNeo(userId, {
-  nc: (myneoData.nc || 0) + recompenses.nc,
-  coupons: (myneoData.coupons || 0) + recompenses.coupons,
-  lastRewardNS: palierActuel * 100
-});
-      // Update All Stars golds
-      const allStarsFiche = await getData({ jid:userId });
-      await setfiche("golds", (allStarsFiche.golds||0)+recompenses.golds, userId);
+      // 5️⃣ Calcul des récompenses
+      const recompenses = {
+        golds: 500_000 * paliersGagnes,
+        nc: 50 * paliersGagnes,
+        coupons: 25 * paliersGagnes
+      };
 
+      // 6️⃣ Mise à jour MyNeo (NC + coupons + verrouillage du palier)
+      await updateMyNeo(userId, {
+        nc: (myneoData.nc || 0) + recompenses.nc,
+        coupons: (myneoData.coupons || 0) + recompenses.coupons,
+        lastRewardNS: palierActuel * 100
+      });
+
+      // 7️⃣ Mise à jour All Stars golds
+      const allStarsFiche = await getData({ jid: userId });
+      await setfiche("golds", (allStarsFiche.golds || 0) + recompenses.golds, userId);
+
+      // 8️⃣ Message de félicitations
       const mention = myneoData.users || "@player";
-      const message = `🎉👑LEVEL UP ROYALITY XP👑! Félicitations ${mention} tu viens de franchir les ${palierActuel*100}👑 royalities, les récompenses +${recompenses.golds} golds +${recompenses.nc} NC et +${recompenses.coupons} coupons ajoutées à ta fiche💯! Royalities👑🎉🎉
-╰───────────────────`;
+      const message = `🎉👑LEVEL UP ROYALITY XP👑! Félicitations ${mention}, tu viens de franchir les ${palierActuel * 100}👑 royalities !
+Les récompenses suivantes ont été ajoutées à ta fiche :
+💰 +${recompenses.golds} golds
+🔷 +${recompenses.nc} NC
+🎫 +${recompenses.coupons} coupons
+💯 Royalities👑🎉`;
 
       await ovl.sendMessage(ms_org, { text: message });
     }
 
-  } catch(err){
+  } catch (err) {
     console.error("❌ Erreur Auto Récompenses NEO SCORE:", err);
   }
 }
-
 module.exports = { checkNeoScoreRewards };
 
 ovlcmd({
