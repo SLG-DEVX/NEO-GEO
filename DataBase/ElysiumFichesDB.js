@@ -61,7 +61,8 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
 
   trophies: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-  oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' }
+  oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' }, 
+code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
 
 }, {
   tableName: 'elysium_fiches',
