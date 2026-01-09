@@ -290,3 +290,4 @@ if (texte.includes("🏆`RESULTAT`")) {
         text: "✅ Résultats appliqués pour le match !"
     }, { quoted: ms });
 } 
+});
