@@ -101,6 +101,7 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
 });
     }
   } 
+} 
 // --- Ajout d'une fiche ---
 function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
   if (registeredFiches.has(nom_joueur)) return;
