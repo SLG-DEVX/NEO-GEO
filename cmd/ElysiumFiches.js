@@ -170,7 +170,7 @@ ovlcmd({
 // COMMANDE +ElysiumMe💠 (SELF & TAG)
 // ============================
 ovlcmd({
-  nom_cmd: "ElysiumMe💠",
+  nom_cmd: "elysiumme💠",
   classe: "Elysium",
   react: "💠"
 }, async (ms_org, ovl, { repondre, from, mentions }) => {
