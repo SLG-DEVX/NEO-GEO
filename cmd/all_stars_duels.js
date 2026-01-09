@@ -292,3 +292,4 @@ ovlcmd({
         text: "✅ Résultats du match appliqués pour le match !"
     }, { quoted: ms });
 }
+});
