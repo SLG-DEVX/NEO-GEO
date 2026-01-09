@@ -172,37 +172,57 @@ ovlcmd({
   classe: "Elysium",
   react: "💠"
 }, async (ms_org, ovl, { repondre, mentions }) => {
+  console.log("🟦 [ELY-ME] Commande déclenchée");
+
   try {
     let jidToFetch;
 
-    // ✅ Imite All stars 
+    // ===== RÉCUPÉRATION JID (IDENTIQUE ALLSTARS) =====
     if (mentions && Object.keys(mentions).length > 0) {
-      // joueur tagué
       jidToFetch = Object.keys(mentions)[0];
+      console.log("🟨 [ELY-ME] JID mentionné :", jidToFetch);
     } else {
-      // expéditeur réel (privé ou groupe)
       jidToFetch = ms_org.key.participant || ms_org.key.remoteJid;
+      console.log("🟩 [ELY-ME] JID expéditeur :", jidToFetch);
     }
-
-    console.log("[ELY-ME] JID utilisé :", jidToFetch);
 
     if (!jidToFetch) {
-      return repondre("❌ Impossible de récupérer le JID.");
+      console.error("🟥 [ELY-ME] JID introuvable");
+      return repondre("❌ Impossible de récupérer le joueur.");
     }
 
-    const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
+    // ===== RÉCUPÉRATION JOUEUR =====
+    console.log("🟦 [ELY-ME] Recherche joueur en DB...");
+    const playerRaw = await PlayerFunctions.getPlayer({ jid: jidToFetch });
 
-    if (!player || !player.code_fiche || player.code_fiche === "aucun") {
+    console.log("🟦 [ELY-ME] Résultat brut DB :", playerRaw);
+
+    if (!playerRaw) {
+      console.warn("🟨 [ELY-ME] Aucun joueur trouvé");
       return repondre("❌ Fiche introuvable pour ce joueur.");
     }
 
-    // même logique envoi direct
+    const player = playerRaw.dataValues ?? playerRaw;
+
+    if (!player.code_fiche || player.code_fiche === "aucun") {
+      console.warn("🟨 [ELY-ME] code_fiche invalide :", player.code_fiche);
+      return repondre("❌ Ce joueur n'a pas de fiche valide.");
+    }
+
+    // ===== ENVOI FICHE =====
+    console.log("🟦 [ELY-ME] Envoi fiche :", player.code_fiche);
     await sendFiche(ms_org, ovl, jidToFetch, ms_org);
+
+    console.log("🟩 [ELY-ME] Fiche envoyée avec succès");
 
   } catch (err) {
     console.error("══════════ ❌ ELYSIUMME ERROR ❌ ══════════");
-    console.error(err);
+    console.error("NAME :", err?.name);
+    console.error("MESSAGE :", err?.message);
+    console.error("STACK :", err?.stack);
+    console.error("FULL ERROR :", err);
     console.error("════════════════════════════════════════");
+
     return repondre("❌ Une erreur est survenue (voir console).");
   }
 });
