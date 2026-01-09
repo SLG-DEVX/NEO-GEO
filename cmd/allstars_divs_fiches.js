@@ -13,13 +13,13 @@ function normalizeText(text) {
 
 // --- Utilitaires ---
 function countCards(cardsRaw) {
-    if (!cardsRaw || typeof cardsRaw !== "string") return 0;
+  if (!cardsRaw || typeof cardsRaw !== "string") return 0;
 
-    return cardsRaw
-        .split(/[\n•]/)     // accepte \n ou le séparateur •
-        .map(c => c.trim())
-        .filter(c => c.length > 0)
-        .length;
+  return cardsRaw
+    .split(/[\n•]/)
+    .map(c => c.trim())
+    .filter(c => c.length > 0)
+    .length;
 }
 
 // --- Fonction pour gérer le niveau max et level-up/level-down ---
@@ -28,12 +28,15 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms) {
   const newLevel = Math.min(Math.floor(newExp / 100), 20);
 
   if (newLevel > oldLevel) {
-    await ovl.sendMessage(ms, { text: `🏆🎉 Félicitations Promotion ! <@${jid}> atteint le niveau supérieur ! Niveau actuel ${newLevel} ▲` });
+    await ovl.sendMessage(ms, {
+      text: `🏆🎉 Félicitations Promotion ! <@${jid}> atteint le niveau supérieur ! Niveau actuel ${newLevel} ▲`
+    });
   } else if (newLevel < oldLevel) {
-    await ovl.sendMessage(ms, { text: `🔻 <@${jid}> redescend d'un niveau ! Niveau actuel ${newLevel} ▼` });
+    await ovl.sendMessage(ms, {
+      text: `🔻 <@${jid}> redescend d'un niveau ! Niveau actuel ${newLevel} ▼`
+    });
   }
 
-  // Mise à jour uniquement si le niveau a changé
   if (newLevel !== oldLevel) {
     await setfiche("niveau", newLevel, jid);
   }
@@ -48,20 +51,19 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
     nom_cmd: nom_joueur,
     classe: joueur_div,
     react: "✅"
-  },
-  async (ms_org, ovl, cmd_options) => {
+  }, async (ms_org, ovl, cmd_options) => {
+
     const { repondre, ms, arg, prenium_id } = cmd_options;
 
     try {
-      const data = await getData({ jid: jid });
+      const dataRaw = await getData({ jid });
+      const data = dataRaw.dataValues ?? dataRaw;
 
-      // Initialisation sécurisée
       data.exp = data.exp ?? 0;
       data.niveau = data.niveau ?? 0;
       data.close_fight = data.close_fight ?? 0;
       data.cards = data.cards ?? "";
 
-      // Limite du niveau max 20 mais seulement si défini
       if (typeof data.niveau === "number") {
         data.niveau = Math.min(data.niveau, 20);
       }
@@ -123,14 +125,16 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
         }, { quoted: ms });
       }
 
-      if (!prenium_id) return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
+      if (!prenium_id) {
+        return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
+      }
 
       const updates = await processUpdates(arg, jid);
       await updatePlayerData(updates, jid, ovl, ms);
 
       const message = updates
         .map(u => `🛠️ *${u.colonne}* modifié : \`${u.oldValue}\` ➤ \`${u.newValue}\``)
-        .join('\n');
+        .join("\n");
 
       await repondre("✅ Fiche mise à jour avec succès !\n\n" + message);
 
@@ -144,8 +148,9 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 // --- Process updates ---
 async function processUpdates(args, jid) {
   const updates = [];
-  const data = await getData({ jid });
-  const columns = Object.keys(data.dataValues);
+  const dataRaw = await getData({ jid });
+  const values = dataRaw.dataValues ?? dataRaw;
+  const columns = Object.keys(values);
 
   let i = 0;
   while (i < args.length) {
@@ -165,29 +170,26 @@ async function processUpdates(args, jid) {
       throw new Error(`❌ La colonne '${object}' n'existe pas.`);
     }
 
-    const oldValue = data[object];
+    const oldValue = values[object];
     let newValue;
 
-    // --- Cards Fix ---
     if (object === "cards") {
       const old = oldValue || "";
       let list = old.split("\n").filter(x => x.trim() !== "");
 
       const fullText = texte.join(" ");
       const items = fullText.length
-        ? fullText.split(",").map(x => x.trim()).filter(x => x.length > 0)
+        ? fullText.split(",").map(x => x.trim()).filter(Boolean)
         : [];
 
       if (signe === "+") {
         for (const card of items) {
-          const normCard = normalizeText(card);
-          if (!list.some(c => normalizeText(c) === normCard)) {
+          if (!list.some(c => normalizeText(c) === normalizeText(card))) {
             list.push(card);
           }
         }
       } else if (signe === "-") {
-        const removeList = items.map(normalizeText);
-        list = list.filter(c => !removeList.includes(normalizeText(c)));
+        list = list.filter(c => !items.map(normalizeText).includes(normalizeText(c)));
       } else if (signe === "=") {
         list = items;
       } else {
@@ -195,28 +197,22 @@ async function processUpdates(args, jid) {
       }
 
       newValue = list.join("\n");
-
       updates.push({ colonne: "cards", oldValue: old, newValue });
       continue;
     }
 
-    // --- Colonnes normales ---
     if (signe === "+" || signe === "-") {
       const n1 = Number(oldValue) || 0;
       const n2 = Number(texte.join(" ")) || 0;
       newValue = signe === "+" ? n1 + n2 : n1 - n2;
-    } 
-    else if (signe === "=") {
+    } else if (signe === "=") {
       newValue = texte.join(" ");
-    }
-    else if (signe === "add") {
+    } else if (signe === "add") {
       newValue = (oldValue + " " + texte.join(" ")).trim();
-    } 
-    else if (signe === "supp") {
+    } else if (signe === "supp") {
       const regex = new RegExp(`\\b${normalizeText(texte.join(" "))}\\b`, "gi");
       newValue = normalizeText(oldValue).replace(regex, "").trim();
-    } 
-    else {
+    } else {
       throw new Error(`❌ Signe non reconnu : ${signe}`);
     }
 
@@ -231,11 +227,13 @@ async function updatePlayerData(updates, jid, ovl, ms) {
   for (const update of updates) {
     await setfiche(update.colonne, update.newValue, jid);
 
-    // Vérification niveau uniquement si exp a changé
     if (update.colonne === "exp") {
-      const oldExp = Number(update.oldValue) || 0;
-      const newExp = Number(update.newValue) || oldExp; // éviter 0 non voulu
-      await checkLevel(jid, oldExp, newExp, ovl, ms);
+      const oldExp = Number(update.oldValue);
+      const newExp = Number(update.newValue);
+
+      if (!Number.isNaN(oldExp) && !Number.isNaN(newExp)) {
+        await checkLevel(jid, oldExp, newExp, ovl, ms);
+      }
     }
   }
 }
@@ -246,8 +244,9 @@ async function initFichesAuto() {
     const all = await getAllFiches();
 
     for (const player of all) {
-      if (!player.code_fiche || player.code_fiche == "pas de fiche" || !player.division || !player.oc_url || !player.id)
+      if (!player.code_fiche || player.code_fiche === "pas de fiche" || !player.division || !player.oc_url || !player.id) {
         continue;
+      }
 
       const nom = player.code_fiche;
       const jid = player.jid;
@@ -268,6 +267,7 @@ ovlcmd({
   classe: "Other",
   react: "➕"
 }, async (ms_org, ovl, { repondre, arg, prenium_id }) => {
+
   if (!prenium_id) return await repondre("⛔ Accès refusé !");
   if (arg.length < 3) return await repondre("❌ Syntaxe : add_fiche <jid> <code_fiche> <division>");
 
@@ -297,6 +297,7 @@ ovlcmd({
   classe: "Other",
   react: "🗑️"
 }, async (ms_org, ovl, { repondre, arg, prenium_id }) => {
+
   if (!prenium_id) return await repondre("⛔ Accès refusé !");
   if (!arg.length) return await repondre("❌ Syntaxe : del_fiche <code_fiche>");
 
