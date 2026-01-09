@@ -224,9 +224,9 @@ ovlcmd({
         ms.message?.imageMessage?.contextInfo ||
         ms.message?.videoMessage?.contextInfo;
 
-    const mentions = context?.mentionedJid || [];
+   const cleanJid = (jid) => jid.replace(/[\u2066-\u2069]/g, '').trim();
 
-    if (texte.includes("🏆`RESULTAT`")) {
+if (texte.includes("🏆`RESULTAT`")) {
 
     const lines = texte.split('\n');
 
@@ -242,20 +242,18 @@ ovlcmd({
         if (!m) continue;
 
         const type = m[1].toLowerCase();
-        const jid = mentions[mentionCursor];
+        let jid = mentions[mentionCursor];
         mentionCursor++;
 
         if (!jid) continue;
 
+        // 🔹 Nettoyage du JID pour enlever les caractères invisibles
+        jid = cleanJid(jid);
+
         const data = await getData({ jid });
         if (!data) continue;
 
-        let {
-            exp = 0,
-            talent = 0,
-            victoires = 0,
-            defaites = 0
-        } = data;
+        let { exp = 0, talent = 0, victoires = 0, defaites = 0 } = data;
 
         if (type === "win") {
             victoires++;
@@ -289,7 +287,6 @@ ovlcmd({
     }
 
     await ovl.sendMessage(ms_org, {
-        text: "✅ Résultats du match appliqués pour le match !"
+        text: "✅ Résultats appliqués pour le match !"
     }, { quoted: ms });
-}
-});
+} 
