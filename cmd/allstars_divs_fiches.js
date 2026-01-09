@@ -50,10 +50,8 @@ async function giveLevelRewards(jid, level, ovl, ms) {
 🎁 golds +${LEVEL_REWARD_FIXED.golds}🧭
 🎁 fans +${LEVEL_REWARD_FIXED.fans}👥`
 });
-   }
- }
-}
-
+  }
+} 
 // --- Fonction pour gérer le niveau max et level-up/level-down ---
 async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
   oldExp = Number(oldExp) || 0;
@@ -101,11 +99,8 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
   text: `🔻 Chute de niveau ! Joueur @${jid.split('@')[0]} redescend au *niveau ${currentLevel}* ▼`,
   mentions: [jid]
 });
-      });
     }
-  }
-  }
-
+  } 
 // --- Ajout d'une fiche ---
 function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
   if (registeredFiches.has(nom_joueur)) return;
