@@ -223,7 +223,70 @@ ovlcmd({
   return repondre(msg);
 });
 
-  ovlcmd({
+ // --- Fonction Auto Récompenses NEO SCORE ---
+async function checkNeoScoreRewards(userId, ovl, ms_org) {
+  try {
+    const myneoData = await getNeo(userId);
+    if (!myneoData) return;
+
+    const nsActuel = myneoData.ns || 0;
+    const lastReward = Number.isFinite(myneoData.lastRewardNS) ? myneoData.lastRewardNS : 0;
+
+    const palierActuel = Math.floor(nsActuel / 100);
+    const dernierPalier = Math.floor(lastReward / 100);
+
+    if (palierActuel > dernierPalier) {
+      const paliersGagnes = palierActuel - dernierPalier;
+
+      const recompenses = {
+        golds: 500_000 * paliersGagnes,
+        nc: 50 * paliersGagnes,
+        coupons: 25 * paliersGagnes
+      };
+
+      // Mise à jour MyNeo
+      await updateMyNeo(userId, {
+        nc: (myneoData.nc || 0) + recompenses.nc,
+        coupons: (myneoData.coupons || 0) + recompenses.coupons,
+        lastRewardNS: palierActuel * 100
+      });
+
+      // Mise à jour All Stars golds
+      const allStarsFiche = await getData({ jid: userId });
+      await setfiche("golds", (allStarsFiche.golds || 0) + recompenses.golds, userId);
+
+      // Message de félicitations
+      const mention = myneoData.users || "@player";
+      const message = `🎉👑LEVEL UP ROYALITY XP👑! Félicitations ${mention}, tu viens de franchir les ${palierActuel * 100}👑 royalities !
+Les récompenses suivantes ont été ajoutées à ta fiche :
+💰 +${recompenses.golds} golds
+🔷 +${recompenses.nc} NC
+🎫 +${recompenses.coupons} coupons
+💯 Royalities👑🎉`;
+
+      await ovl.sendMessage(ms_org, { text: message });
+    }
+
+  } catch (err) {
+    console.error("❌ Erreur Auto Récompenses NEO SCORE:", err);
+  }
+}
+
+// --- Fonction centralisée pour ajouter des NS (automatique et safe) ---
+async function addNS(userId, amount, ovl, ms_org) {
+  const data = await getNeo(userId);
+  if (!data) return;
+
+  const newNS = (data.ns || 0) + amount;
+
+  await updateMyNeo(userId, { ns: newNS });
+
+  // 🔥 Vérification automatique de palier
+  await checkNeoScoreRewards(userId, ovl, ms_org);
+}
+
+// --- Commande myneo🔷 ---
+ovlcmd({
   nom_cmd: "myneo🔷",
   classe: "Other",
   react: "🪪",
@@ -235,14 +298,14 @@ ovlcmd({
   if (arg.length >= 1 && arg[0].includes("@")) {
     userId = normalizeJid(arg[0]);
   } else {
-    userId = auteur_Message; // JID original, NE PAS normaliser
+    userId = auteur_Message;
   }
 
   try {
     const data = await getNeo(userId);
     if (!data) return repondre("⚠️ Aucune donnée trouvée pour cet utilisateur.");
 
-    // Affichage si pas de modification
+    // Affichage simple si pas de modification
     if (arg.length <= 1) {
       const myn = `╭───〔 *🪀COMPTE NEO🔷* 〕
 👤User: ${data.users}
@@ -297,74 +360,28 @@ ovlcmd({
       }
     }
 
-    // --- Limite NP à 20 max ---
+    // Limite NP à 20 max
     if('np' in updates) updates.np = Math.min(updates.np, 20);
 
     if(Object.keys(updates).length===0) return repondre("⚠️ Format incorrect. Exemple : +myNeo @user nc + 200");
 
+    // 🔥 UPDATE et vérification NS automatiquement
+    if ("ns" in updates) {
+      const nsDelta = updates.ns - (data.ns || 0);
+      if (nsDelta > 0) {
+        await addNS(userId, nsDelta, ovl, ms_org);
+        delete updates.ns; // NS déjà géré par addNS
+      }
+    }
+
     const message = await updateMyNeo(userId, updates);
-    return repondre(message);
+    return repondre(message || "✅ Joueur mis à jour avec succès !");
 
   } catch(err) {
     console.error("❌ Erreur ligne myNeo:", err);
     return repondre("❌ Une erreur est survenue.");
   }
-});
-
-// --- Fonction Auto Récompenses NEO SCORE ---
-async function checkNeoScoreRewards(userId, ovl, ms_org) {
-  try {
-    // 1️⃣ Récupérer les données du joueur
-    const myneoData = await getNeo(userId);
-    if (!myneoData) return;
-
-    const nsActuel = myneoData.ns || 0;
-
-    // 2️⃣ Vérifier lastRewardNS de façon sécurisée
-    const lastReward = Number.isFinite(myneoData.lastRewardNS) ? myneoData.lastRewardNS : 0;
-
-    // 3️⃣ Calcul des paliers
-    const palierActuel = Math.floor(nsActuel / 100);
-    const dernierPalier = Math.floor(lastReward / 100);
-
-    // 4️⃣ Si joueur a franchi un palier
-    if (palierActuel > dernierPalier) {
-      const paliersGagnes = palierActuel - dernierPalier;
-
-      // 5️⃣ Calcul des récompenses
-      const recompenses = {
-        golds: 500_000 * paliersGagnes,
-        nc: 50 * paliersGagnes,
-        coupons: 25 * paliersGagnes
-      };
-
-      // 6️⃣ Mise à jour MyNeo (NC + coupons + verrouillage du palier)
-      await updateMyNeo(userId, {
-        nc: (myneoData.nc || 0) + recompenses.nc,
-        coupons: (myneoData.coupons || 0) + recompenses.coupons,
-        lastRewardNS: palierActuel * 100
-      });
-
-      // 7️⃣ Mise à jour All Stars golds
-      const allStarsFiche = await getData({ jid: userId });
-      await setfiche("golds", (allStarsFiche.golds || 0) + recompenses.golds, userId);
-
-      // 8️⃣ Message de félicitations
-      const mention = myneoData.users || "@player";
-      const message = `🎉👑LEVEL UP ROYALITY XP👑! Félicitations ${mention}, tu viens de franchir les ${palierActuel * 100}👑 royalities !
-Les récompenses suivantes ont été ajoutées à ta fiche :
-💰 +${recompenses.golds} golds
-🔷 +${recompenses.nc} NC
-🎫 +${recompenses.coupons} coupons
-💯 Royalities👑🎉`;
-
-      await ovl.sendMessage(ms_org, { text: message });
-    }
-
-  } catch (err) {
-    console.error("❌ Erreur Auto Récompenses NEO SCORE:", err);
-  }
-}
+}); 
 module.exports = { checkNeoScoreRewards };
 
 ovlcmd({
