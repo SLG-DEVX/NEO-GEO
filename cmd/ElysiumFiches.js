@@ -166,27 +166,27 @@ ovlcmd({
   return repondre(`✅ Fiche supprimée : ${code_fiche}`);
 });
 
-// ============================
-// COMMANDE +ElysiumMe💠 (SELF & TAG)
-// ============================
+//---------- COMMANDE ELYSIUM ----------
 ovlcmd({
   nom_cmd: "elysiumme💠",
   classe: "Elysium",
   react: "💠"
-}, async (ms_org, ovl, { repondre, from, mentions }) => {
+}, async (ms_org, ovl, { repondre, mentions }) => {
   try {
     const jidToFetch = mentions && Object.keys(mentions).length > 0
-      ? Object.keys(mentions)[0]
-      : from;
+      ? normalizeJid(Object.keys(mentions)[0])
+      : normalizeJid(ms_org.sender?.id || ms_org.sender);
+
+    if (!jidToFetch)
+      return repondre("❌ Impossible de récupérer le JID.");
 
     const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
     if (!player || !player.code_fiche || player.code_fiche === "aucun")
       return repondre("❌ Fiche introuvable pour ce joueur.");
 
-    // Enregistrement dynamique si nécessaire
     registerFicheCommand(player.code_fiche, jidToFetch);
-
     await sendFiche(ms_org, ovl, jidToFetch, ms_org);
+
   } catch (err) {
     console.error("[ELY-ME]", err);
     return repondre("❌ Une erreur est survenue.");
