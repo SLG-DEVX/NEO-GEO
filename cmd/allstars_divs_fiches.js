@@ -53,7 +53,7 @@ async function giveLevelRewards(jid, level, ovl, ms) {
 }
 
 // --- Fonction pour gérer le niveau max et level-up/level-down ---
-async function checkLevel(jid, oldExp, newExp, ovl, ms) {
+async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
   oldExp = Number(oldExp) || 0;
   newExp = Number(newExp) || 0;
 
@@ -74,14 +74,14 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms) {
       if (currentLevel >= maxLevel) break;
 
       currentLevel++;
-
       await setfiche("niveau", currentLevel, jid);
 
-      await ovl.sendMessage(ms, {
-        text: `🏆🎉 Félicitations Promotion ! <@${jid}> passe au *niveau ${currentLevel}* ▲`
+      await ovl.sendMessage(ms_org, {
+        text: `🏆🎉 Félicitations Promotion ! <@${jid}> passe au *niveau ${currentLevel}* ▲`,
+        mentions: [jid]
       });
 
-      await giveLevelRewards(jid, currentLevel, ovl, ms);
+      await giveLevelRewards(jid, currentLevel, ovl, ms_org);
     }
   }
 
@@ -93,15 +93,15 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms) {
       if (currentLevel <= 0) break;
 
       currentLevel--;
-
       await setfiche("niveau", currentLevel, jid);
 
-      await ovl.sendMessage(ms, {
-        text: `🔻 Chute de niveau ! <@${jid}> redescend au *niveau ${currentLevel}* ▼`
+      await ovl.sendMessage(ms_org, {
+        text: `🔻 Chute de niveau ! <@${jid}> redescend au *niveau ${currentLevel}* ▼`,
+        mentions: [jid]
       });
     }
   }
-}
+  }
 
 // --- Ajout d'une fiche ---
 function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
@@ -284,7 +284,7 @@ async function processUpdates(args, jid) {
 }
 
 // --- Update player data avec check niveau ---
-async function updatePlayerData(updates, jid, ovl, ms) {
+async function updatePlayerData(updates, jid, ovl, ms_org) {
   for (const update of updates) {
     await setfiche(update.colonne, update.newValue, jid);
 
@@ -293,7 +293,8 @@ async function updatePlayerData(updates, jid, ovl, ms) {
         const oldExp = Number(update.oldValue) || 0;
         const newExp = Number(update.newValue) || 0;
 
-        await checkLevel(jid, oldExp, newExp, ovl, ms);
+        // 🔹 Appel checkLevel avec ms_org pour que le message passe
+        await checkLevel(jid, oldExp, newExp, ovl, ms_org);
       } catch (e) {
         console.error("Erreur checkLevel :", e);
       }
