@@ -128,33 +128,33 @@ ovlcmd({
 
     // Si un joueur est mentionné avec @
     if (mentions.length > 0) {
-        const jid = mentions[0];
-        const data = await getData({ jid });
-        if (!data) return;
+    const jid = mentions[0];
+    const data = await getData({ jid });
+    if (!data) return;
 
-        const confirm = [];
-        const actions = rest.split(',');
+    const confirm = [];
+    const actions = rest.split(',');
 
-        for (const p of actions) {
-            const m = p.trim().match(/(strikes|attaques)\s*\+\s*(\d+)/i);
-            if (!m) continue;
+    for (const p of actions) {
+        const m = p.trim().match(/(strikes|attaques)\s*\+\s*(\d+)/i);
+        if (!m) continue;
 
-            const field = m[1].toLowerCase();
-            const value = Number(m[2]);
-            const current = Number(data[field]) || 0;
+        const field = m[1].toLowerCase(); // strikes ou attaques
+        const value = Number(m[2]);
+        const current = Number(data[field]) || 0;
 
-            await setfiche(field, current + value, jid);
+        await setfiche(field, current + value, jid);
 
-            confirm.push(`➕ ${field.toUpperCase()} +${value}`);
-        }
-
-        if (confirm.length) {
-            return ovl.sendMessage(ms_org, {
-                text: `✅ Stats ALL STARS mises à jour pour ${left}\n${confirm.join('\n')}`
-            }, { quoted: ms });
-        }
-        return;
+        confirm.push(`➕ ${field.toUpperCase()} +${value}`);
     }
+
+    if (confirm.length) {
+        return ovl.sendMessage(ms_org, {
+            text: `✅ Stats ALL STARS mises à jour !`
+        }, { quoted: ms });
+    }
+    return;
+}
 
     // ===== STATS DUEL (si aucun mention) =====
     if (!duel) return;
