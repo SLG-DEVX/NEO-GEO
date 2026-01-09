@@ -45,11 +45,13 @@ async function giveLevelRewards(jid, level, ovl, ms) {
 
   if (recap.length) {
     await ovl.sendMessage(ms, {
-      text:
-        `🎁 *Récompenses du niveau ${level} obtenues !*\n\n` +
-        recap.join("\n")
-    });
-  }
+  text:
+`🎁 *Récompenses du niveau ${level} obtenues !*\n
+🎁 golds +${LEVEL_REWARD_FIXED.golds}🧭
+🎁 fans +${LEVEL_REWARD_FIXED.fans}👥`
+});
+   }
+ }
 }
 
 // --- Fonction pour gérer le niveau max et level-up/level-down ---
@@ -77,9 +79,9 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
       await setfiche("niveau", currentLevel, jid);
 
       await ovl.sendMessage(ms_org, {
-        text: `🏆🎉 Félicitations Promotion ! <@${jid}> passe au *niveau ${currentLevel}* ▲`,
-        mentions: [jid]
-      });
+  text: `🏆🎉 Félicitations Promotion ! Joueur @${jid.split('@')[0]} passe au *niveau ${currentLevel}* ▲`,
+  mentions: [jid]
+});
 
       await giveLevelRewards(jid, currentLevel, ovl, ms_org);
     }
@@ -96,8 +98,9 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
       await setfiche("niveau", currentLevel, jid);
 
       await ovl.sendMessage(ms_org, {
-        text: `🔻 Chute de niveau ! <@${jid}> redescend au *niveau ${currentLevel}* ▼`,
-        mentions: [jid]
+  text: `🔻 Chute de niveau ! Joueur @${jid.split('@')[0]} redescend au *niveau ${currentLevel}* ▼`,
+  mentions: [jid]
+});
       });
     }
   }
