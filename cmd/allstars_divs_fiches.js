@@ -191,7 +191,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
       }
 
       const updates = await processUpdates(arg, jid);
-      await updatePlayerData(updates, jid, ovl, ms);
+      await updatePlayerData(updates, jid, ovl, ms_org);
 
       const message = updates
         .map(u => `🛠️ *${u.colonne}* modifié : \`${u.oldValue}\` ➤ \`${u.newValue}\``)
