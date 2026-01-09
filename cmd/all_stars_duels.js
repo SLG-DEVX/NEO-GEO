@@ -117,40 +117,51 @@ ovlcmd({
     const [left, rest] = input.split('=').map(v => v.trim());
     if (!left || !rest) return;
 
-    // ===== FIX STATS ALL STARS =====
-    const context =
-        ms.message?.extendedTextMessage?.contextInfo ||
-        ms.message?.imageMessage?.contextInfo ||
-        ms.message?.videoMessage?.contextInfo;
+    
+// ===== FIX STATS ALL STARS =====
+const context =
+    ms.message?.extendedTextMessage?.contextInfo ||
+    ms.message?.imageMessage?.contextInfo ||
+    ms.message?.videoMessage?.contextInfo;
 
-    const mentions = context?.mentionedJid || [];
+const mentions = context?.mentionedJid || [];
 
-    if (left.startsWith('@') && mentions.length > 0) {
-        const jid = mentions[0];
-        const data = await getData({ jid });
-        if (!data) return;
+if (left.startsWith('@') && mentions.length > 0) {
+    const jid = mentions[0];
+    const data = await getData({ jid });
+    if (!data) return;
 
-        let confirm = [];
+    const statsMap = {
+        attaques: "attaques",
+        strikes: "strikes"
+    };
 
-        for (const p of rest.split(',')) {
-            const m = p.match(/(attaques|strikes)\s*\+\s*(\d+)/i);
-            if (!m) continue;
+    let confirm = [];
 
-            const field = m[1].toLowerCase();
-            const value = Number(m[2]);
+    for (const p of rest.split(',')) {
+        const m = p.match(/(attaques|strikes)\s*\+\s*(\d+)/i);
+        if (!m) continue;
 
-            await setfiche(field, (Number(data[field]) || 0) + value, jid);
-            confirm.push(`➕ ${field.charAt(0).toUpperCase() + field.slice(1)}: +${value}`);
-        }
+        const key = m[1].toLowerCase();
+        const field = statsMap[key];
+        if (!field) continue;
 
-        if (confirm.length) {
-            return ovl.sendMessage(ms_org, {
-                text: `✅ Stats mises à jour pour ${left}\n${confirm.join('\n')}`
-            }, { quoted: ms });
-        }
-        return;
+        const value = Number(m[2]);
+        const current = Number(data[field]) || 0;
+
+        await setfiche(field, current + value, jid);
+
+        confirm.push(`➕ ${field.charAt(0).toUpperCase() + field.slice(1)}: +${value}`);
     }
 
+    if (confirm.length) {
+        return ovl.sendMessage(ms_org, {
+            text: `✅ Stats mises à jour pour ${left}\n${confirm.join('\n')}`
+        }, { quoted: ms });
+    }
+    return;
+} 
+    
     // ===== STATS DUEL =====
     if (!duel) return;
 
@@ -228,22 +239,16 @@ ovlcmd({
         if (dureeMatch) duree = Number(dureeMatch[1]);
 
         let loserJid = null;
-        let indexMention = 0;
-
-        const lines = texte.split('\n');
+        let mentionCursor = 0;
 
 for (const line of lines) {
     const m = line.match(/(Win|Lose)\s*=\s*@/i);
     if (!m) continue;
 
     const type = m[1].toLowerCase();
+    const jid = mentions[mentionCursor];
+    mentionCursor++;
 
-    const mentionIndex = lines
-        .slice(0, lines.indexOf(line) + 1)
-        .join('\n')
-        .match(/@/g)?.length - 1;
-
-    const jid = mentions?.[mentionIndex];
     if (!jid) continue;
 
     const data = await getData({ jid });
@@ -272,7 +277,7 @@ for (const line of lines) {
     await setfiche("talent", talent, jid);
     await setfiche("victoires", victoires, jid);
     await setfiche("defaites", defaites, jid);
-}        
+}
         if (duree !== null && duree < 3 && loserJid) {
             const data = await getData({ jid: loserJid });
             if (data) {
