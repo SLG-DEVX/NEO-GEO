@@ -173,20 +173,30 @@ ovlcmd({
   react: "💠"
 }, async (ms_org, ovl, { repondre, mentions }) => {
   try {
-    const jidToFetch =
-      mentions && Object.keys(mentions).length > 0
-        ? Object.keys(mentions)[0]
-        : (ms_org.sender?.id || ms_org.sender);
+    // Cas 1 : mentionné un joueur
+    let jidToFetch;
+    if (mentions && Object.keys(mentions).length > 0) {
+      jidToFetch = Object.keys(mentions)[0];
+      console.log("[ELY-ME] JID mentionné :", jidToFetch);
+    } else {
+      // Cas 2 : pas de mention → utiliser l'expéditeur
+      jidToFetch = ms_org.sender?.id || ms_org.sender;
+      console.log("[ELY-ME] JID expéditeur :", jidToFetch);
+    }
 
+    // Vérification
     if (!jidToFetch)
       return repondre("❌ Impossible de récupérer le JID.");
 
+    // Récupération de la fiche
     const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
-
     if (!player || !player.code_fiche || player.code_fiche === "aucun")
       return repondre("❌ Fiche introuvable pour ce joueur.");
 
+    // Enregistrer la commande dynamiquement si nécessaire
     registerFicheCommand(player.code_fiche, jidToFetch);
+
+    // Envoi de la fiche
     await sendFiche(ms_org, ovl, jidToFetch, ms_org);
 
   } catch (err) {
@@ -199,4 +209,4 @@ ovlcmd({
 
     return repondre("❌ Une erreur est survenue (voir console).");
   }
-}); 
+});
