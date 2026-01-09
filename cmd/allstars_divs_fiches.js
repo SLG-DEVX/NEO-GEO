@@ -57,26 +57,49 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms) {
   oldExp = Number(oldExp) || 0;
   newExp = Number(newExp) || 0;
 
-  const oldLevel = Math.min(Math.floor(oldExp / 100), 20);
-  const newLevel = Math.min(Math.floor(newExp / 100), 20);
+  const dataRaw = await getData({ jid });
+  const data = dataRaw.dataValues ?? dataRaw;
 
-  if (newLevel > oldLevel) {
-    await ovl.sendMessage(ms, {
-      text: `🏆🎉 Félicitations Promotion ! <@${jid}> atteint le niveau supérieur ! Niveau actuel ${newLevel} ▲`
-    });
+  let currentLevel = Number(data.niveau) || 0;
+  const maxLevel = 20;
 
-    // Donne récompenses pour chaque level franchi
-    for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
-      await giveLevelRewards(jid, lvl, ovl, ms);
+  const oldLevelByExp = Math.floor(oldExp / 100);
+  const newLevelByExp = Math.floor(newExp / 100);
+
+  // 🔼 MONTÉE DE NIVEAU
+  if (newLevelByExp > oldLevelByExp) {
+    const levelsGained = newLevelByExp - oldLevelByExp;
+
+    for (let i = 0; i < levelsGained; i++) {
+      if (currentLevel >= maxLevel) break;
+
+      currentLevel++;
+
+      await setfiche("niveau", currentLevel, jid);
+
+      await ovl.sendMessage(ms, {
+        text: `🏆🎉 Félicitations Promotion ! <@${jid}> passe au *niveau ${currentLevel}* ▲`
+      });
+
+      await giveLevelRewards(jid, currentLevel, ovl, ms);
     }
-  } else if (newLevel < oldLevel) {
-    await ovl.sendMessage(ms, {
-      text: `🔻 <@${jid}> redescend d'un niveau ! Niveau actuel ${newLevel} ▼`
-    });
   }
 
-  if (newLevel !== oldLevel) {
-    await setfiche("niveau", newLevel, jid);
+  // 🔽 DESCENTE DE NIVEAU
+  else if (newLevelByExp < oldLevelByExp) {
+    const levelsLost = oldLevelByExp - newLevelByExp;
+
+    for (let i = 0; i < levelsLost; i++) {
+      if (currentLevel <= 0) break;
+
+      currentLevel--;
+
+      await setfiche("niveau", currentLevel, jid);
+
+      await ovl.sendMessage(ms, {
+        text: `🔻 Chute de niveau ! <@${jid}> redescend au *niveau ${currentLevel}* ▼`
+      });
+    }
   }
 }
 
@@ -266,10 +289,14 @@ async function updatePlayerData(updates, jid, ovl, ms) {
     await setfiche(update.colonne, update.newValue, jid);
 
     if (update.colonne === "exp") {
-      const oldExp = Number(update.oldValue) || 0;
-      const newExp = Number(update.newValue) || 0;
+      try {
+        const oldExp = Number(update.oldValue) || 0;
+        const newExp = Number(update.newValue) || 0;
 
-      await checkLevel(jid, oldExp, newExp, ovl, ms);
+        await checkLevel(jid, oldExp, newExp, ovl, ms);
+      } catch (e) {
+        console.error("Erreur checkLevel :", e);
+      }
     }
   }
 }
