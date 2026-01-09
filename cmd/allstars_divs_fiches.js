@@ -22,8 +22,41 @@ function countCards(cardsRaw) {
     .length;
 }
 
+// --- Récompenses fixes par level ---
+const LEVEL_REWARD_FIXED = {
+  golds: 500000,
+  fans: 50000
+};
+
+// --- Donne les récompenses d'un level ---
+async function giveLevelRewards(jid, level, ovl, ms) {
+  const dataRaw = await getData({ jid });
+  const data = dataRaw.dataValues ?? dataRaw;
+
+  let recap = [];
+
+  for (const [col, value] of Object.entries(LEVEL_REWARD_FIXED)) {
+    const oldVal = Number(data[col]) || 0;
+    const newVal = oldVal + value;
+
+    await setfiche(col, newVal, jid);
+    recap.push(`🎁 ${col} +${value}`);
+  }
+
+  if (recap.length) {
+    await ovl.sendMessage(ms, {
+      text:
+        `🎁 *Récompenses du niveau ${level} obtenues !*\n\n` +
+        recap.join("\n")
+    });
+  }
+}
+
 // --- Fonction pour gérer le niveau max et level-up/level-down ---
 async function checkLevel(jid, oldExp, newExp, ovl, ms) {
+  oldExp = Number(oldExp) || 0;
+  newExp = Number(newExp) || 0;
+
   const oldLevel = Math.min(Math.floor(oldExp / 100), 20);
   const newLevel = Math.min(Math.floor(newExp / 100), 20);
 
@@ -31,6 +64,11 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms) {
     await ovl.sendMessage(ms, {
       text: `🏆🎉 Félicitations Promotion ! <@${jid}> atteint le niveau supérieur ! Niveau actuel ${newLevel} ▲`
     });
+
+    // Donne récompenses pour chaque level franchi
+    for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+      await giveLevelRewards(jid, lvl, ovl, ms);
+    }
   } else if (newLevel < oldLevel) {
     await ovl.sendMessage(ms, {
       text: `🔻 <@${jid}> redescend d'un niveau ! Niveau actuel ${newLevel} ▼`
@@ -228,12 +266,10 @@ async function updatePlayerData(updates, jid, ovl, ms) {
     await setfiche(update.colonne, update.newValue, jid);
 
     if (update.colonne === "exp") {
-      const oldExp = Number(update.oldValue);
-      const newExp = Number(update.newValue);
+      const oldExp = Number(update.oldValue) || 0;
+      const newExp = Number(update.newValue) || 0;
 
-      if (!Number.isNaN(oldExp) && !Number.isNaN(newExp)) {
-        await checkLevel(jid, oldExp, newExp, ovl, ms);
-      }
+      await checkLevel(jid, oldExp, newExp, ovl, ms);
     }
   }
 }
