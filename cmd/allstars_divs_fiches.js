@@ -81,7 +81,7 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
   mentions: [jid]
 });
 
-      await giveLevelRewards(jid, currentLevel, ovl, ms_org);
+      wait giveLevelRewards(jid, currentLevel, ovl, ms_org);
     }
   }
 
@@ -102,34 +102,61 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
     }
   } 
 } 
-// --- Ajout d'une fiche ---
-function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
-  if (registeredFiches.has(nom_joueur)) return;
-  registeredFiches.add(nom_joueur);
 
+// --- Ajout ou mise à jour d'une fiche ---
+async function addOrUpdateFiche(nom_joueur, jid, image_oc, joueur_div) {
+  try {
+    const existing = await getData({ jid });
+    if (existing && existing.dataValues) {
+      // Joueur existant → update
+      await setfiche("code_fiche", nom_joueur, jid);
+      await setfiche("division", joueur_div, jid);
+      await setfiche("oc_url", image_oc, jid);
+
+      if (!registeredFiches.has(nom_joueur)) registeredFiches.add(nom_joueur);
+
+      return { action: "mise à jour", jid };
+    } else {
+      // Joueur inexistant → ajout
+      await add_id(jid, { code_fiche: nom_joueur, division: joueur_div, oc_url: image_oc });
+      if (!registeredFiches.has(nom_joueur)) registeredFiches.add(nom_joueur);
+
+      return { action: "ajoutée", jid };
+    }
+  } catch (err) {
+    console.error("Erreur addOrUpdateFiche :", err);
+    throw err;
+  }
+}
+
+// --- Fonction principale add_fiche pour ovlcmd ---
+function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
   ovlcmd({
     nom_cmd: nom_joueur,
     classe: joueur_div,
     react: "✅"
   }, async (ms_org, ovl, cmd_options) => {
-
     const { repondre, ms, arg, prenium_id } = cmd_options;
 
     try {
+      // Vérifie si le joueur est premium pour accéder à la fiche
+      if (!prenium_id) return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
+
+      // Ajout ou update de la fiche
+      const result = await addOrUpdateFiche(nom_joueur, jid, image_oc, joueur_div);
+
+      // Récupère les données pour générer la fiche
       const dataRaw = await getData({ jid });
       const data = dataRaw.dataValues ?? dataRaw;
 
+      // Valeurs par défaut
       data.exp = data.exp ?? 0;
-      data.niveau = data.niveau ?? 0;
+      data.niveau = Math.min(data.niveau ?? 0, 20);
       data.close_fight = data.close_fight ?? 0;
       data.cards = data.cards ?? "";
 
-      if (typeof data.niveau === "number") {
-        data.niveau = Math.min(data.niveau, 20);
-      }
-
-      if (!arg.length) {
-        const fiche = `░▒▒░░▒░ *👤N E O P L A Y E R 🎮*
+      // Prépare le texte de la fiche
+      const fiche = `░▒▒░░▒░ *👤N E O P L A Y E R 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 ◇ *Pseudo👤*: ${data.pseudo}
 ◇ *Classement continental🌍:* ${data.classement}
@@ -160,7 +187,6 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 
 ░▒░▒░ STATS 📊
 ▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
-
 📈 Note: ${data.note}/100
 ⌬ *Talent⭐:* ▱▱▱▱▬▬▬ ${data.talent}
 ⌬ *Strikes👊🏻:* ▱▱▱▱▬▬▬ ${data.strikes}
@@ -173,38 +199,28 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ╰───────────────────
 🏆NSL PRO ESPORT ARENA® | RAZORX⚡™`;
 
-        await ovl.sendMessage(ms_org, {
-          video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
-          gifPlayback: true,
-          caption: ""
-        }, { quoted: ms });
+      // Envoi du GIF / vidéo
+      await ovl.sendMessage(ms_org, {
+        video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
+        gifPlayback: true,
+        caption: ""
+      }, { quoted: ms });
 
-        return ovl.sendMessage(ms_org, {
-          image: { url: data.oc_url },
-          caption: fiche
-        }, { quoted: ms });
-      }
+      // Envoi de l'image + fiche
+      await ovl.sendMessage(ms_org, {
+        image: { url: data.oc_url },
+        caption: fiche
+      }, { quoted: ms });
 
-      if (!prenium_id) {
-        return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
-      }
-
-      const updates = await processUpdates(arg, jid);
-      await updatePlayerData(updates, jid, ovl, ms_org);
-
-      const message = updates
-        .map(u => `🛠️ *${u.colonne}* modifié : \`${u.oldValue}\` ➤ \`${u.newValue}\``)
-        .join("\n");
-
-      await repondre("✅ Fiche mise à jour avec succès !\n\n" + message);
+      // Message final
+      await repondre(`✅ Fiche ${result.action} pour @${jid.split("@")[0]} enregistrée avec succès !`);
 
     } catch (err) {
-      console.error("Erreur:", err);
-      await repondre("❌ Une erreur est survenue. Vérifie les paramètres.");
+      console.error("Erreur add_fiche :", err);
+      await repondre("❌ Une erreur est survenue lors de l'ajout ou la mise à jour de la fiche.");
     }
   });
-}
-
+                     }
 // --- Process updates ---
 async function processUpdates(args, jid) {
   const updates = [];
