@@ -166,61 +166,38 @@ ovlcmd({
   return repondre(`✅ Fiche supprimée : ${code_fiche}`);
 });
 
-//---------- COMMANDE ELYSIUM ----------
+// ============================
+// COMMANDE ELYSIUMME
+// ============================
 ovlcmd({
   nom_cmd: "elysiumme💠",
   classe: "Elysium",
   react: "💠"
 }, async (ms_org, ovl, { repondre, mentions }) => {
-  console.log("🟦 [ELY-ME] Commande déclenchée");
-
   try {
-    let jidToFetch;
+    // 🔹 Joueur mentionné ou expéditeur
+    const jidToFetch = (mentions && Object.keys(mentions).length > 0)
+      ? Object.keys(mentions)[0]
+      : ms_org.sender;
 
-    // ===== RÉCUPÉRATION JID (IDENTIQUE ALLSTARS) =====
-    if (mentions && Object.keys(mentions).length > 0) {
-      jidToFetch = Object.keys(mentions)[0];
-      console.log("🟨 [ELY-ME] JID mentionné :", jidToFetch);
-    } else {
-      jidToFetch = ms_org.key.participant || ms_org.key.remoteJid;
-      console.log("🟩 [ELY-ME] JID expéditeur :", jidToFetch);
-    }
+    console.log("[ELY-ME] JID utilisé :", jidToFetch);
 
-    if (!jidToFetch) {
-      console.error("🟥 [ELY-ME] JID introuvable");
-      return repondre("❌ Impossible de récupérer le joueur.");
-    }
+    if (!jidToFetch) return repondre("❌ Impossible de récupérer le JID.");
 
-    // ===== RÉCUPÉRATION JOUEUR =====
-    console.log("🟦 [ELY-ME] Recherche joueur en DB...");
-    const playerRaw = await PlayerFunctions.getPlayer({ jid: jidToFetch });
+    const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
 
-    console.log("🟦 [ELY-ME] Résultat brut DB :", playerRaw);
-
-    if (!playerRaw) {
-      console.warn("🟨 [ELY-ME] Aucun joueur trouvé");
+    if (!player || !player.code_fiche || player.code_fiche === "aucun")
       return repondre("❌ Fiche introuvable pour ce joueur.");
-    }
 
-    const player = playerRaw.dataValues ?? playerRaw;
-
-    if (!player.code_fiche || player.code_fiche === "aucun") {
-      console.warn("🟨 [ELY-ME] code_fiche invalide :", player.code_fiche);
-      return repondre("❌ Ce joueur n'a pas de fiche valide.");
-    }
-
-    // ===== ENVOI FICHE =====
-    console.log("🟦 [ELY-ME] Envoi fiche :", player.code_fiche);
+    // Envoi de la fiche
     await sendFiche(ms_org, ovl, jidToFetch, ms_org);
-
-    console.log("🟩 [ELY-ME] Fiche envoyée avec succès");
 
   } catch (err) {
     console.error("══════════ ❌ ELYSIUMME ERROR ❌ ══════════");
-    console.error("NAME :", err?.name);
-    console.error("MESSAGE :", err?.message);
-    console.error("STACK :", err?.stack);
-    console.error("FULL ERROR :", err);
+    console.error("▶ Type :", err?.name);
+    console.error("▶ Message :", err?.message);
+    console.error("▶ Stack :", err?.stack);
+    console.error("▶ Error brute :", err);
     console.error("════════════════════════════════════════");
 
     return repondre("❌ Une erreur est survenue (voir console).");
