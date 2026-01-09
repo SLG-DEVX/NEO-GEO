@@ -173,40 +173,36 @@ ovlcmd({
   react: "💠"
 }, async (ms_org, ovl, { repondre, mentions }) => {
   try {
-    // Cas 1 : mentionné un joueur
     let jidToFetch;
+
+    // ✅ Imite All stars 
     if (mentions && Object.keys(mentions).length > 0) {
+      // joueur tagué
       jidToFetch = Object.keys(mentions)[0];
-      console.log("[ELY-ME] JID mentionné :", jidToFetch);
     } else {
-      // Cas 2 : pas de mention → utiliser l'expéditeur
-      jidToFetch = ms_org.sender?.id || ms_org.sender;
-      console.log("[ELY-ME] JID expéditeur :", jidToFetch);
+      // expéditeur réel (privé ou groupe)
+      jidToFetch = ms_org.key.participant || ms_org.key.remoteJid;
     }
 
-    // Vérification
-    if (!jidToFetch)
+    console.log("[ELY-ME] JID utilisé :", jidToFetch);
+
+    if (!jidToFetch) {
       return repondre("❌ Impossible de récupérer le JID.");
+    }
 
-    // Récupération de la fiche
     const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
-    if (!player || !player.code_fiche || player.code_fiche === "aucun")
+
+    if (!player || !player.code_fiche || player.code_fiche === "aucun") {
       return repondre("❌ Fiche introuvable pour ce joueur.");
+    }
 
-    // Enregistrer la commande dynamiquement si nécessaire
-    registerFicheCommand(player.code_fiche, jidToFetch);
-
-    // Envoi de la fiche
+    // même logique envoi direct
     await sendFiche(ms_org, ovl, jidToFetch, ms_org);
 
   } catch (err) {
     console.error("══════════ ❌ ELYSIUMME ERROR ❌ ══════════");
-    console.error("▶ Type :", err?.name);
-    console.error("▶ Message :", err?.message);
-    console.error("▶ Stack :", err?.stack);
-    console.error("▶ Error brute :", err);
+    console.error(err);
     console.error("════════════════════════════════════════");
-
     return repondre("❌ Une erreur est survenue (voir console).");
   }
 });
