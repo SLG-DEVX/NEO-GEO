@@ -173,14 +173,16 @@ ovlcmd({
   react: "💠"
 }, async (ms_org, ovl, { repondre, mentions }) => {
   try {
-    const jidToFetch = mentions && Object.keys(mentions).length > 0
-      ? normalizeJid(Object.keys(mentions)[0])
-      : normalizeJid(ms_org.sender?.id || ms_org.sender);
+    const jidToFetch =
+      mentions && Object.keys(mentions).length > 0
+        ? Object.keys(mentions)[0]
+        : (ms_org.sender?.id || ms_org.sender);
 
     if (!jidToFetch)
       return repondre("❌ Impossible de récupérer le JID.");
 
     const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
+
     if (!player || !player.code_fiche || player.code_fiche === "aucun")
       return repondre("❌ Fiche introuvable pour ce joueur.");
 
@@ -188,7 +190,13 @@ ovlcmd({
     await sendFiche(ms_org, ovl, jidToFetch, ms_org);
 
   } catch (err) {
-    console.error("[ELY-ME]", err);
-    return repondre("❌ Une erreur est survenue.");
+    console.error("══════════ ❌ ELYSIUMME ERROR ❌ ══════════");
+    console.error("▶ Type :", err?.name);
+    console.error("▶ Message :", err?.message);
+    console.error("▶ Stack :", err?.stack);
+    console.error("▶ Error brute :", err);
+    console.error("════════════════════════════════════════");
+
+    return repondre("❌ Une erreur est survenue (voir console).");
   }
-});
+}); 
