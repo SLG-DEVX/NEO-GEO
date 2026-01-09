@@ -223,7 +223,128 @@ ovlcmd({
   return repondre(msg);
 });
 
- // --- Fonction Auto Récompenses NEO SCORE ---
+
+// --- Commande myneo🔷 ---
+ovlcmd({
+  nom_cmd: "myneo🔷",
+  classe: "Other",
+  react: "🪪",
+  desc: "Afficher ou modifier les données NEO d'un joueur.",
+}, async (ms_org, ovl, cmd_options) => {
+  const { arg, auteur_Message, prenium_id, repondre } = cmd_options;
+  let userId;
+
+  if (arg.length >= 1 && arg[0].includes("@")) {
+    userId = normalizeJid(arg[0]);
+  } else {
+    userId = auteur_Message; // JID original
+  }
+
+  try {
+    const data = await getNeo(userId);
+    if (!data) return repondre("⚠️ Aucune donnée trouvée pour cet utilisateur.");
+
+    // --- Affichage simple si pas de modification ---
+    if (arg.length <= 1) {
+      const myn = `╭───〔 *🪀COMPTE NEO🔷* 〕
+👤User: ${data.users}
+📳Téléphone: ${data.tel}
+👑NEOscore: ${data.ns}👑
+🔷NEOcoins: ${data.nc}🔷
+🔶NEOpoints: ${data.np}🔶
+🎫Coupons: ${data.coupons}🎫
+
+*🎮MY GAMES🪀*
+🌀All Stars: ${data.all_stars}
+⚽Blue Lock: ${data.blue_lock}
+💠Élysium: ${data.elysium}
+╰───────────────────
+           *🔷NEOVERSE🎮*`;
+
+      await ovl.sendMessage(ms_org, { video: { url: "https://files.catbox.moe/yimc4o.mp4" }, gifPlayback: true }, { quoted: cmd_options.ms });
+      return await ovl.sendMessage(ms_org, { image: { url: "https://files.catbox.moe/nyy6fb.jpg" }, caption: myn }, { quoted: cmd_options.ms });
+    }
+
+    // --- Modification ---
+    if (!prenium_id) return repondre("⚠️ Seuls les membres Premium peuvent actualiser un joueur.");
+
+    const modifiables = ["users","tel","ns","nc","np","coupons","gift_box","all_stars","blue_lock","elysium"];
+    let updates = {};
+    let nsDelta = 0;
+
+    for (let i = 1; i < arg.length;) {
+      const field = arg[i]?.toLowerCase();
+      const op = arg[i + 1];
+      if (!modifiables.includes(field) || !["=", "+", "-"].includes(op)) { i++; continue; }
+
+      const isNumeric = ["ns","nc","np","coupons","gift_box"].includes(field);
+      let value;
+
+      if (op === "=" && !isNumeric) {
+        let valParts=[], j=i+2; 
+        while(j<arg.length && !modifiables.includes(arg[j]?.toLowerCase())) valParts.push(arg[j++]);
+        value = valParts.join(" "); i=j;
+      } else {
+        value = arg[i+2]; i+=3;
+      }
+
+      if (value !== undefined) {
+        if (isNumeric) {
+          const val = parseInt(value);
+          if (!isNaN(val)) {
+            if (field === "ns") {
+              // Calcul delta pour NS
+              if (op === "=") nsDelta = val - (data.ns || 0);
+              if (op === "+") nsDelta = val;
+              if (op === "-") nsDelta = -val;
+            } else {
+              if (op === "=") updates[field]=val;
+              if (op==="+") updates[field]=data[field]+val;
+              if (op==="-") updates[field]=data[field]-val;
+            }
+          }
+        } else if(op==="=") updates[field]=value;
+      }
+    }
+
+    // Limite NP à 20 max
+    if('np' in updates) updates.np = Math.min(updates.np, 20);
+
+    if(Object.keys(updates).length === 0 && nsDelta === 0) return repondre("⚠️ Aucun champ mis à jour. Exemple : +myNeo @user nc + 200 ou ns + 1");
+
+    // --- Gestion NS (manuelle et automatique des paliers) ---
+    if(nsDelta !== 0) {
+      await addNS(userId, nsDelta, ovl, ms_org); // Cette fonction update NS et déclenche checkNeoScoreRewards automatiquement
+    }
+
+    // --- Mise à jour des autres champs ---
+    if(Object.keys(updates).length > 0) {
+      const msg = await updateMyNeo(userId, updates);
+      return repondre(msg || "✅ Joueur mis à jour avec succès !");
+    } else {
+      return repondre("✅ Joueur mis à jour avec succès !");
+    }
+
+  } catch(err) {
+    console.error("❌ Erreur ligne myNeo:", err);
+    return repondre("❌ Une erreur est survenue.");
+  }
+});
+
+// --- Fonction centralisée pour ajouter des NS (automatique et safe) ---
+async function addNS(userId, amount, ovl, ms_org) {
+  if(amount === 0) return;
+  const data = await getNeo(userId);
+  if (!data) return;
+
+  const newNS = (data.ns || 0) + amount;
+  await updateMyNeo(userId, { ns: newNS });
+
+  // 🔥 Vérification automatique de palier
+  await checkNeoScoreRewards(userId, ovl, ms_org);
+}
+
+// --- Fonction Auto Récompenses NEO SCORE ---
 async function checkNeoScoreRewards(userId, ovl, ms_org) {
   try {
     const myneoData = await getNeo(userId);
@@ -266,122 +387,10 @@ Les récompenses suivantes ont été ajoutées à ta fiche :
 
       await ovl.sendMessage(ms_org, { text: message });
     }
-
   } catch (err) {
     console.error("❌ Erreur Auto Récompenses NEO SCORE:", err);
   }
 }
-
-// --- Fonction centralisée pour ajouter des NS (automatique et safe) ---
-async function addNS(userId, amount, ovl, ms_org) {
-  const data = await getNeo(userId);
-  if (!data) return;
-
-  const newNS = (data.ns || 0) + amount;
-
-  await updateMyNeo(userId, { ns: newNS });
-
-  // 🔥 Vérification automatique de palier
-  await checkNeoScoreRewards(userId, ovl, ms_org);
-}
-
-// --- Commande myneo🔷 ---
-ovlcmd({
-  nom_cmd: "myneo🔷",
-  classe: "Other",
-  react: "🪪",
-  desc: "Afficher ou modifier les données NEO d'un joueur.",
-}, async (ms_org, ovl, cmd_options) => {
-  const { arg, auteur_Message, prenium_id, repondre } = cmd_options;
-  let userId;
-
-  if (arg.length >= 1 && arg[0].includes("@")) {
-    userId = normalizeJid(arg[0]);
-  } else {
-    userId = auteur_Message;
-  }
-
-  try {
-    const data = await getNeo(userId);
-    if (!data) return repondre("⚠️ Aucune donnée trouvée pour cet utilisateur.");
-
-    // Affichage simple si pas de modification
-    if (arg.length <= 1) {
-      const myn = `╭───〔 *🪀COMPTE NEO🔷* 〕
-👤User: ${data.users}
-📳Téléphone: ${data.tel}
-👑NEOscore: ${data.ns}👑
-🔷NEOcoins: ${data.nc}🔷
-🔶NEOpoints: ${data.np}🔶
-🎫Coupons: ${data.coupons}🎫
-
-*🎮MY GAMES🪀*
-🌀All Stars: ${data.all_stars}
-⚽Blue Lock: ${data.blue_lock}
-💠Élysium: ${data.elysium}
-╰───────────────────
-           *🔷NEOVERSE🎮*`;
-
-      await ovl.sendMessage(ms_org, { video: { url: "https://files.catbox.moe/yimc4o.mp4" }, gifPlayback: true }, { quoted: cmd_options.ms });
-      return await ovl.sendMessage(ms_org, { image: { url: "https://files.catbox.moe/nyy6fb.jpg" }, caption: myn }, { quoted: cmd_options.ms });
-    }
-
-    // Modification
-    if (!prenium_id) return repondre("⚠️ Seuls les membres Premium peuvent actualiser un joueur.");
-
-    const modifiables = ["users","tel","ns","nc","np","coupons","gift_box","all_stars","blue_lock","elysium"];
-    let updates = {};
-
-    for (let i = 1; i < arg.length;) {
-      const field = arg[i]?.toLowerCase();
-      const op = arg[i + 1];
-      if (!modifiables.includes(field) || !["=","+","-"].includes(op)) { i++; continue; }
-
-      const isNumeric = ["ns","nc","np","coupons","gift_box"].includes(field);
-      let value;
-
-      if (op === "=" && !isNumeric) {
-        let valParts=[], j=i+2; 
-        while(j<arg.length && !modifiables.includes(arg[j]?.toLowerCase())) valParts.push(arg[j++]);
-        value = valParts.join(" "); i=j;
-      } else {
-        value = arg[i+2]; i+=3;
-      }
-
-      if (value !== undefined) {
-        if (isNumeric) {
-          const val = parseInt(value);
-          if (!isNaN(val)) {
-            if (op==="=") updates[field]=val;
-            if (op==="+") updates[field]=data[field]+val;
-            if (op==="-") updates[field]=data[field]-val;
-          }
-        } else if(op==="=") updates[field]=value;
-      }
-    }
-
-    // Limite NP à 20 max
-    if('np' in updates) updates.np = Math.min(updates.np, 20);
-
-    if(Object.keys(updates).length===0) return repondre("⚠️ Format incorrect. Exemple : +myNeo @user nc + 200");
-
-    // 🔥 UPDATE et vérification NS automatiquement
-    if ("ns" in updates) {
-      const nsDelta = updates.ns - (data.ns || 0);
-      if (nsDelta > 0) {
-        await addNS(userId, nsDelta, ovl, ms_org);
-        delete updates.ns; // NS déjà géré par addNS
-      }
-    }
-
-    const message = await updateMyNeo(userId, updates);
-    return repondre(message || "✅ Joueur mis à jour avec succès !");
-
-  } catch(err) {
-    console.error("❌ Erreur ligne myNeo:", err);
-    return repondre("❌ Une erreur est survenue.");
-  }
-}); 
 module.exports = { checkNeoScoreRewards };
 
 ovlcmd({
