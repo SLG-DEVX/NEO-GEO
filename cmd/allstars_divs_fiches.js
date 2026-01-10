@@ -130,8 +130,24 @@ async function processUpdates(args, jid) {
     let newValue;
 
     // 🔥 ICI : tout ce qui reste devient UN SEUL TEXTE
-    let texte = args.slice(i).join(" ");
-    i = args.length;
+    let texte = [];
+
+if (object === "commentaire") {
+  // 🔥 commentaire = TOUT le reste
+  texte = args.slice(i);
+  i = args.length;
+} else {
+  // 🧠 comportement normal pour les autres champs (comme avant)
+  while (
+    i < args.length &&
+    !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
+    !columns.includes(args[i])
+  ) {
+    texte.push(args[i++]);
+  }
+}
+
+texte = texte.join(" ");
 
     if (object === "cards") {
       const old = oldValue || "";
