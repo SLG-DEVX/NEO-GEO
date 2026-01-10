@@ -187,30 +187,32 @@ ovlcmd({
     }, { quoted: ms });
 });
 
+
 //================= +PAVEMODO =================
 ovlcmd({
     nom_cmd: "pavemodo",
     classe: "Duel",
     react: "📄"
 }, async (ms_org, ovl) => {
-    await ovl.sendMessage(ms_org, {
-        text: `.                    ⚡RAZORX™ LIVE▶️
+    const pavemodo = `
+.                    ⚡RAZORX™ AURO LIVE▶️
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 🏆\`RESULTAT\`: 
-Win = @tag
-Lose = @tag
+▲Winner: @tag
+▼Loser: @tag
 ⏱️Durée: 
 
 ╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™`
-    });
+🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
+`;
+    await ovl.sendMessage(ms_org, { text: pavemodo });
 });
 
 //================= RAZORX AUTO =================
 ovlcmd({
     nom: "razorx_auto",
     isfunc: true
-}, async (ms_org, ovl, { ms }) => {
+}, async (ms_org, ovl, { ms, getJid }) => {
 
     const texte =
         ms.message?.conversation ||
@@ -219,75 +221,73 @@ ovlcmd({
 
     if (!texte || !texte.includes("⚡RAZORX™")) return;
 
-    const context =
-        ms.message?.extendedTextMessage?.contextInfo ||
-        ms.message?.imageMessage?.contextInfo ||
-        ms.message?.videoMessage?.contextInfo;
+    const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-   const cleanJid = (jid) => jid.replace(/[\u2066-\u2069]/g, '').trim();
+    const cleanJid = (jid) => jid.replace(/[\u2066-\u2069]/g, '').trim();
 
-if (texte.includes("🏆`RESULTAT`")) {
+    //================ RESULTATS =================
+    if (texte.includes("🏆`RESULTAT`")) {
 
-    const lines = texte.split('\n');
+        const lines = texte.split('\n');
 
-    let duree = null;
-    const dureeMatch = texte.match(/Durée:\s*(\d+)/i);
-    if (dureeMatch) duree = Number(dureeMatch[1]);
+        let duree = null;
+        const dureeMatch = texte.match(/⏱️Durée:\s*(\d+)/i);
+        if (dureeMatch) duree = Number(dureeMatch[1]);
 
-    let mentionCursor = 0;
-    let loserJid = null;
+        let mentionCursor = 0;
+        let loserJid = null;
 
-    for (const line of lines) {
-        const m = line.match(/(Win|Lose)\s*=\s*@/i);
-        if (!m) continue;
+        for (const line of lines) {
+            const m = line.match(/(Winner|Loser):\s*@/i);
+            if (!m) continue;
 
-        const type = m[1].toLowerCase();
-        let jid = mentions[mentionCursor];
-        mentionCursor++;
+            const type = m[1].toLowerCase(); // winner / loser
+            let jid = mentions[mentionCursor];
+            mentionCursor++;
 
-        if (!jid) continue;
+            if (!jid) continue;
 
-        // 🔹 Nettoyage du JID pour enlever les caractères invisibles
-        jid = cleanJid(jid);
+            jid = cleanJid(jid);
 
-        const data = await getData({ jid });
-        if (!data) continue;
+            const data = await getData({ jid });
+            if (!data) continue;
 
-        let { exp = 0, talent = 0, victoires = 0, defaites = 0 } = data;
+            let { exp = 0, talent = 0, victoires = 0, defaites = 0 } = data;
 
-        if (type === "win") {
-            victoires++;
-            exp += 10;
-            talent += 10;
+            if (type === "winner") {
+                victoires++;
+                exp += 10;
+                talent += 10;
+            }
+
+            if (type === "loser") {
+                defaites++;
+                exp = Math.max(0, exp - 5);
+                talent = Math.max(0, talent - 5);
+                loserJid = jid;
+            }
+
+            await setfiche("exp", exp, jid);
+            await setfiche("talent", talent, jid);
+            await setfiche("victoires", victoires, jid);
+            await setfiche("defaites", defaites, jid);
         }
 
-        if (type === "lose") {
-            defaites++;
-            exp = Math.max(0, exp - 5);
-            talent = Math.max(0, talent - 5);
-            loserJid = jid;
+        // Pénalité si match trop court
+        if (duree !== null && duree < 3 && loserJid) {
+            const data = await getData({ jid: loserJid });
+            if (data) {
+                await setfiche(
+                    "talent",
+                    Math.max(0, (Number(data.talent) || 0) - 5),
+                    loserJid
+                );
+            }
         }
 
-        await setfiche("exp", exp, jid);
-        await setfiche("talent", talent, jid);
-        await setfiche("victoires", victoires, jid);
-        await setfiche("defaites", defaites, jid);
+        await ovl.sendMessage(ms_org, {
+            text: "✅ Résultats appliqués pour ce match !."
+        }, { quoted: ms });
     }
 
-    // PÉNALITÉ MATCH TROP COURT
-    if (duree !== null && duree < 3 && loserJid) {
-        const data = await getData({ jid: loserJid });
-        if (data) {
-            await setfiche(
-                "talent",
-                Math.max(0, (Number(data.talent) || 0) - 5),
-                loserJid
-            );
-        }
-    }
-
-    await ovl.sendMessage(ms_org, {
-        text: "✅ Résultats appliqués pour le match !"
-    }, { quoted: ms });
-} 
 });
