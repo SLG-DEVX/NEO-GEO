@@ -30,6 +30,7 @@ const AllStarsDivsFiche = sequelize.define('AllStarsDivsFiche', {
     autoIncrement: true
   },
   pseudo: { type: DataTypes.STRING, defaultValue: 'aucun' },
+  user: { type: DataTypes.STRING, defaultValue: 'aucun' },
   classement: { type: DataTypes.STRING, defaultValue: 'aucun' },
   exp: { type: DataTypes.INTEGER, defaultValue: 0 },
   niveau: { type: DataTypes.INTEGER, defaultValue: 1 },
