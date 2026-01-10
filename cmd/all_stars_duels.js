@@ -97,6 +97,11 @@ ovlcmd({
     }, { quoted: ms });
 });
 
+    //================= CLEAN JID =================
+function cleanJid(jid) {
+    return jid.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+}
+
 //================= +STATS =================
 ovlcmd({
     nom_cmd: "stats",
@@ -126,35 +131,35 @@ ovlcmd({
 
     const mentions = context?.mentionedJid || [];
 
-    // Si un joueur est mentionné avec @
     if (mentions.length > 0) {
-    const jid = mentions[0];
-    const data = await getData({ jid });
-    if (!data) return;
+        let jid = cleanJid(mentions[0]);
+        const data = await getData({ jid });
+        if (!data) return;
 
-    const confirm = [];
-    const actions = rest.split(',');
+        const confirm = [];
+        const actions = rest.split(',');
 
-    for (const p of actions) {
-        const m = p.trim().match(/(strikes|attaques)\s*\+\s*(\d+)/i);
-        if (!m) continue;
+        for (const p of actions) {
+            const m = p.trim().match(/(strikes|attaques)\s*\+\s*(\d+)/i);
+            if (!m) continue;
 
-        const field = m[1].toLowerCase(); // strikes ou attaques
-        const value = Number(m[2]);
-        const current = Number(data[field]) || 0;
+            const field = m[1].toLowerCase(); // strikes ou attaques
+            const value = Number(m[2]);
 
-        await setfiche(field, current + value, jid);
+            const current = Number(data[field]) || 0;
+            const newValue = current + value;
 
-        confirm.push(`➕ ${field.toUpperCase()} +${value}`);
+            await setfiche(field, newValue, jid);
+            confirm.push(`➕ ${field.toUpperCase()} +${value}`);
+        }
+
+        if (confirm.length) {
+            return ovl.sendMessage(ms_org, {
+                text: `✅ Stats ALL STARS mises à jour !`
+            }, { quoted: ms });
+        }
+        return;
     }
-
-    if (confirm.length) {
-        return ovl.sendMessage(ms_org, {
-            text: `✅ Stats ALL STARS mises à jour !`
-        }, { quoted: ms });
-    }
-    return;
-}
 
     // ===== STATS DUEL (si aucun mention) =====
     if (!duel) return;
@@ -172,41 +177,6 @@ ovlcmd({
     }
 });
 
-//================= +ENDMATCH =================
-ovlcmd({
-    nom_cmd: "endmatch",
-    classe: "Duel",
-    react: "🏁"
-}, async (ms_org, ovl, { ms }) => {
-    if (!duelsEnCours[ms_org]) return;
-
-    delete duelsEnCours[ms_org];
-
-    await ovl.sendMessage(ms_org, {
-        text: "🏁 *Le duel est terminé. L’arène est désormais libre.*"
-    }, { quoted: ms });
-});
-
-
-//================= +PAVEMODO =================
-ovlcmd({
-    nom_cmd: "pavemodo",
-    classe: "Duel",
-    react: "📄"
-}, async (ms_org, ovl) => {
-    const pavemodo = `
-.                    ⚡RAZORX™ AURO LIVE▶️
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-🏆\`RESULTAT\`: 
-▲Winner: @tag
-▼Loser: @tag
-⏱️Durée: 
-
-╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
-`;
-    await ovl.sendMessage(ms_org, { text: pavemodo });
-});
 
 //================= RAZORX AUTO =================
 ovlcmd({
@@ -222,8 +192,6 @@ ovlcmd({
     if (!texte || !texte.includes("⚡RAZORX™")) return;
 
     const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-
-    const cleanJid = (jid) => jid.replace(/[\u2066-\u2069]/g, '').trim();
 
     //================ RESULTATS =================
     if (texte.includes("🏆`RESULTAT`")) {
