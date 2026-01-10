@@ -110,7 +110,7 @@ async function updatePlayerData(updates, jid, ovl, ms_org) {
   }
 }
 
-// ================= PROCESS UPDATES =================
+// ================= PROCESS UPDATES (FIXED) =================
 async function processUpdates(args, jid) {
   const updates = [];
   const dataRaw = await getData({ jid });
@@ -122,15 +122,6 @@ async function processUpdates(args, jid) {
     const object = args[i++];
     const signe = args[i++];
 
-    let texte = [];
-    while (
-      i < args.length &&
-      !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
-      !columns.includes(args[i])
-    ) {
-      texte.push(args[i++]);
-    }
-
     if (!columns.includes(object)) {
       throw new Error(`❌ La colonne '${object}' n'existe pas.`);
     }
@@ -138,13 +129,16 @@ async function processUpdates(args, jid) {
     const oldValue = values[object];
     let newValue;
 
+    // 🔥 ICI : tout ce qui reste devient UN SEUL TEXTE
+    let texte = args.slice(i).join(" ");
+    i = args.length;
+
     if (object === "cards") {
       const old = oldValue || "";
       let list = old.split("\n").filter(x => x.trim() !== "");
 
-      const fullText = texte.join(" ");
-      const items = fullText.length
-        ? fullText.split(",").map(x => x.trim()).filter(Boolean)
+      const items = texte.length
+        ? texte.split(",").map(x => x.trim()).filter(Boolean)
         : [];
 
       if (signe === "+") {
@@ -168,14 +162,14 @@ async function processUpdates(args, jid) {
 
     if (signe === "+" || signe === "-") {
       const n1 = Number(oldValue) || 0;
-      const n2 = Number(texte.join(" ")) || 0;
+      const n2 = Number(texte) || 0;
       newValue = signe === "+" ? n1 + n2 : n1 - n2;
     } else if (signe === "=") {
-      newValue = texte.join(" ");
+      newValue = texte;
     } else if (signe === "add") {
-      newValue = (oldValue + " " + texte.join(" ")).trim();
+      newValue = (oldValue + " " + texte).trim();
     } else if (signe === "supp") {
-      const regex = new RegExp(`\\b${normalizeText(texte.join(" "))}\\b`, "gi");
+      const regex = new RegExp(`\\b${normalizeText(texte)}\\b`, "gi");
       newValue = normalizeText(oldValue).replace(regex, "").trim();
     } else {
       throw new Error(`❌ Signe non reconnu : ${signe}`);
