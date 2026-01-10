@@ -234,6 +234,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
         const fiche = `░▒▒░░▒░ *👤N E O P L A Y E R 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 ◇ *Pseudo👤*: ${data.pseudo}
+◇ *User👤*: ${data.user}
 ◇ *Classement continental🌍:* ${data.classement}
 ◇ *Experience⏫:* ${data.exp} Exp
 ◇ *Niveau🎖️*: ${data.niveau} ▲
