@@ -42,6 +42,8 @@ const AllStarsDivsFiche = sequelize.define('AllStarsDivsFiche', {
   fans: { type: DataTypes.INTEGER, defaultValue: 0 },
   archetype: { type: DataTypes.STRING, defaultValue: 'aucun' },
   commentaire: { type: DataTypes.TEXT, defaultValue: 'aucun' },
+  armes: { type: DataTypes.TEXT, defaultValue: 'aucun' },
+  surnom: { type: DataTypes.TEXT, defaultValue: 'aucun' },
   victoires: { type: DataTypes.INTEGER, defaultValue: 0 },
   defaites: { type: DataTypes.INTEGER, defaultValue: 0 },
   championnants: { type: DataTypes.INTEGER, defaultValue: 0 },
