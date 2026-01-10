@@ -115,7 +115,7 @@ ovlcmd({
     }
 
     const input = arg.join(' ');
-    const [left, rest] = input.split('=').map(v => v.trim());
+    const [left, rest] = input.split(':').map(v => v.trim());
     if (!left || !rest) return;
 
     // ===== STATS ALL STARS VIA JID MENTION =====
