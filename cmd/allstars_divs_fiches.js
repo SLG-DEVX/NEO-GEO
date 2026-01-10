@@ -248,6 +248,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ◇ *Fans👥*: ${data.fans} 👥
 ◇ *Archetype ⚖️*: ${data.archetype}
 ◇ *Commentaire*: ${data.commentaire}
+
 ◇ *Armes⭐*: ${data.armes}
 
 ░▒░░ PALMARÈS🏆
