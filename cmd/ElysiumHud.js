@@ -47,9 +47,9 @@ ovlcmd({
   nom_cmd: "hud💠",
   classe: "Elysium",
   react: "💠"
-}, async (ms_org, ovl, { repondre, arg, ms }) => {
+}, async (ms_org, ovl, { repondre, arg, ms, auteur_Message }) => {
   try {
-    const jid = normalizeJid(arg[0] || ms_org.sender?.id || ms_org.sender);
+    const jid = normalizeJid(arg[0] || auteur_Message);
     if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
 
     const data = await getHUD(jid);
