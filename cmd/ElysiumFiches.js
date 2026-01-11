@@ -40,7 +40,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 
 ▒▒▒░░ \`P L A Y E R\` 💠 
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░ 
-*💲ECash*:           ➤ ${data.ecash.toLocaleString()} \`E¢\`
+*💲ECash*:           ➤ ${data.ecash} \`E¢\`
 *🌟Lifestyle*:      ➤ ${data.lifestyle} 🌟
 *⭐Charisme:*      ➤ ${data.charisme} ⭐
 *🫱🏼‍🫲🏽Réputation:*   ➤ ${data.reputation} 🫱🏼‍🫲🏽 
