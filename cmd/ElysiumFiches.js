@@ -28,37 +28,51 @@ async function sendFiche(ms_org, ovl, jid, ms) {
     ? data.cyberwares.split("\n").filter(c => c.trim()).length
     : 0;
 
-  const fiche = `➤ ──⦿ P L A Y E R | ⦿──
+ const fiche = `➤               ──⦿ P L A Y E R | ⦿── 
+▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
+*🫆Pseudo:*  ➤ ${data.pseudo}
+*🫆User:*       ➤ ${data.user}
+*⏫Exp:*        ➤ ${data.exp}/4000 *\`XP\`*
+*🔰Niveau:*   ➤ ${data.niveau} ▲
+*🎖️Rang:*      ➤ ${data.rang}
+*🛄Infos:*
+➤  
 
-🫆Pseudo:  ➤ ${data.pseudo}
-🫆User:    ➤ ${data.user}
-⏫Exp:     ➤ ${data.exp}/4000 \`XP\`
-🔰Niveau:  ➤ ${data.niveau} ▲
-🎖️Rang:   ➤ ${data.rang}
+▒▒▒░░ \`P L A Y E R\` 💠 
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░ 
+*💲ECash*:           ➤ ${data.ecash.toLocaleString()} \`E¢\`
+*🌟Lifestyle*:      ➤ ${data.lifestyle} 🌟
+*⭐Charisme:*      ➤ ${data.charisme} ⭐
+*🫱🏼‍🫲🏽Réputation:*   ➤ ${data.reputation} 🫱🏼‍🫲🏽 
 
-💲ECash:       ➤ ${data.ecash} \`E¢\`
-🌟Lifestyle:  ➤ ${data.lifestyle} 🌟
-⭐Charisme:   ➤ ${data.charisme} ⭐
-🫱🏼‍🫲🏽Réputation: ➤ ${data.reputation} 🫱🏼‍🫲🏽
-
-░▒▒▒▒░ \`C Y B E R W A R E S\` 💠
-🩻Cyberwares : (Total) ➤ ${cyberwaresCount}
+*+Me💠*             ➤ ( 𝗂𝗇𝗍𝖾𝗋𝖿𝖺𝖼𝖾 𝖽𝖾 𝗃𝗈𝗎𝖾𝗎𝗋 )
+*+Inventaire💠* ➤ ( Propriétés ) 
+ 
+░▒▒▒▒░ \`C Y B E R W A R E S\` 💠 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
+ *🩻Cyberwares :*(Total) ➤ ${cyberwaresCount}
 ➤ ${data.cyberwares.split("\n").join(" • ") || "-"}
 
-░▒▒▒▒░░▒░ \`S T A T S\` 💠
-✅Missions: ➤ ${data.missions} ✅
-❌Game over: ➤ ${data.gameover} ❌
-🏆Elysium Games PVP: ➤ ${data.pvp} 🏆
+░▒▒▒▒░░▒░ \`S T A T S\`  💠
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
+*✅Missions:*    ➤ ${data.missions} ✅
+*❌Game over:* ➤ ${data.gameover} ❌
+*🏆Elysium Games PVP:* ➤ ${data.pvp} 🏆
 
-👊🏽Points combat:     ➤ ${data.points_combat}
-🪼Points chasse:      ➤ ${data.points_chasse}/4000 🪼
-🪸Points récoltes:    ➤ ${data.points_recoltes}/4000 🪸
-👾Points Hacking:     ➤ ${data.points_hacking}/4000 👾
-🏁Points conduite:    ➤ ${data.points_conduite}/4000 🏁
-🌍Points Exploration: ➤ ${data.points_exploration}/4000 🌍
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▯▯▯▯▯▯
 
-░▒░▒░ \`A C H I E V M E N T S\` 💠
-🏆Trophies: ${data.trophies} 🏆`;
+*👊🏽Points combat:*     ➤  ${data.points_combat}
+*🪼Points chasse:*      ➤  ${data.points_chasse}/4000🪼
+*🪸Points récoltes:*    ➤  ${data.points_recoltes}/4000🪸
+*👾Points Hacking:*     ➤ ${data.points_hacking}/4000👾 
+*🏁Points conduite*:    ➤ ${data.points_conduite}/4000🏁 
+*🌍Points Exploration:* ➤ ${data.points_exploration}/4000🌍
+
+░▒░▒░ \`A C H I E V M E N T S\`  💠 
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
+*🏆Trophies :* ${data.trophies} 🏆 
+➤
+▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
+                              💠▯▯▯▯▯▯⎢⎢⎢⎢⎢`; ;
  
   return ovl.sendMessage(ms_org, { image: { url: data.oc_url}, caption: fiche }, { quoted: ms });
 }
