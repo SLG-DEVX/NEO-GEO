@@ -67,7 +67,13 @@ const AllStarsDivsFiche = sequelize.define('AllStarsDivsFiche', {
   total_cards: { type: DataTypes.INTEGER, defaultValue: 0 },
   cards: { type: DataTypes.TEXT, defaultValue: 'aucune' },
   source: { type: DataTypes.STRING, defaultValue: 'inconnu' },
-  jid: { type: DataTypes.STRING, defaultValue: 'aucun' },
+
+  jid: {
+    type: DataTypes.STRING,
+    defaultValue: 'aucun',
+    unique: true // 🔥 anti-doublons
+  },
+
   oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' },
   code_fiche: { type: DataTypes.STRING, defaultValue: 'aucun' },
 
@@ -76,17 +82,30 @@ const AllStarsDivsFiche = sequelize.define('AllStarsDivsFiche', {
   timestamps: false,
 });
 
+
+// ====================== FONCTIONS ======================
+
 async function getAllFiches() {
   return await AllStarsDivsFiche.findAll();
 }
 
-async function getData(where = {}) {
-  const [fiche, created] = await AllStarsDivsFiche.findOrCreate({
-    where,
-    defaults: {}
-  });
+
+// ⚠️ SÉCURISÉ : plus de findOrCreate
+async function getData(where) {
+  if (!where || Object.keys(where).length === 0) {
+    throw new Error("❌ getData() appelé sans condition WHERE");
+  }
+
+  let fiche = await AllStarsDivsFiche.findOne({ where });
+
+  if (!fiche) {
+    fiche = await AllStarsDivsFiche.create(where);
+    console.log("🆕 Nouvelle fiche créée :", where);
+  }
+
   return fiche;
 }
+
 
 async function setfiche(colonne, valeur, jid) {
   const updateData = {};
@@ -98,6 +117,7 @@ async function setfiche(colonne, valeur, jid) {
   console.log(`✔ ${colonne} mis à jour → ${valeur}`);
 }
 
+
 async function add_id(jid, data = {}) {
   if (!jid) throw new Error("JID requis");
 
@@ -106,6 +126,7 @@ async function add_id(jid, data = {}) {
 
   return await AllStarsDivsFiche.create({ jid, ...data });
 }
+
 
 async function del_fiche(code_fiche) {
   return await AllStarsDivsFiche.destroy({
