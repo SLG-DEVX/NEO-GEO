@@ -44,7 +44,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 *🌟Lifestyle*:      ➤ ${data.lifestyle} 🌟
 *⭐Charisme:*      ➤ ${data.charisme} ⭐
 *🫱🏼‍🫲🏽Réputation:*   ➤ ${data.reputation} 🫱🏼‍🫲🏽 
-
+-------------------\\--------------
 *+Me💠*             ➤ ( 𝗂𝗇𝗍𝖾𝗋𝖿𝖺𝖼𝖾 𝖽𝖾 𝗃𝗈𝗎𝖾𝗎𝗋 )
 *+Inventaire💠* ➤ ( Propriétés ) 
  
