@@ -20,9 +20,9 @@ function normalizeJid(input) {
 // ============================
 // FONCTION AFFICHAGE HUD
 // ============================
-async function sendHUD(ms_org, ovl, jid, quoted) {
+async function sendHUD(ms_org, ovl, jid, ms) {
   const data = await getHUD(jid);
-  if (!data) return ovl.sendMessage(ms_org, { text: "❌ Aucun HUD trouvé pour ce joueur." }, { quoted });
+  if (!data) return ovl.sendMessage(ms_org, { text: "❌ Aucun HUD trouvé pour ce joueur." }, { quoted: ms });
 
   const hud = `➤ ──⦿ \`P L A Y E R\` | ⦿──
 
@@ -35,9 +35,8 @@ async function sendHUD(ms_org, ovl, jid, quoted) {
 👾Hacking: ${data.hacking || 0}      🛡️Résistance: ${data.resistance || 1}
 
 ➤ \`+Package\`🎒 ➤ \`+Phone\`📱`;
-
-  const payload = data.oc_url ? { image: { url: data.oc_url } } : {};
-  return ovl.sendMessage(ms_org, { ...payload, caption: hud }, { quoted });
+ 
+  return ovl.sendMessage(ms_org, { image: { url: data.oc_url }, caption: hud }, { quoted: ms });
 }
 
 // ============================
@@ -56,7 +55,7 @@ ovlcmd({
     if (!data) return repondre("❌ Aucun HUD trouvé pour ce joueur.");
 
     // Affichage simple si pas de modifications
-    if (arg.length <= 1) return sendHUD(ms_org, ovl, jid, ms || ms_org);
+    if (arg.length <= 1) return sendHUD(ms_org, ovl, jid, ms);
 
     // --- Modification du HUD ---
     const modifiables = [
