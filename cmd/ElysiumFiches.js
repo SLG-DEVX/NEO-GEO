@@ -17,9 +17,9 @@ function normalizeText(text) {
 // ============================
 // FONCTION POUR ENVOYER UNE FICHE
 // ============================
-async function sendFiche(ms_org, ovl, jid, quoted) {
+async function sendFiche(ms_org, ovl, jid, ms) {
   const data = await PlayerFunctions.getPlayer({ jid });
-  if (!data) return ovl.sendMessage(ms_org, { text: "❌ Fiche introuvable." }, { quoted });
+  if (!data) return ovl.sendMessage(ms_org, { text: "❌ Fiche introuvable." }, { quoted: ms });
 
   data.cyberwares ||= "";
   data.oc_url ||= "";
@@ -59,9 +59,8 @@ async function sendFiche(ms_org, ovl, jid, quoted) {
 
 ░▒░▒░ \`A C H I E V M E N T S\` 💠
 🏆Trophies: ${data.trophies} 🏆`;
-
-  const payload = data.oc_url ? { image: { url: data.oc_url } } : {};
-  return ovl.sendMessage(ms_org, { ...payload, caption: fiche }, { quoted });
+ 
+  return ovl.sendMessage(ms_org, { image: { url: data.oc_url}, caption: fiche }, { quoted: ms });
 }
 
 // ============================
@@ -77,7 +76,7 @@ function registerFicheCommand(code_fiche, jid) {
     classe: "Elysium",
     react: "💠"
   }, async (ms_org, ovl, { ms }) => {
-    await sendFiche(ms_org, ovl, jid, ms || ms_org);
+    await sendFiche(ms_org, ovl, jid, ms);
   });
 }
 
@@ -118,7 +117,7 @@ ovlcmd({
   await PlayerFunctions.addPlayer(jid, {
     code_fiche,
     pseudo: "Nouveau Joueur",
-    user: jid,
+    user: jid.replace("@s.whatsapp.net",""),
     exp: 0,
     niveau: 1,
     rang: "Novice🥉",
@@ -156,7 +155,7 @@ ovlcmd({
 
   const code_fiche = arg.join(" ");
   const player = await PlayerFunctions.getAllPlayers()
-    .then(all => all.find(p => p.code_fiche === code_fiche));
+    .then(all => all.find(p => p.code_fiche == code_fiche));
 
   if (!player) return repondre("❌ Aucune fiche trouvée.");
 
@@ -173,32 +172,19 @@ ovlcmd({
   nom_cmd: "elysiumme💠",
   classe: "Elysium",
   react: "💠"
-}, async (ms_org, ovl, { repondre, mentions }) => {
+}, async (ms_org, ovl, { repondre, arg, auteur_Message }) => {
   try {
-    // 🔹 Joueur mentionné ou expéditeur
-    const jidToFetch = (mentions && Object.keys(mentions).length > 0)
-      ? Object.keys(mentions)[0]
-      : ms_org.sender;
-
-    console.log("[ELY-ME] JID utilisé :", jidToFetch);
-
-    if (!jidToFetch) return repondre("❌ Impossible de récupérer le JID.");
-
-    const player = await PlayerFunctions.getPlayer({ jid: jidToFetch });
-
-    if (!player || !player.code_fiche || player.code_fiche === "aucun")
-      return repondre("❌ Fiche introuvable pour ce joueur.");
-
-    // Envoi de la fiche
-    await sendFiche(ms_org, ovl, jidToFetch, ms_org);
+let jid;
+    if (arg.length >= 1 && arg[0].includes("@")) {
+    jid = arg[0];
+  } else {
+    jid = auteur_Message;
+    }
+    
+    await sendFiche(ms_org, ovl, jid, ms);
 
   } catch (err) {
-    console.error("══════════ ❌ ELYSIUMME ERROR ❌ ══════════");
-    console.error("▶ Type :", err?.name);
-    console.error("▶ Message :", err?.message);
-    console.error("▶ Stack :", err?.stack);
-    console.error("▶ Error brute :", err);
-    console.error("════════════════════════════════════════");
+    console.error(err);
 
     return repondre("❌ Une erreur est survenue (voir console).");
   }
