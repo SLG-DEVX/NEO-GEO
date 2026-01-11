@@ -94,7 +94,7 @@ ovlcmd({
 // COMMANDE +SAVE HUD💠
 // ============================
 ovlcmd({
-  nom_cmd: "save",
+  nom_cmd: "savehud",
   classe: "Other",
   react: "💾",
   desc: "Enregistrer un HUD pour un joueur"
@@ -134,7 +134,7 @@ ovlcmd({
 // COMMANDE +DELETE HUD💠
 // ============================
 ovlcmd({
-  nom_cmd: "delete",
+  nom_cmd: "deletehud",
   classe: "Other",
   react: "🗑️",
   desc: "Supprimer le HUD d’un joueur"
