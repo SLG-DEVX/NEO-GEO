@@ -158,27 +158,39 @@ ovlcmd({
 });
 
 // ============================
-// COMMANDE +del💠
+// COMMANDE +del💠 
 // ============================
 ovlcmd({
   nom_cmd: "del💠",
   classe: "Elysium",
   react: "🗑️"
 }, async (ms_org, ovl, { repondre, arg }) => {
-  if (!arg.length) return repondre("❌ Syntaxe : +del💠 <code_fiche>");
+  if (arg.length < 1)
+    return repondre("❌ Syntaxe : +del💠 <@jid | numéro>");
 
-  const code_fiche = arg.join(" ");
-  const player = await PlayerFunctions.getAllPlayers()
-    .then(all => all.find(p => p.code_fiche == code_fiche));
+  let jid = arg[0];
 
-  if (!player) return repondre("❌ Aucune fiche trouvée.");
+  // Numéro simple → jid WhatsApp
+  if (!jid.includes("@")) {
+    jid = jid.replace(/\D/g, "") + "@s.whatsapp.net";
+  }
 
-  await PlayerFunctions.deletePlayer(player.jid);
-  registeredFiches.delete(code_fiche);
+  const player = await PlayerFunctions.getPlayer({ jid });
 
-  return repondre(`✅ Fiche supprimée : ${code_fiche}`);
+  if (!player)
+    return repondre("❌ Aucune fiche trouvée pour ce joueur.");
+
+  await PlayerFunctions.deletePlayer(jid);
+
+  if (player.code_fiche) {
+    registeredFiches.delete(player.code_fiche);
+  }
+
+  return repondre(
+    `✅ Fiche supprimée avec succès 💠\n\n` +
+    `👤 Joueur : ${jid.replace("@s.whatsapp.net", "")}`
+  );
 });
-
 // ============================
 // COMMANDE ELYSIUMME
 // ============================
