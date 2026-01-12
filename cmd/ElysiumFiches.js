@@ -299,11 +299,11 @@ ovlcmd({
     return repondre("❌ Ce joueur possède déjà une fiche.");
 
   // 🔹 Message progressif avant la création de la fiche
-  await sendProgressiveText(
+  await sendProgressiveTextSingleMessage(
     ovl,
     ms_org,
     "💠 [ SYSTEM-ELYSIUM ] Ajout d'un nouveau joueur au monde virtuel Élysium ♻️ ...",
-    25
+    15
   );
 
   await PlayerFunctions.addPlayer(jid, {
@@ -353,11 +353,11 @@ ovlcmd({
   if (!player) return repondre("❌ Aucune fiche trouvée.");
 
   // 🔹 Message progressif avant suppression
-  await sendProgressiveText(
+  await sendProgressiveTextSingleMessage(
     ovl,
     ms_org,
     "💠 [ SYSTEM-ELYSIUM ] Suppression d'un joueur du monde virtuel Élysium ♻️ ...",
-    25
+    15
   );
 
   await PlayerFunctions.deletePlayer(player.jid);
@@ -383,11 +383,11 @@ ovlcmd({
     }
 
     // 🔹 Message progressif avant la fiche
-    await sendProgressiveText(
+    await sendProgressiveTextSingleMessage(
       ovl,
       ms_org,
       `💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....`,
-      25
+      15
     );
 
     // 🔹 Ensuite on envoie la fiche normalement
