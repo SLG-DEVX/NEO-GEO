@@ -146,7 +146,6 @@ async function processUpdates(argArray, player) {
 
     updates.push({ colonne: statKey, oldValue, newValue });  
 
-    // Mise à jour temporaire pour le calcul du prochain update  
     player[statKey] = newValue;  
   }  
 
@@ -158,16 +157,14 @@ async function processUpdates(argArray, player) {
 // ============================  
 async function sendFiche(ms_org, ovl, jid, ms) {  
   const dataRaw = await PlayerFunctions.getPlayer({ jid });  
-  if (!dataRaw) return ovl.sendMessage(ms_org, { text: "❌ Fiche introuvable." }, { quoted: ms });  
+  if (!dataRaw) return ovl.sendMessage(ms_org, { text: "❌ Fiche introuvable." }, ms ? { quoted: ms } : {});  
 
   const data = dataRaw.dataValues ?? dataRaw;  
 
   data.cyberwares ||= "";  
-  data.oc_url ||= "";  
+  data.oc_url ||= "https://i.ibb.co/2k3S1yf/default.png";  
 
-  const cyberwaresCount = data.cyberwares  
-    ? data.cyberwares.split("\n").filter(c => c.trim()).length  
-    : 0;  
+  const cyberwaresCount = data.cyberwares ? data.cyberwares.split("\n").filter(c => c.trim()).length : 0;  
 
   const fiche = `▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
 *🫆Pseudo:*  ➤ ${data.pseudo}
@@ -214,7 +211,9 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 ▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
                               💠▯▯▯▯▯▯⎢⎢⎢⎢⎢`; 
 
-  return ovl.sendMessage(ms_org, { image: { url: data.oc_url}, caption: fiche }, { quoted: ms });  
+  const quote = ms ? { quoted: ms } : {};  
+
+  return ovl.sendMessage(ms_org, { image: { url: data.oc_url }, caption: fiche }, quote);  
 }  
 
 // ============================  
@@ -277,27 +276,11 @@ ovlcmd({
   );  
 
   await PlayerFunctions.addPlayer(jid, {  
-    code_fiche,  
-    pseudo: "Nouveau Joueur",  
-    user: jid.replace("@s.whatsapp.net",""),  
-    exp: 0,  
-    niveau: 1,  
-    rang: "Novice🥉",  
-    ecash: 50000,  
-    lifestyle: 0,  
-    charisme: 0,  
-    reputation: 0,  
-    cyberwares: "",  
-    missions: 0,  
-    gameover: 0,  
-    pvp: 0,  
-    points_combat: 0,  
-    points_chasse: 0,  
-    points_recoltes: 0,  
-    points_hacking: 0,  
-    points_conduite: 0,  
-    points_exploration: 0,  
-    trophies: 0  
+    code_fiche, pseudo: "Nouveau Joueur", user: jid.replace("@s.whatsapp.net",""),  
+    exp: 0, niveau: 1, rang: "Novice🥉", ecash: 50000, lifestyle: 0, charisme: 0,  
+    reputation: 0, cyberwares: "", missions: 0, gameover: 0, pvp: 0,  
+    points_combat: 0, points_chasse: 0, points_recoltes: 0, points_hacking: 0,  
+    points_conduite: 0, points_exploration: 0, trophies: 0  
   });  
 
   registeredFiches.set(code_fiche, jid);  
@@ -344,9 +327,9 @@ ovlcmd({
   react: "💠"  
 }, async (ms_org, ovl, { repondre, arg, auteur_Message, ms }) => {  
   try {  
-    let jid = (arg.length && arg[0].includes("@")) ? arg[0] : auteur_Message;  
+    const jid = (arg.length && arg[0].includes("@")) ? arg[0] : auteur_Message;  
 
-    await sendProgressiveTextSingleMessage(  
+    await sendProgressiveTextSingleMessage(
       ovl,  
       ms_org,  
       "💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....",  
@@ -356,8 +339,8 @@ ovlcmd({
     await sendFiche(ms_org, ovl, jid, ms);  
 
   } catch (err) {  
-    console.error(err);  
-    return repondre("❌ Une erreur est survenue (voir console).");  
+    console.error("[+elysiumme💠]", err);  
+    return repondre("❌ Une erreur est survenue. Vérifie la console.");  
   }  
 });  
 
