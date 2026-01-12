@@ -132,9 +132,7 @@ ovlcmd({
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     }
 });    
-
-//================= RAZORX AUTO =================
-//================= RAZORX AUTO COMPLET (Pseudo) =================
+//================= RAZORX AUTO COMPLET =================
 ovlcmd({
     nom_cmd: "razorx_auto",
     isfunc: true
@@ -147,14 +145,18 @@ ovlcmd({
 
     if (!texte) return;
 
-    // Vérifie que c'est bien le pavé officiel
-    if (!texte.includes("⚡RAZORX™ LIVE▶️") || !texte.includes("🏆NSL PRO ESPORT ARENA® | RAZORX⚡™")) return;
+    // ===== Détection pavé LIVE (tolérante WhatsApp) =====
+    if (
+        !/RAZORX.*LIVE/i.test(texte) ||
+        !/NSL PRO ESPORT ARENA/i.test(texte)
+    ) return;
 
-    const applied = []; // Compteur de modifications
+    const applied = [];
 
     //================= EXTRACTION DES PERFORMANCES =================
-    // Lignes PERFORMANCES : 👤pseudo: → strikes: X | attaques: Y
-    const perfRegex = /👤(.*?):\s*→\s*strikes:\s*(\d+)\s*\|\s*attaques:\s*(\d+)/gi;
+    const perfRegex =
+        /👤\s*([^:]+):\s*.*?strikes:\s*(\d+)\s*\|\s*attaques:\s*(\d+)/gi;
+
     let match;
     while ((match = perfRegex.exec(texte)) !== null) {
         const pseudo = match[1].trim();
@@ -170,19 +172,23 @@ ovlcmd({
         await setfiche("strikes", strikes, pseudo);
         await setfiche("attaques", attaques, pseudo);
 
-        applied.push(`⚡ ${pseudo} : strikes ${strikesVal} | attaques ${attaquesVal}`);
+        applied.push(`⚡ ${pseudo} +${strikesVal} strikes | +${attaquesVal} attaques`);
     }
 
-    //================= EXTRACTION DES WINNERS/LOSERS =================
-    const winnerMatch = texte.match(/✅ \*?Winner:\*?\s*(.*)/i);
-    const loserMatch = texte.match(/❌ \*?Loser:\*?\s*(.*)/i);
+    //================= EXTRACTION DES WINNERS / LOSERS =================
+    const winnerMatch = texte.match(/Winner:\*?\s*([^\n]+)/i);
+    const loserMatch  = texte.match(/Loser:\*?\s*([^\n]+)/i);
 
-    const winners = winnerMatch ? winnerMatch[1].split(',').map(p => p.trim()).filter(Boolean) : [];
-    const losers = loserMatch ? loserMatch[1].split(',').map(p => p.trim()).filter(Boolean) : [];
+    const winners = winnerMatch
+        ? winnerMatch[1].split(',').map(p => p.trim()).filter(Boolean)
+        : [];
 
-    //---- WINNERS ----
-    for (const w of winners) {
-        const pseudo = w.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+    const losers = loserMatch
+        ? loserMatch[1].split(',').map(p => p.trim()).filter(Boolean)
+        : [];
+
+    //================= WINNERS =================
+    for (const pseudo of winners) {
         const data = await getData({ pseudo });
         if (!data) continue;
 
@@ -191,26 +197,18 @@ ovlcmd({
         let victoires = Number(data.victoires) || 0;
 
         victoires++;
-
-        if (texte.includes(`${pseudo} + ✅`)) {
-            exp += 10;
-            talent += 10;
-        } else if (texte.includes(`${pseudo} + ❌`)) {
-            // juste +1 victoire
-        } else {
-            exp += 5;
-        }
+        exp += 10;
+        talent += 10;
 
         await setfiche("exp", exp, pseudo);
         await setfiche("talent", talent, pseudo);
         await setfiche("victoires", victoires, pseudo);
 
-        applied.push(`✅ ${pseudo} mis à jour`);
+        applied.push(`✅ ${pseudo} WIN`);
     }
 
-    //---- LOSERS ----
-    for (const l of losers) {
-        const pseudo = l.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+    //================= LOSERS =================
+    for (const pseudo of losers) {
         const data = await getData({ pseudo });
         if (!data) continue;
 
@@ -218,24 +216,22 @@ ovlcmd({
         let defaites = Number(data.defaites) || 0;
 
         defaites++;
-
-        if (texte.includes(`${pseudo} + ❌`)) {
-            exp = Math.max(0, exp - 5);
-        }
+        exp = Math.max(0, exp - 5);
 
         await setfiche("exp", exp, pseudo);
         await setfiche("defaites", defaites, pseudo);
 
-        applied.push(`❌ ${pseudo} mis à jour`);
+        applied.push(`❌ ${pseudo} LOSE`);
     }
 
-    //================= MESSAGE DE CONFIRMATION =================
+    //================= CONFIRMATION =================
     if (applied.length) {
         await ovl.sendMessage(ms_org, {
-            text: "Performances appliquées pour ce match!✅"
+            text: "✅ Performances appliquées pour ce match!"
         }, { quoted: ms });
     }
-});
+}); 
+
 
 //================= +PAVEMODO SIMPLE =================
 ovlcmd({
