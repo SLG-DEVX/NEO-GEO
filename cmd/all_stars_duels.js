@@ -132,106 +132,122 @@ ovlcmd({
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     }
 });    
-//================= RAZORX AUTO COMPLET =================
+//================ PARSER RAZORX (NOUVEAU FORMAT) =================
+function parseRazorXNew(text) {
+    const result = {
+        performances: [], // { pseudo, strikes, attaques }
+        winner: null,     // { pseudo, bonus }
+        loser: null       // { pseudo }
+    };
+
+    // ---------- PERFORMANCES ----------
+    const perfBloc = text.match(/📊\s*`PERFORMANCES`([\s\S]+?)(?:🏆`RESULTAT FINAL`|$)/i);
+    if (perfBloc) {
+        const lines = perfBloc[1]
+            .split('\n')
+            .map(l => l.trim())
+            .filter(l => l.startsWith("👤"));
+
+        for (const line of lines) {
+            const m = line.match(
+                /👤\s*([^:]+):\s*.*?strikes:\s*(\d+)\s*\|\s*attaques:\s*(\d+)/i
+            );
+            if (!m) continue;
+
+            result.performances.push({
+                pseudo: m[1].trim(),
+                strikes: Number(m[2]),
+                attaques: Number(m[3])
+            });
+        }
+    }
+
+    // ---------- WINNER ----------
+    const winMatch = text.match(/Winner:\*?\s*([^\n]+)/i);
+    if (winMatch) {
+        const raw = winMatch[1];
+        result.winner = {
+            pseudo: raw.replace(/\+\s*[✅❌]/g, '').replace(/[✅❌]/g, '').trim(),
+            bonus: raw.includes("✅")
+        };
+    }
+
+    // ---------- LOSER ----------
+    const loseMatch = text.match(/Loser:\*?\s*([^\n]+)/i);
+    if (loseMatch) {
+        result.loser = {
+            pseudo: loseMatch[1].replace(/\+\s*[✅❌]/g, '').replace(/[✅❌]/g, '').trim()
+        };
+    }
+
+    return result;
+} 
+
+//================ RAZORX AUTO =================
 ovlcmd({
-    nom_cmd: "razorx_auto",
+    nom: "razorx_auto",
     isfunc: true
-}, async (ms_org, ovl, { ms }) => {
+}, async (ms_org, ovl, { texte, ms }) => {
 
-    const texte =
-        ms.message?.conversation ||
-        ms.message?.extendedTextMessage?.text ||
-        ms.message?.imageMessage?.caption;
+    if (!texte || !texte.includes("⚡RAZORX™")) return;
 
-    if (!texte) return;
+    const parsed = parseRazorXNew(texte);
 
-    // ===== Détection pavé LIVE (tolérante WhatsApp) =====
     if (
-        !/RAZORX.*LIVE/i.test(texte) ||
-        !/NSL PRO ESPORT ARENA/i.test(texte)
+        !parsed.performances.length &&
+        !parsed.winner &&
+        !parsed.loser
     ) return;
 
-    const applied = [];
+    let allStarsTouched = false;
 
-    //================= EXTRACTION DES PERFORMANCES =================
-    const perfRegex =
-        /👤\s*([^:]+):\s*.*?strikes:\s*(\d+)\s*\|\s*attaques:\s*(\d+)/gi;
-
-    let match;
-    while ((match = perfRegex.exec(texte)) !== null) {
-        const pseudo = match[1].trim();
-        const strikesVal = Number(match[2]) || 0;
-        const attaquesVal = Number(match[3]) || 0;
-
-        const data = await getData({ pseudo });
+    // ---------- PERFORMANCES ----------
+    for (const p of parsed.performances) {
+        const data = await getData({ pseudo: p.pseudo });
         if (!data) continue;
 
-        const strikes = (Number(data.strikes) || 0) + strikesVal;
-        const attaques = (Number(data.attaques) || 0) + attaquesVal;
+        await setfiche("strikes", (Number(data.strikes) || 0) + p.strikes, p.pseudo);
+        await setfiche("attaques", (Number(data.attaques) || 0) + p.attaques, p.pseudo);
 
-        await setfiche("strikes", strikes, pseudo);
-        await setfiche("attaques", attaques, pseudo);
-
-        applied.push(`⚡ ${pseudo} +${strikesVal} strikes | +${attaquesVal} attaques`);
+        allStarsTouched = true;
     }
 
-    //================= EXTRACTION DES WINNERS / LOSERS =================
-    const winnerMatch = texte.match(/Winner:\*?\s*([^\n]+)/i);
-    const loserMatch  = texte.match(/Loser:\*?\s*([^\n]+)/i);
-
-    const winners = winnerMatch
-        ? winnerMatch[1].split(',').map(p => p.trim()).filter(Boolean)
-        : [];
-
-    const losers = loserMatch
-        ? loserMatch[1].split(',').map(p => p.trim()).filter(Boolean)
-        : [];
-
-    //================= WINNERS =================
-    for (const pseudo of winners) {
+    // ---------- WINNER ----------
+    if (parsed.winner) {
+        const { pseudo, bonus } = parsed.winner;
         const data = await getData({ pseudo });
-        if (!data) continue;
 
-        let exp = Number(data.exp) || 0;
-        let talent = Number(data.talent) || 0;
-        let victoires = Number(data.victoires) || 0;
-
-        victoires++;
-        exp += 10;
-        talent += 10;
-
-        await setfiche("exp", exp, pseudo);
-        await setfiche("talent", talent, pseudo);
-        await setfiche("victoires", victoires, pseudo);
-
-        applied.push(`✅ ${pseudo} WIN`);
+        if (data) {
+            await setfiche("victoires", (Number(data.victoires) || 0) + 1, pseudo);
+            await setfiche("exp", (Number(data.exp) || 0) + (bonus ? 10 : 5), pseudo);
+            await setfiche("talent", (Number(data.talent) || 0) + (bonus ? 1 : 0), pseudo);
+            allStarsTouched = true;
+        }
     }
 
-    //================= LOSERS =================
-    for (const pseudo of losers) {
+    // ---------- LOSER ----------
+    if (parsed.loser) {
+        const pseudo = parsed.loser.pseudo;
         const data = await getData({ pseudo });
-        if (!data) continue;
 
-        let exp = Number(data.exp) || 0;
-        let defaites = Number(data.defaites) || 0;
-
-        defaites++;
-        exp = Math.max(0, exp - 5);
-
-        await setfiche("exp", exp, pseudo);
-        await setfiche("defaites", defaites, pseudo);
-
-        applied.push(`❌ ${pseudo} LOSE`);
+        if (data) {
+            await setfiche("defaites", (Number(data.defaites) || 0) + 1, pseudo);
+            await setfiche(
+                "exp",
+                Math.max(0, (Number(data.exp) || 0) - 5),
+                pseudo
+            );
+            allStarsTouched = true;
+        }
     }
 
-    //================= CONFIRMATION =================
-    if (applied.length) {
+    // ---------- CONFIRMATION ----------
+    if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
-            text: "✅ Performances appliquées pour ce match!"
+            text: "Performances appliquées pour ce match!✅"
         }, { quoted: ms });
     }
-}); 
-
+});
 
 //================= +PAVEMODO SIMPLE =================
 ovlcmd({
