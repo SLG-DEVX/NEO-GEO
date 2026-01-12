@@ -109,8 +109,7 @@ ovlcmd({
     if (!arg.length) {
         if (!duel) return;
         return ovl.sendMessage(ms_org, {
-            image: { url: duel.arene.image },
-            caption: generateFicheDuel(duel)
+            image: { url: duel.arene.image },            caption: generateFicheDuel(duel)
         }, { quoted: ms });
     }
 
@@ -135,8 +134,9 @@ ovlcmd({
 });    
 
 //================= RAZORX AUTO =================
+//================= RAZORX AUTO COMPLET (Pseudo) =================
 ovlcmd({
-    nom: "razorx_auto",
+    nom_cmd: "razorx_auto",
     isfunc: true
 }, async (ms_org, ovl, { ms }) => {
 
@@ -145,130 +145,120 @@ ovlcmd({
         ms.message?.extendedTextMessage?.text ||
         ms.message?.imageMessage?.caption;
 
-    if (!texte || !texte.includes("⚡RAZORX™")) return;
+    if (!texte) return;
 
-    const lines = texte.split('\n');
+    // Vérifie que c'est bien le pavé officiel
+    if (!texte.includes("⚡RAZORX™ LIVE▶️") || !texte.includes("🏆NSL PRO ESPORT ARENA® | RAZORX⚡™")) return;
 
-    const cleanPseudo = (t) =>
-        t.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+    const applied = []; // Compteur de modifications
 
-    let errors = [];
-    let loserData = null;
+    //================= EXTRACTION DES PERFORMANCES =================
+    // Lignes PERFORMANCES : 👤pseudo: → strikes: X | attaques: Y
+    const perfRegex = /👤(.*?):\s*→\s*strikes:\s*(\d+)\s*\|\s*attaques:\s*(\d+)/gi;
+    let match;
+    while ((match = perfRegex.exec(texte)) !== null) {
+        const pseudo = match[1].trim();
+        const strikesVal = Number(match[2]) || 0;
+        const attaquesVal = Number(match[3]) || 0;
 
-    //================ RESULTATS =================
-    if (texte.includes("🏆`RESULTAT")) {
+        const data = await getData({ pseudo });
+        if (!data) continue;
 
-        let winnerPseudo = null;
-        let loserPseudo = null;
+        const strikes = (Number(data.strikes) || 0) + strikesVal;
+        const attaques = (Number(data.attaques) || 0) + attaquesVal;
 
-        for (const line of lines) {
-            let m;
-            m = line.match(/Winner\s*=\s*(.+)/i);
-            if (m) winnerPseudo = cleanPseudo(m[1]);
-            m = line.match(/Loser\s*=\s*(.+)/i);
-            if (m) loserPseudo = cleanPseudo(m[1]);
+        await setfiche("strikes", strikes, pseudo);
+        await setfiche("attaques", attaques, pseudo);
+
+        applied.push(`⚡ ${pseudo} : strikes ${strikesVal} | attaques ${attaquesVal}`);
+    }
+
+    //================= EXTRACTION DES WINNERS/LOSERS =================
+    const winnerMatch = texte.match(/✅ \*?Winner:\*?\s*(.*)/i);
+    const loserMatch = texte.match(/❌ \*?Loser:\*?\s*(.*)/i);
+
+    const winners = winnerMatch ? winnerMatch[1].split(',').map(p => p.trim()).filter(Boolean) : [];
+    const losers = loserMatch ? loserMatch[1].split(',').map(p => p.trim()).filter(Boolean) : [];
+
+    //---- WINNERS ----
+    for (const w of winners) {
+        const pseudo = w.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+        const data = await getData({ pseudo });
+        if (!data) continue;
+
+        let exp = Number(data.exp) || 0;
+        let talent = Number(data.talent) || 0;
+        let victoires = Number(data.victoires) || 0;
+
+        victoires++;
+
+        if (texte.includes(`${pseudo} + ✅`)) {
+            exp += 10;
+            talent += 10;
+        } else if (texte.includes(`${pseudo} + ❌`)) {
+            // juste +1 victoire
+        } else {
+            exp += 5;
         }
 
-        // ===== WINNER =====
-        if (winnerPseudo) {
-            const data = await getData({ pseudo: winnerPseudo });
-            if (!data) {
-                errors.push(`❌ Pseudo introuvable: ${winnerPseudo}`);
-            } else {
-                // valeurs cumulatives
-                let exp = Number(data.exp) || 0;
-                let talent = Number(data.talent) || 0;
-                let victoires = Number(data.victoires) || 0;
-                victoires++;
+        await setfiche("exp", exp, pseudo);
+        await setfiche("talent", talent, pseudo);
+        await setfiche("victoires", victoires, pseudo);
 
-                // ✅ ou ❌ ou normal
-                if (texte.includes(`${winnerPseudo} + ✅`)) {
-                    exp += 10;
-                    talent += 10;
-                } else if (texte.includes(`${winnerPseudo} + ❌`)) {
-                    // juste +1 victoire
-                } else {
-                    exp += 5; // Winner normal
-                }
+        applied.push(`✅ ${pseudo} mis à jour`);
+    }
 
-                await setfiche("exp", exp, data.jid);
-                await setfiche("talent", talent, data.jid);
-                await setfiche("victoires", victoires, data.jid);
-            }
+    //---- LOSERS ----
+    for (const l of losers) {
+        const pseudo = l.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
+        const data = await getData({ pseudo });
+        if (!data) continue;
+
+        let exp = Number(data.exp) || 0;
+        let defaites = Number(data.defaites) || 0;
+
+        defaites++;
+
+        if (texte.includes(`${pseudo} + ❌`)) {
+            exp = Math.max(0, exp - 5);
         }
 
-        // ===== LOSER =====
-        if (loserPseudo) {
-            const data = await getData({ pseudo: loserPseudo });
-            if (!data) {
-                errors.push(`❌ Pseudo introuvable: ${loserPseudo}`);
-            } else {
-                let exp = Number(data.exp) || 0;
-                let defaites = Number(data.defaites) || 0;
-                defaites++;
+        await setfiche("exp", exp, pseudo);
+        await setfiche("defaites", defaites, pseudo);
 
-                if (texte.includes(`${loserPseudo} + ❌`)) {
-                    exp = Math.max(0, exp - 5); // MALUS
-                }
+        applied.push(`❌ ${pseudo} mis à jour`);
+    }
 
-                await setfiche("exp", exp, data.jid);
-                await setfiche("defaites", defaites, data.jid);
-
-                loserData = data;
-            }
-        }
-
-        if (errors.length) {
-            return ovl.sendMessage(ms_org, {
-                text: errors.join('\n')
-            }, { quoted: ms });
-        }
-
+    //================= MESSAGE DE CONFIRMATION =================
+    if (applied.length) {
         await ovl.sendMessage(ms_org, {
-            text: "Resultats appliqués pour ce match!✅"
+            text: "Performances appliquées pour ce match!✅"
         }, { quoted: ms });
     }
+});
 
-    //================ PERFORMANCES =================
-    if (texte.includes("📊") && texte.includes("PERFORMANCES")) {
+//================= +PAVEMODO SIMPLE =================
+ovlcmd({
+    nom_cmd: "pavemodo",
+    classe: "Duel",
+    react: "⚡"
+}, async (ms_org, ovl, { ms }) => {
 
-        let applied = [];
-        errors = [];
+    const message = `
+.                    ⚡RAZORX™ LIVE▶️
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+📊 \`PERFORMANCES\`
+👤j1:  → strikes: 0 | attaques: 0
+👤J2: → strikes: 0 | attaques: 0
 
-        for (const line of lines) {
-            const m = line.match(/👤(.+?):.*strikes:\s*(\d+).*attaques:\s*(\d+)/i);
-            if (!m) continue;
+🏆\`RESULTAT FINAL\`:
+✅ *Winner:*
+❌ *Loser:*
+*⏱️Durée:*
 
-            const pseudo = cleanPseudo(m[1]);
-            const strikesAdd = Number(m[2]);
-            const attaquesAdd = Number(m[3]);
+╰───────────────────
+🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
+`.trim();
 
-            const data = await getData({ pseudo });
-            if (!data) {
-                errors.push(`❌ Pseudo introuvable: ${pseudo}`);
-                continue;
-            }
-
-            // valeurs cumulatives
-            const newStrikes = (Number(data.strikes) || 0) + strikesAdd;
-            const newAttaques = (Number(data.attaques) || 0) + attaquesAdd;
-
-            await setfiche("strikes", newStrikes, data.jid);
-            await setfiche("attaques", newAttaques, data.jid);
-
-            applied.push(`➕ ${pseudo}: +${strikesAdd} strikes | +${attaquesAdd} attaques`);
-        }
-
-        if (applied.length) {
-            await ovl.sendMessage(ms_org, {
-                text: "Performances appliquées pour ce match!✅"
-            }, { quoted: ms });
-        }
-
-        if (errors.length) {
-            await ovl.sendMessage(ms_org, {
-                text: errors.join('\n')
-            }, { quoted: ms });
-        }
-    }
-}); 
+    await ovl.sendMessage(ms_org, { text: message }, { quoted: ms });
+});
