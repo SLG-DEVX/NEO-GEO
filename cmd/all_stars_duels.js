@@ -179,7 +179,6 @@ ovlcmd({
 
 
 //================= RAZORX AUTO =================
-//================= RAZORX AUTO (MODE PSEUDO - SECURISE) =================
 ovlcmd({
     nom: "razorx_auto",
     isfunc: true
@@ -197,28 +196,22 @@ ovlcmd({
     const cleanPseudo = (t) =>
         t.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
 
+    let errors = [];
+    let loserData = null;
+
     //================ RESULTATS =================
     if (texte.includes("🏆`RESULTAT")) {
-
-        let duree = null;
-        const dureeMatch = texte.match(/⏱️Durée:\s*(\d+)/i);
-        if (dureeMatch) duree = Number(dureeMatch[1]);
 
         let winnerPseudo = null;
         let loserPseudo = null;
 
         for (const line of lines) {
             let m;
-
             m = line.match(/Winner\s*=\s*(.+)/i);
             if (m) winnerPseudo = cleanPseudo(m[1]);
-
             m = line.match(/Loser\s*=\s*(.+)/i);
             if (m) loserPseudo = cleanPseudo(m[1]);
         }
-
-        let errors = [];
-        let loserData = null;
 
         // ===== WINNER =====
         if (winnerPseudo) {
@@ -226,11 +219,21 @@ ovlcmd({
             if (!data) {
                 errors.push(`❌ Pseudo introuvable: ${winnerPseudo}`);
             } else {
-                let { exp = 0, talent = 0, victoires = 0 } = data;
-
+                // valeurs cumulatives
+                let exp = Number(data.exp) || 0;
+                let talent = Number(data.talent) || 0;
+                let victoires = Number(data.victoires) || 0;
                 victoires++;
-                exp += 10;
-                talent += 10;
+
+                // ✅ ou ❌ ou normal
+                if (texte.includes(`${winnerPseudo} + ✅`)) {
+                    exp += 10;
+                    talent += 10;
+                } else if (texte.includes(`${winnerPseudo} + ❌`)) {
+                    // juste +1 victoire
+                } else {
+                    exp += 5; // Winner normal
+                }
 
                 await setfiche("exp", exp, data.jid);
                 await setfiche("talent", talent, data.jid);
@@ -244,27 +247,19 @@ ovlcmd({
             if (!data) {
                 errors.push(`❌ Pseudo introuvable: ${loserPseudo}`);
             } else {
-                let { exp = 0, talent = 0, defaites = 0 } = data;
-
+                let exp = Number(data.exp) || 0;
+                let defaites = Number(data.defaites) || 0;
                 defaites++;
-                exp = Math.max(0, exp - 5);
-                talent = Math.max(0, talent - 5);
+
+                if (texte.includes(`${loserPseudo} + ❌`)) {
+                    exp = Math.max(0, exp - 5); // MALUS
+                }
 
                 await setfiche("exp", exp, data.jid);
-                await setfiche("talent", talent, data.jid);
                 await setfiche("defaites", defaites, data.jid);
 
                 loserData = data;
             }
-        }
-
-        // ===== PENALITE MATCH TROP COURT =====
-        if (duree !== null && duree < 3 && loserData) {
-            await setfiche(
-                "talent",
-                Math.max(0, (Number(loserData.talent) || 0) - 5),
-                loserData.jid
-            );
         }
 
         if (errors.length) {
@@ -274,7 +269,7 @@ ovlcmd({
         }
 
         await ovl.sendMessage(ms_org, {
-            text: "✅ Résultats appliqués avec succès !"
+            text: "Resultats appliqués pour ce match!✅"
         }, { quoted: ms });
     }
 
@@ -282,15 +277,15 @@ ovlcmd({
     if (texte.includes("📊") && texte.includes("PERFORMANCES")) {
 
         let applied = [];
-        let errors = [];
+        errors = [];
 
         for (const line of lines) {
             const m = line.match(/👤(.+?):.*strikes:\s*(\d+).*attaques:\s*(\d+)/i);
             if (!m) continue;
 
             const pseudo = cleanPseudo(m[1]);
-            const strikes = Number(m[2]);
-            const attaques = Number(m[3]);
+            const strikesAdd = Number(m[2]);
+            const attaquesAdd = Number(m[3]);
 
             const data = await getData({ pseudo });
             if (!data) {
@@ -298,17 +293,26 @@ ovlcmd({
                 continue;
             }
 
-            const newStrikes = (Number(data.strikes) || 0) + strikes;
-            const newAttaques = (Number(data.attaques) || 0) + attaques;
+            // valeurs cumulatives
+            const newStrikes = (Number(data.strikes) || 0) + strikesAdd;
+            const newAttaques = (Number(data.attaques) || 0) + attaquesAdd;
 
             await setfiche("strikes", newStrikes, data.jid);
             await setfiche("attaques", newAttaques, data.jid);
 
-            applied.push(`➕ ${pseudo}: +${strikes} strikes | +${attaques} attaques`);
+            applied.push(`➕ ${pseudo}: +${strikesAdd} strikes | +${attaquesAdd} attaques`);
         }
 
         if (applied.length) {
-    await ovl.sendMessage(ms_org, {
-        text: "Performances appliquées pour ce match!✅"
-    }, { quoted: ms });
-}
+            await ovl.sendMessage(ms_org, {
+                text: "Performances appliquées pour ce match!✅"
+            }, { quoted: ms });
+        }
+
+        if (errors.length) {
+            await ovl.sendMessage(ms_org, {
+                text: errors.join('\n')
+            }, { quoted: ms });
+        }
+    }
+}); 
