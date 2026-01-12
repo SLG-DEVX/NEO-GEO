@@ -47,7 +47,7 @@ function normalizeText(text) {
 // ============================
 // TEXTE PROGRESSIF (STYLE MACHINE)
 // ============================
-async function sendProgressiveText(ovl, ms_org, text, speed = 25) {
+async function sendProgressiveTextSingleMessage(ovl, ms_org, text, speed = 15) {
   let message = "";
   for (const char of text) {
     message += char;
