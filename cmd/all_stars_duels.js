@@ -97,11 +97,6 @@ ovlcmd({
     }, { quoted: ms });
 });
 
-    //================= CLEAN JID =================
-function cleanJid(jid) {
-    return jid.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
-}
-
 //================= +STATS =================
 ovlcmd({
     nom_cmd: "stats",
@@ -123,44 +118,6 @@ ovlcmd({
     const [left, rest] = input.split(':').map(v => v.trim());
     if (!left || !rest) return;
 
-    // ===== STATS ALL STARS VIA JID MENTION =====
-    const context =
-        ms.message?.extendedTextMessage?.contextInfo ||
-        ms.message?.imageMessage?.contextInfo ||
-        ms.message?.videoMessage?.contextInfo;
-
-    const mentions = context?.mentionedJid || [];
-
-    if (mentions.length > 0) {
-        let jid = cleanJid(mentions[0]);
-        const data = await getData({ jid });
-        if (!data) return;
-
-        const confirm = [];
-        const actions = rest.split(',');
-
-        for (const p of actions) {
-            const m = p.trim().match(/(strikes|attaques)\s*\+\s*(\d+)/i);
-            if (!m) continue;
-
-            const field = m[1].toLowerCase(); // strikes ou attaques
-            const value = Number(m[2]);
-
-            const current = Number(data[field]) || 0;
-            const newValue = current + value;
-
-            await setfiche(field, newValue, jid);
-            confirm.push(`➕ ${field.toUpperCase()} +${value}`);
-        }
-
-        if (confirm.length) {
-            return ovl.sendMessage(ms_org, {
-                text: `✅ Stats ALL STARS mises à jour !`
-            }, { quoted: ms });
-        }
-        return;
-    }
-
     // ===== STATS DUEL (si aucun mention) =====
     if (!duel) return;
 
@@ -175,8 +132,7 @@ ovlcmd({
         if (!m) continue;
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     }
-});
-
+});    
 
 //================= RAZORX AUTO =================
 ovlcmd({
