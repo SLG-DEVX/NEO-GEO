@@ -179,10 +179,11 @@ ovlcmd({
 
 
 //================= RAZORX AUTO =================
+//================= RAZORX AUTO (MODE PSEUDO - SECURISE) =================
 ovlcmd({
     nom: "razorx_auto",
     isfunc: true
-}, async (ms_org, ovl, { ms, getJid }) => {
+}, async (ms_org, ovl, { ms }) => {
 
     const texte =
         ms.message?.conversation ||
@@ -191,71 +192,123 @@ ovlcmd({
 
     if (!texte || !texte.includes("⚡RAZORX™")) return;
 
-    const mentions = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    const lines = texte.split('\n');
+
+    const cleanPseudo = (t) =>
+        t.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
 
     //================ RESULTATS =================
-    if (texte.includes("🏆`RESULTAT`")) {
-
-        const lines = texte.split('\n');
+    if (texte.includes("🏆`RESULTAT")) {
 
         let duree = null;
         const dureeMatch = texte.match(/⏱️Durée:\s*(\d+)/i);
         if (dureeMatch) duree = Number(dureeMatch[1]);
 
-        let mentionCursor = 0;
-        let loserJid = null;
+        let winnerPseudo = null;
+        let loserPseudo = null;
 
         for (const line of lines) {
-            const m = line.match(/(Winner|Loser):\s*@/i);
-            if (!m) continue;
+            let m;
 
-            const type = m[1].toLowerCase(); // winner / loser
-            let jid = mentions[mentionCursor];
-            mentionCursor++;
+            m = line.match(/Winner\s*=\s*(.+)/i);
+            if (m) winnerPseudo = cleanPseudo(m[1]);
 
-            if (!jid) continue;
+            m = line.match(/Loser\s*=\s*(.+)/i);
+            if (m) loserPseudo = cleanPseudo(m[1]);
+        }
 
-            jid = cleanJid(jid);
+        let errors = [];
+        let loserData = null;
 
-            const data = await getData({ jid });
-            if (!data) continue;
+        // ===== WINNER =====
+        if (winnerPseudo) {
+            const data = await getData({ pseudo: winnerPseudo });
+            if (!data) {
+                errors.push(`❌ Pseudo introuvable: ${winnerPseudo}`);
+            } else {
+                let { exp = 0, talent = 0, victoires = 0 } = data;
 
-            let { exp = 0, talent = 0, victoires = 0, defaites = 0 } = data;
-
-            if (type === "winner") {
                 victoires++;
                 exp += 10;
                 talent += 10;
-            }
 
-            if (type === "loser") {
+                await setfiche("exp", exp, data.jid);
+                await setfiche("talent", talent, data.jid);
+                await setfiche("victoires", victoires, data.jid);
+            }
+        }
+
+        // ===== LOSER =====
+        if (loserPseudo) {
+            const data = await getData({ pseudo: loserPseudo });
+            if (!data) {
+                errors.push(`❌ Pseudo introuvable: ${loserPseudo}`);
+            } else {
+                let { exp = 0, talent = 0, defaites = 0 } = data;
+
                 defaites++;
                 exp = Math.max(0, exp - 5);
                 talent = Math.max(0, talent - 5);
-                loserJid = jid;
-            }
 
-            await setfiche("exp", exp, jid);
-            await setfiche("talent", talent, jid);
-            await setfiche("victoires", victoires, jid);
-            await setfiche("defaites", defaites, jid);
+                await setfiche("exp", exp, data.jid);
+                await setfiche("talent", talent, data.jid);
+                await setfiche("defaites", defaites, data.jid);
+
+                loserData = data;
+            }
         }
 
-        // Pénalité si match trop court
-        if (duree !== null && duree < 3 && loserJid) {
-            const data = await getData({ jid: loserJid });
-            if (data) {
-                await setfiche(
-                    "talent",
-                    Math.max(0, (Number(data.talent) || 0) - 5),
-                    loserJid
-                );
-            }
+        // ===== PENALITE MATCH TROP COURT =====
+        if (duree !== null && duree < 3 && loserData) {
+            await setfiche(
+                "talent",
+                Math.max(0, (Number(loserData.talent) || 0) - 5),
+                loserData.jid
+            );
+        }
+
+        if (errors.length) {
+            return ovl.sendMessage(ms_org, {
+                text: errors.join('\n')
+            }, { quoted: ms });
         }
 
         await ovl.sendMessage(ms_org, {
-            text: "✅ Résultats appliqués pour ce match !."
+            text: "✅ Résultats appliqués avec succès !"
         }, { quoted: ms });
     }
 
-});
+    //================ PERFORMANCES =================
+    if (texte.includes("📊") && texte.includes("PERFORMANCES")) {
+
+        let applied = [];
+        let errors = [];
+
+        for (const line of lines) {
+            const m = line.match(/👤(.+?):.*strikes:\s*(\d+).*attaques:\s*(\d+)/i);
+            if (!m) continue;
+
+            const pseudo = cleanPseudo(m[1]);
+            const strikes = Number(m[2]);
+            const attaques = Number(m[3]);
+
+            const data = await getData({ pseudo });
+            if (!data) {
+                errors.push(`❌ Pseudo introuvable: ${pseudo}`);
+                continue;
+            }
+
+            const newStrikes = (Number(data.strikes) || 0) + strikes;
+            const newAttaques = (Number(data.attaques) || 0) + attaques;
+
+            await setfiche("strikes", newStrikes, data.jid);
+            await setfiche("attaques", newAttaques, data.jid);
+
+            applied.push(`➕ ${pseudo}: +${strikes} strikes | +${attaques} attaques`);
+        }
+
+        if (applied.length) {
+    await ovl.sendMessage(ms_org, {
+        text: "Performances appliquées pour ce match!✅"
+    }, { quoted: ms });
+}
