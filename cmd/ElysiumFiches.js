@@ -4,19 +4,9 @@ const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 const registeredFiches = new Map(); // code_fiche => jid
 
 // ============================
-// UTILS
-// ============================
-function normalizeText(text) {
-  return text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-/ ============================
 // CONFIG SETSUDO
 // ============================
-const SETSUDO = ["242055759975", "242060000000"]; // numéros autorisés
+const SETSUDO = ["242055759975", "22651463203", "242069983150"]; // numéros autorisés
 
 // ============================
 // STATS AUTORISÉES
