@@ -49,7 +49,7 @@ function normalizeText(text) {
 // ============================
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function sendProgressiveText(ovl, ms_org, text, speed = 15) {
+async function sendProgressiveText(ovl, ms_org, text, speed = 6) {
   let currentText = "";
 
   // Message initial pour édition
@@ -98,7 +98,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
       await PlayerFunctions.setfiche("niveau", currentLevel, jid);
 
       const message = `💠 [ SYSTEM ] Félicitations au joueur @${jid.split('@')[0]} qui passe au niveau supérieur : *Niveau ${currentLevel} ▲*`;
-      await sendProgressiveText(ovl, ms_org, message, 15);
+      await sendProgressiveText(ovl, ms_org, message, 6);
     }
   }
 
@@ -111,7 +111,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
       await PlayerFunctions.setfiche("niveau", currentLevel, jid);
 
       const message = `💠 [ SYSTEM ] Joueur @${jid.split('@')[0]} descend au niveau inférieur : *Niveau ${currentLevel} ▼*`;
-      await sendProgressiveText(ovl, ms_org, message, 15);
+      await sendProgressiveText(ovl, ms_org, message, 6);
     }
   }
 }
@@ -282,7 +282,7 @@ ovlcmd({
     ovl,
     ms_org,
     "💠 [ SYSTEM-ELYSIUM ] Ajout d'un nouveau joueur au monde virtuel Élysium ♻️ ...",
-    15
+    6
   );
 
   await PlayerFunctions.addPlayer(jid, {
@@ -317,7 +317,7 @@ ovlcmd({
     ovl,
     ms_org,
     "💠 [ SYSTEM-ELYSIUM ] Suppression d'un joueur du monde virtuel Élysium ♻️ ...",
-    15
+    6
   );
 
   await PlayerFunctions.deletePlayer(player.jid);
@@ -339,7 +339,7 @@ ovlcmd({
       ovl,
       ms_org,
       "💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....",
-      15
+      6
     );
 
     await sendFiche(ms_org, ovl, jid, ms);
