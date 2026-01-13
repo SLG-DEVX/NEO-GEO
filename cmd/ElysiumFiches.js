@@ -42,18 +42,19 @@ function normalizeText(text) {
 }
 
 // ============================
-// TEXTE PROGRESSIF SIMPLE 
+// TEXTE PROGRESSIF SIMPLE (CURSEUR |, EDIT TOUS LES 5 CARACTÈRES)
 // ============================
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
   let currentText = "";
-  const { key } = await ovl.sendMessage(ms_org, { text: "|" });
+  const { key } = await ovl.sendMessage(ms_org, { text: "|" }); // message initial unique
 
   for (let i = 0; i < text.length; i++) {
     currentText += text[i];
 
-    if ((i + 1) % 10 === 0 || i === text.length - 1) {
+    // Édit tous les 5 caractères ou à la fin
+    if ((i + 1) % 5 === 0 || i === text.length - 1) {
       await ovl.sendMessage(ms_org, {
         text: currentText + " |",
         edit: key
@@ -63,7 +64,9 @@ async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
     await sleep(speed);
   }
 
+  // Enlève le curseur à la fin
   await ovl.editMessage(ms_org, key, { text: currentText });
+
   return key;
 }
 
@@ -325,6 +328,7 @@ ovlcmd({
   try {
     const jid = (arg.length && arg[0].includes("@")) ? arg[0] : auteur_Message;
 
+    // TEXTE PROGRESSIF unique
     await sendProgressiveText(
       ovl,
       ms_org,
@@ -332,6 +336,7 @@ ovlcmd({
       2
     );
 
+    // La fiche arrive immédiatement après
     await sendFiche(ms_org, ovl, jid, ms);
 
   } catch (err) {
