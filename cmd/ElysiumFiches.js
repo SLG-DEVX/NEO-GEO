@@ -6,7 +6,7 @@ const registeredFiches = new Map(); // code_fiche => jid
 // ============================
 // CONFIG SETSUDO
 // ============================
-const SETSUDO = ["242055759975", "22651463203", "242069983150"]; // numéros autorisés
+const SETSUDO = ["242055759975", "22651463203", "242069983150"];
 
 // ============================
 // STATS AUTORISÉES
@@ -18,18 +18,15 @@ const ALLOWED_STATS = {
   charisme: "charisme",
   reputation: "reputation",
   lifestyle: "lifestyle",
-
   missions: "missions",
   gameover: "gameover",
   pvp: "pvp",
-
   points_combat: "points_combat",
   points_chasse: "points_chasse",
   points_recoltes: "points_recoltes",
   points_hacking: "points_hacking",
   points_conduite: "points_conduite",
   points_exploration: "points_exploration",
-
   trophies: "trophies"
 };
 
@@ -45,20 +42,17 @@ function normalizeText(text) {
 }
 
 // ============================
-// TEXTE PROGRESSIF OPTIMISÉ (CURSEUR |) 
+// TEXTE PROGRESSIF SIMPLE 
 // ============================
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
   let currentText = "";
-  
-  // Envoyer un message initial pour l'édition
   const { key } = await ovl.sendMessage(ms_org, { text: "|" });
-  
+
   for (let i = 0; i < text.length; i++) {
     currentText += text[i];
 
-    // On édite uniquement toutes les 10 lettres ou à la fin
     if ((i + 1) % 10 === 0 || i === text.length - 1) {
       await ovl.sendMessage(ms_org, {
         text: currentText + " |",
@@ -69,15 +63,12 @@ async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
     await sleep(speed);
   }
 
-  // Message final sans curseur
-  await ovl.sendMessage(ms_org, { text: currentText }, { edit: key });
-
+  await ovl.editMessage(ms_org, key, { text: currentText });
   return key;
 }
 
-
 // ============================
-// CHECK LEVEL-UP / LEVEL-DOWN
+// LEVEL-UP / LEVEL-DOWN
 // ============================
 async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
   oldExp = Number(oldExp) || 0;
@@ -100,7 +91,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
       currentLevel++;
       await PlayerFunctions.setfiche("niveau", currentLevel, jid);
 
-      const message = `💠 [ SYSTEM ] Félicitations au joueur @${jid.split('@')[0]} qui passe au niveau supérieur : *Niveau ${currentLevel} ▲*`;
+      const message = `💠 [ SYSTEM - ELYSIUM ] Félicitations au joueur @${jid.split('@')[0]} qui passe au niveau supérieur : *Niveau ${currentLevel} ▲*`;
       await sendProgressiveText(ovl, ms_org, message, 2);
     }
   }
@@ -113,7 +104,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
       currentLevel--;
       await PlayerFunctions.setfiche("niveau", currentLevel, jid);
 
-      const message = `💠 [ SYSTEM ] Joueur @${jid.split('@')[0]} descend au niveau inférieur : *Niveau ${currentLevel} ▼*`;
+      const message = `💠 [ SYSTEM - ELYSIUM ] Joueur @${jid.split('@')[0]} descend au niveau inférieur : *Niveau ${currentLevel} ▼*`;
       await sendProgressiveText(ovl, ms_org, message, 2);
     }
   }
@@ -143,7 +134,6 @@ async function updatePlayerData(updates, jid, ovl, ms_org) {
 // ============================
 async function processUpdates(argArray, player) {
   const updates = [];
-
   let i = 0;
   while (i < argArray.length) {
     const statKey = argArray[i++];
@@ -158,10 +148,8 @@ async function processUpdates(argArray, player) {
     const newValue = operator === "+" ? oldValue + value : Math.max(0, oldValue - value);
 
     updates.push({ colonne: statKey, oldValue, newValue });
-
     player[statKey] = newValue;
   }
-
   return updates;
 }
 
@@ -225,7 +213,6 @@ async function sendFiche(ms_org, ovl, jid, ms) {
                               💠▯▯▯▯▯▯⎢⎢⎢⎢⎢`;
 
   const quote = ms ? { quoted: ms } : {};
-
   return ovl.sendMessage(ms_org, { image: { url: data.oc_url }, caption: fiche }, quote);
 }
 
@@ -266,7 +253,7 @@ ovlcmd({
   }
 });
 
-//-------------- COMMANDE +add💠
+// +add💠
 ovlcmd({
   nom_cmd: "add💠",
   classe: "Elysium",
@@ -301,7 +288,7 @@ ovlcmd({
   return repondre(`✅ Fiche créée :\n• JID : ${jid}\n• Commande : +${code_fiche}`);
 });
 
-//---------------COMMANDE +del💠 
+// +del💠
 ovlcmd({
   nom_cmd: "del💠",
   classe: "Elysium",
@@ -329,7 +316,7 @@ ovlcmd({
   return repondre(`✅ Fiche supprimée : ${player.code_fiche}`);
 });
 
-//------------- +elysiumme💠 COMMANDE------------------
+// +elysiumme💠
 ovlcmd({
   nom_cmd: "elysiumme💠",
   classe: "Elysium",
