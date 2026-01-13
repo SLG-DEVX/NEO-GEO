@@ -44,23 +44,29 @@ function normalizeText(text) {
     .trim();  
 }  
 
-// ============================  
-// TEXTE PROGRESSIF FUTURISTE (UN SEUL MESSAGE)  
-// ============================  
-async function sendProgressiveTextSingleMessage(ovl, ms_org, text, speed = 15) {
-  // 1️⃣ Envoie un message initial vide
-  const sentMsg = await ovl.sendMessage(ms_org, { text: " " });
+// ============================
+// TEXTE PROGRESSIF SIMPLE (SAFE)
+// ============================
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  let progressiveText = "";
+async function sendProgressiveText(ovl, ms_org, text, speed = 80) {
+  let currentText = "";
 
-  // 2️⃣ Ajoute une lettre à la fois et édite le message existant
-  for (const char of text) {
-    progressiveText += char;
-    await ovl.editMessage(ms_org, sentMsg.key, { text: progressiveText });
-    await new Promise(res => setTimeout(res, speed));
+  // Message initial (obligatoire pour l'édition)
+  const { key } = await ovl.sendMessage(ms_org, { text: "…" });
+
+  for (let i = 0; i < text.length; i++) {
+    currentText += text[i];
+
+    await ovl.sendMessage(ms_org, {
+      text: currentText,
+      edit: key
+    });
+
+    await sleep(speed);
   }
 
-  return sentMsg;
+  return key;
 }
 
 // ============================  
@@ -162,7 +168,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
   const data = dataRaw.dataValues ?? dataRaw;  
 
   data.cyberwares ||= "";  
-  data.oc_url ||= "https://i.ibb.co/2k3S1yf/default.png";  
+  data.oc_url ||= "https://files.catbox.moe/2k3S1yf.png";  
 
   const cyberwaresCount = data.cyberwares ? data.cyberwares.split("\n").filter(c => c.trim()).length : 0;  
 
@@ -268,12 +274,12 @@ ovlcmd({
   if (existing && existing.code_fiche !== "aucun")  
     return repondre("❌ Ce joueur possède déjà une fiche.");  
 
-  await sendProgressiveTextSingleMessage(  
-    ovl,  
-    ms_org,  
-    "💠 [ SYSTEM-ELYSIUM ] Ajout d'un nouveau joueur au monde virtuel Élysium ♻️ ...",  
-    10  
-  );  
+  await sendProgressiveText(
+  ovl,
+  ms_org,
+  "💠 [ SYSTEM-ELYSIUM ] Ajout d'un nouveau joueur au monde virtuel Élysium ♻️ ...",
+  60
+);
 
   await PlayerFunctions.addPlayer(jid, {  
     code_fiche, pseudo: "Nouveau Joueur", user: jid.replace("@s.whatsapp.net",""),  
@@ -305,12 +311,12 @@ ovlcmd({
 
   if (!player) return repondre("❌ Aucune fiche trouvée.");  
 
-  await sendProgressiveTextSingleMessage(  
-    ovl,  
-    ms_org,  
-    "💠 [ SYSTEM-ELYSIUM ] Suppression d'un joueur du monde virtuel Élysium ♻️ ...",  
-    10  
-  );  
+await sendProgressiveText(
+  ovl,
+  ms_org,
+  "💠 [ SYSTEM-ELYSIUM ] Suppression d'un joueur du monde virtuel Élysium ♻️ ...",
+  60
+);  
 
   await PlayerFunctions.deletePlayer(player.jid);  
   registeredFiches.delete(player.code_fiche);  
@@ -329,14 +335,15 @@ ovlcmd({
   try {  
     const jid = (arg.length && arg[0].includes("@")) ? arg[0] : auteur_Message;  
 
-    await sendProgressiveTextSingleMessage(
-      ovl,  
-      ms_org,  
-      "💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....",  
-      10  
-    );  
+  await sendProgressiveText(
+  ovl,
+  ms_org,
+  "💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....",
+  60
+);
 
-    await sendFiche(ms_org, ovl, jid, ms);  
+await sendFiche(ms_org, ovl, jid, ms);  
+
 
   } catch (err) {  
     console.error("[+elysiumme💠]", err);  
