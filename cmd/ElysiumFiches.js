@@ -42,7 +42,7 @@ async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
   for (let i = 0; i < text.length; i++) {
     currentText += text[i];
 
-    if ((i + 1) % 8 === 0 || i === text.length - 1) {
+    if ((i + 1) % 5 === 0 || i === text.length - 1) {
       await ovl.sendMessage(ms_org, {
         text: currentText + " |",
         edit: key
@@ -180,7 +180,8 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 +Me💠             ➤ ( interface joueur )
 +Inventaire💠     ➤ ( Propriétés )
 
-░▒▒▒▒░ \`C Y B E R W A R E S\` 💠 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
+░▒▒▒▒░ \`C Y B E R W A R E S\` 💠 
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
 🩻Cyberwares (Total) ➤ ${cyberwaresCount}
 ➤ ${data.cyberwares.split("\n").join(" • ") || "-"}
 
@@ -188,6 +189,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 ✅Missions:    ➤ ${data.missions}
 ❌Game over: ➤ ${data.gameover}
 🏆Elysium Games PVP: ➤ ${data.pvp}
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▯▯▯▯▯▯
 
 👊🏽Points combat:     ➤ ${data.points_combat}
 🪼Points chasse:      ➤ ${data.points_chasse}/4000🪼
@@ -198,7 +200,9 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 
 ░▒░▒░ \`A C H I E V M E N T S\`  💠
 🏆Trophies : ${data.trophies} 🏆
-`;
+➤
+▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
+                              💠▯▯▯▯▯▯⎢⎢⎢⎢⎢`;
 
   return ovl.sendMessage(
     ms_org,
