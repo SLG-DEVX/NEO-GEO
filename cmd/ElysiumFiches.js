@@ -346,35 +346,62 @@ ovlcmd({
 });
 
 // ============================
-// REGISTER DYNAMIC FICHE COMMAND
+// REGISTER DYNAMIC USER COMMAND
 // ============================
-function registerFicheCommand(code_fiche, jid) {
-  if (!code_fiche || !jid || registeredFiches.has(code_fiche)) return;
-
-  registeredFiches.set(code_fiche, jid);
+function registerUserCommand(user, jid) {
+  if (!user || !jid) return;
 
   ovlcmd({
-    nom_cmd: code_fiche,
+    nom_cmd: `${user}💠`,
     classe: "Elysium",
-    react: "💠"
-  }, async (ms_org, ovl, { ms }) => {
-    await sendFiche(ms_org, ovl, jid, ms);
+    react: "⚙️"
+  }, async (ms_org, ovl, { repondre, arg }) => {
+    try {
+      if (!arg.length || arg.length % 3 !== 0)
+        return repondre(`❌ Syntaxe : +${user}💠 stat +|- valeur [stat +|- valeur ...]`);
+
+      // Récupère les données du joueur
+      const player = await PlayerFunctions.getPlayer({ jid });
+      if (!player) return repondre("❌ Aucune fiche trouvée pour ce user.");
+
+      // Traitement des mises à jour
+      const updates = await processUpdates(arg, player);
+      await updatePlayerData(updates, player.jid, ovl, ms_org);
+
+      // Préparation du message final
+      const message = updates
+        .map(u => `🛠️ *${u.colonne}* : \`${u.oldValue}\` ➤ \`${u.newValue}\``)
+        .join("\n");
+
+      // Envoi du message en progressive text
+      await sendProgressiveText(
+        ovl,
+        ms_org,
+        `✅ Fiche mise à jour avec succès !\n\n${message}`,
+        2,   // vitesse 2ms
+        5    // éditer tous les 5 caractères
+      );
+      
+    } catch (err) {
+      console.error(`Erreur +${user}💠 :`, err);
+      await repondre("❌ Une erreur est survenue. Vérifie les paramètres.");
+    }
   });
 }
 
 // ============================
-// INIT AUTOMATIQUE
+// INIT DYNAMIQUE POUR CHAQUE FICHE
 // ============================
-async function initElysiumFiches() {
+async function initDynamicUserCommands() {
   try {
-    const all = await PlayerFunctions.getAllPlayers();
-    for (const p of all) {
-      if (!p.code_fiche || p.code_fiche === "aucun" || !p.jid) continue;
-      registerFicheCommand(p.code_fiche, p.jid);
+    const allPlayers = await PlayerFunctions.getAllPlayers();
+    for (const p of allPlayers) {
+      if (!p.user || !p.jid) continue;
+      registerUserCommand(p.user, p.jid);
     }
   } catch (e) {
-    console.error("[INIT ELYSIUM]", e);
+    console.error("[INIT DYNAMIC USER COMMANDS]", e);
   }
 }
 
-initElysiumFiches();
+initDynamicUserCommands();
