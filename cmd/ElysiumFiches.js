@@ -41,25 +41,31 @@ function normalizeText(text) {
     .trim();
 }
 
+// ============================
+// TEXTE PROGRESSIF SIMPLE (CURSEUR |, EDIT TOUS LES 8 CARACTÈRES)
+// ============================
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ============================
-// TEXTE PROGRESSIF SIMPLE (ENVOI SÉPARÉ, STEP = 5)
-// ============================
-async function sendProgressiveText(ovl, ms_org, text, speed = 2, step = 5) {
+async function sendProgressiveText(ovl, ms_org, text, speed = 2, step = 8) {
   let currentText = "";
+  const { key } = await ovl.sendMessage(ms_org, { text: "|" }); // message initial unique
 
   for (let i = 0; i < text.length; i++) {
     currentText += text[i];
 
     if ((i + 1) % step === 0 || i === text.length - 1) {
-      await ovl.sendMessage(ms_org, { text: currentText });
+      await ovl.sendMessage(ms_org, {
+        text: currentText + " |",
+        edit: key
+      });
     }
 
     await sleep(speed);
   }
 
-  return;
+  // Enlève le curseur à la fin
+  await ovl.editMessage(ms_org, key, { text: currentText });
+  return key;
 }
 
 // ============================
@@ -78,6 +84,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
   const oldLevelByExp = Math.floor(oldExp / 100);
   const newLevelByExp = Math.floor(newExp / 100);
 
+  // 🔼 Level-up
   if (newLevelByExp > oldLevelByExp) {
     const levelsGained = newLevelByExp - oldLevelByExp;
     for (let i = 0; i < levelsGained; i++) {
@@ -86,9 +93,12 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
       await PlayerFunctions.setfiche("niveau", currentLevel, jid);
 
       const message = `💠 [ SYSTEM - ELYSIUM ] Félicitations au joueur @${jid.split('@')[0]} qui passe au niveau supérieur : *Niveau ${currentLevel} ▲*`;
-      await sendProgressiveText(ovl, ms_org, message, 2, 5);
+      await sendProgressiveText(ovl, ms_org, message, 2, 8);
     }
-  } else if (newLevelByExp < oldLevelByExp) {
+  }
+
+  // 🔽 Level-down
+  else if (newLevelByExp < oldLevelByExp) {
     const levelsLost = oldLevelByExp - newLevelByExp;
     for (let i = 0; i < levelsLost; i++) {
       if (currentLevel <= 0) break;
@@ -96,7 +106,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
       await PlayerFunctions.setfiche("niveau", currentLevel, jid);
 
       const message = `💠 [ SYSTEM - ELYSIUM ] Joueur @${jid.split('@')[0]} descend au niveau inférieur : *Niveau ${currentLevel} ▼*`;
-      await sendProgressiveText(ovl, ms_org, message, 2, 5);
+      await sendProgressiveText(ovl, ms_org, message, 2, 8);
     }
   }
 }
@@ -152,6 +162,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
   if (!dataRaw) return ovl.sendMessage(ms_org, { text: "❌ Fiche introuvable." }, ms ? { quoted: ms } : {});
 
   const data = dataRaw.dataValues ?? dataRaw;
+
   data.cyberwares ||= "";
   data.oc_url ||= "https://files.catbox.moe/2k3S1yf.png";
 
@@ -207,30 +218,42 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 }
 
 // ============================
-// COMMANDES SYSTEM & USER
+// COMMANDES : +user💠, +add💠, +del💠, +elysiumme💠
+//
+// Ces commandes utilisent sendProgressiveText avec curseur unique | et step = 8
 // ============================
 
-// +elysiumme💠
+// +user💠
 ovlcmd({
-  nom_cmd: "elysiumme💠",
+  nom_cmd: "user💠",
   classe: "Elysium",
-  react: "💠"
-}, async (ms_org, ovl, { repondre, arg, auteur_Message, ms }) => {
+  react: "⚙️"
+}, async (ms_org, ovl, { repondre, arg, auteur_Message }) => {
   try {
-    const jid = (arg.length && arg[0].includes("@")) ? arg[0] : auteur_Message;
+    const sender = auteur_Message.replace("@s.whatsapp.net", "");
+    if (!SETSUDO.includes(sender))
+      return repondre("⛔ Commande réservée aux administrateurs.");
 
-    await sendProgressiveText(
-      ovl,
-      ms_org,
-      "💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....",
-      2,
-      5
-    );
+    if (arg.length < 3 || arg.length % 3 !== 0)
+      return repondre("❌ Syntaxe : +user💠 stat +|- valeur [stat +|- valeur ...]");
 
-    await sendFiche(ms_org, ovl, jid, ms);
+    const player = await PlayerFunctions.getAllPlayers()
+      .then(all => all.find(p => p.user === sender));
+
+    if (!player) return repondre("❌ Aucune fiche trouvée pour ce user.");
+
+    const updates = await processUpdates(arg, player);
+    await updatePlayerData(updates, player.jid, ovl, ms_org);
+
+    const message = updates
+      .map(u => `🛠️ *${u.colonne}* : \`${u.oldValue}\` ➤ \`${u.newValue}\``)
+      .join("\n");
+
+    await sendProgressiveText(ovl, ms_org, `✅ Fiche mise à jour avec succès !\n\n${message}`, 2, 8);
+
   } catch (err) {
-    console.error("[+elysiumme💠]", err);
-    return repondre("❌ Une erreur est survenue. Vérifie la console.");
+    console.error("Erreur +user💠 :", err);
+    await repondre("❌ Une erreur est survenue. Vérifie les paramètres.");
   }
 });
 
@@ -253,7 +276,8 @@ ovlcmd({
     ovl,
     ms_org,
     "💠 [ SYSTEM-ELYSIUM ] Ajout d'un nouveau joueur au monde virtuel Élysium ♻️ ...",
-    2
+    2,
+    8
   );
 
   await PlayerFunctions.addPlayer(jid, {
@@ -288,7 +312,8 @@ ovlcmd({
     ovl,
     ms_org,
     "💠 [ SYSTEM-ELYSIUM ] Suppression d'un joueur du monde virtuel Élysium ♻️ ...",
-    2
+    2,
+    8
   );
 
   await PlayerFunctions.deletePlayer(player.jid);
@@ -297,7 +322,34 @@ ovlcmd({
   return repondre(`✅ Fiche supprimée : ${player.code_fiche}`);
 });
 
-// +user💠 dynamique
+// +elysiumme💠
+ovlcmd({
+  nom_cmd: "elysiumme💠",
+  classe: "Elysium",
+  react: "💠"
+}, async (ms_org, ovl, { repondre, arg, auteur_Message, ms }) => {
+  try {
+    const jid = (arg.length && arg[0].includes("@")) ? arg[0] : auteur_Message;
+
+    await sendProgressiveText(
+      ovl,
+      ms_org,
+      "💠 [ SYSTEM-ELYSIUM ] Chargement des données du joueur ♻️....",
+      2,
+      8
+    );
+
+    await sendFiche(ms_org, ovl, jid, ms);
+
+  } catch (err) {
+    console.error("[+elysiumme💠]", err);
+    return repondre("❌ Une erreur est survenue. Vérifie la console.");
+  }
+});
+
+// ============================
+// REGISTER DYNAMIC USER COMMAND
+// ============================
 function registerUserCommand(user, jid) {
   if (!user || !jid) return;
 
@@ -325,7 +377,7 @@ function registerUserCommand(user, jid) {
         ms_org,
         `✅ Fiche mise à jour avec succès !\n\n${message}`,
         2,
-        5
+        8
       );
 
     } catch (err) {
@@ -335,7 +387,9 @@ function registerUserCommand(user, jid) {
   });
 }
 
-// INIT DYNAMIQUE USER
+// ============================
+// INIT DYNAMIQUE POUR CHAQUE FICHE
+// ============================
 async function initDynamicUserCommands() {
   try {
     const allPlayers = await PlayerFunctions.getAllPlayers();
@@ -348,4 +402,4 @@ async function initDynamicUserCommands() {
   }
 }
 
-initDynamicUserCommands();
+initDynamicUserCommands
