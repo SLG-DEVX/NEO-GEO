@@ -185,13 +185,16 @@ function parseRazorXNew(text) {
 
 //================ RAZORX AUTO =================
 ovlcmd({
-    nom: "razorx_auto",
+    nom_cmd: "razorx_auto",
     isfunc: true
 }, async (ms_org, ovl, { texte, ms }) => {
 
-    if (!texte || !texte.includes("⚡RAZORX™")) return;
+    if (!texte) return;
 
-    const parsed = parseRazorXNew(texte);
+    const cleanText = clean(texte);
+    if (!cleanText.includes("RAZORX™")) return;
+
+    const parsed = parseRazorXNew(cleanText);
 
     if (
         !parsed.performances.length &&
@@ -232,16 +235,11 @@ ovlcmd({
 
         if (data) {
             await setfiche("defaites", (Number(data.defaites) || 0) + 1, pseudo);
-            await setfiche(
-                "exp",
-                Math.max(0, (Number(data.exp) || 0) - 5),
-                pseudo
-            );
+            await setfiche("exp", Math.max(0, (Number(data.exp) || 0) - 5), pseudo);
             allStarsTouched = true;
         }
     }
 
-    // ---------- CONFIRMATION ----------
     if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
             text: "Performances appliquées pour ce match!✅"
