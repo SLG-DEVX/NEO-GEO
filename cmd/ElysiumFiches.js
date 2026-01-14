@@ -311,7 +311,7 @@ ovlcmd({
 });
 
 // ============================
-// COMMANDES DYNAMIQUES USER / JID
+// DYNAMIQUE USERS / JID
 // ============================
 function registerDynamicCommand(identifier) {
   if (!identifier) return;
@@ -331,8 +331,8 @@ function registerDynamicCommand(identifier) {
 
       let targetJid;
 
-      if (/^\d+$/.test(identifier) || identifier.includes("@")) {
-        targetJid = identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net";
+      if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
+        targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
       } else {
         const allPlayers = await PlayerFunctions.getAllPlayers();
         const playerMatch = allPlayers.find(p => {
@@ -347,8 +347,8 @@ function registerDynamicCommand(identifier) {
       if (!playerRaw) return repondre("❌ Fiche introuvable.");
 
       const player = playerRaw.dataValues ?? playerRaw;
-
       const updates = await processUpdates(arg, player);
+
       await updatePlayerData(updates, targetJid, ovl, ms_org);
 
       const message =
@@ -375,10 +375,8 @@ async function initDynamicUserCommands() {
       const data = p.dataValues ?? p;
       if (!data.user || !data.jid) continue;
 
-      // Register par username
-      registerDynamicCommand(data.user);
-      // Register par JID (sans @s.whatsapp.net)
-      registerDynamicCommand(data.jid.replace("@s.whatsapp.net", ""));
+      registerDynamicCommand(data.user); // username
+      registerDynamicCommand(data.jid.replace("@s.whatsapp.net", "")); // JID
     }
 
     console.log("[ELYSIUM] Commandes users initialisées (username + JID)");
@@ -395,13 +393,11 @@ async function initElysiumFiches() {
 
   for (const p of all) {
     const data = p.dataValues ?? p;
-
     if (data.code_fiche && data.jid && !registeredFiches.has(data.code_fiche)) {
       registeredFiches.set(data.code_fiche, data.jid);
     }
   }
 
-  // Init commandes dynamiques
   await initDynamicUserCommands();
 }
 
