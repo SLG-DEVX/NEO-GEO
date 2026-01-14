@@ -156,23 +156,22 @@ async function parseRazorXLive(text) {
     }
 
     // ---------- WINNER ----------
-    const winMatch = text.match(/✅\s*\*?Winner:?\*?\s*([^*\n]+)/i);
-    if (winMatch) {
-        result.winner = {
-            pseudo: winMatch[1].trim(),
-            bonus: true // ✅ indique bonus
-        };
-    }
+const winMatch = text.match(/Winner:\*?:?\s*(.+)/i);
+if (winMatch) {
+    const raw = clean(winMatch[1]);
+    result.winner = {
+        pseudo: raw.replace(/[✅❌]/g, '').trim(), // enlève les emojis
+        bonus: raw.includes("✅")
+    };
+}
 
-    // ---------- LOSER ----------
-    const loseMatch = text.match(/❌\s*\*?Loser:?\*?\s*([^*\n]+)/i);
-    if (loseMatch) {
-        result.loser = {
-            pseudo: loseMatch[1].trim()
-        };
-    }
-
-    return result;
+// ---------- LOSER ----------
+const loseMatch = text.match(/Loser:\*?:?\s*(.+)/i);
+if (loseMatch) {
+    const raw = clean(loseMatch[1]);
+    result.loser = {
+        pseudo: raw.replace(/[✅❌]/g, '').trim()
+    };
 }
 
 //================= RAZORX AUTO =================
@@ -180,9 +179,13 @@ ovlcmd({
     nom_cmd: "razorx_auto",
     isfunc: true
 }, async (ms_org, ovl, { texte, ms }) => {
-    if (!texte?.includes("⚡RAZORX™")) return;
 
-    const parsed = await parseRazorXLive(texte);
+    if (!texte) return;
+
+    const cleanText = clean(texte);
+    if (!cleanText.includes("RAZORX™")) return;
+
+    const parsed = parseRazorXNew(cleanText);
 
     if (
         !parsed.performances.length &&
@@ -206,19 +209,20 @@ ovlcmd({
     // ---------- WINNER ----------
     if (parsed.winner) {
         const { pseudo, bonus } = parsed.winner;
-        const data = await getData({ pseudo });
+        const pseudoClean = pseudo.replace(/^@/, '').replace(/\*/g, '').trim(); // supprime * et @ si présent
+        const data = await getData({ pseudo: pseudoClean });
 
         if (data) {
-            await setfiche("victoires", (Number(data.victoires) || 0) + 1, pseudo);
-            await setfiche("exp", (Number(data.exp) || 0) + (bonus ? 10 : 5), pseudo);
-            await setfiche("talent", (Number(data.talent) || 0) + (bonus ? 1 : 0), pseudo);
+            await setfiche("victoires", (Number(data.victoires) || 0) + 1, pseudoClean);
+            await setfiche("exp", (Number(data.exp) || 0) + (bonus ? 10 : 5), pseudoClean);
+            await setfiche("talent", (Number(data.talent) || 0) + (bonus ? 1 : 0), pseudoClean);
             allStarsTouched = true;
         }
     }
 
     // ---------- LOSER ----------
     if (parsed.loser) {
-        const pseudo = parsed.loser.pseudo;
+        const pseudo = parsed.loser.pseudo.replace(/^@/, '').replace(/\*/g, '').trim(); // supprime * et @ si présent
         const data = await getData({ pseudo });
 
         if (data) {
@@ -228,9 +232,10 @@ ovlcmd({
         }
     }
 
+    // ---------- CONFIRMATION ----------
     if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
-            text: "✅ Performances et résultats appliqués pour ce match!"
+            text: "Performances appliquées pour ce match!✅"
         }, { quoted: ms });
     }
 });
