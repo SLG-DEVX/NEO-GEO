@@ -173,7 +173,7 @@ if (loseMatch) {
         pseudo: raw.replace(/[✅❌]/g, '').trim()
     };
 }
-
+});
 //================= RAZORX AUTO =================
 ovlcmd({
     nom_cmd: "razorx_auto",
