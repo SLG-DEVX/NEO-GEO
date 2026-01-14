@@ -132,8 +132,8 @@ ovlcmd({
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     }
 });    
-//================ PARSER RAZORX (NOUVEAU FORMAT) =================
-function parseRazorXNew(text) {
+//================ PARSER RAZORX™ LIVE =================
+async function parseRazorXLive(text) {
     const result = {
         performances: [], // { pseudo, strikes, attaques }
         winner: null,     // { pseudo, bonus }
@@ -143,17 +143,10 @@ function parseRazorXNew(text) {
     // ---------- PERFORMANCES ----------
     const perfBloc = text.match(/📊\s*`PERFORMANCES`([\s\S]+?)(?:🏆`RESULTAT FINAL`|$)/i);
     if (perfBloc) {
-        const lines = perfBloc[1]
-            .split('\n')
-            .map(l => l.trim())
-            .filter(l => l.startsWith("👤"));
-
+        const lines = perfBloc[1].split('\n').map(l => l.trim()).filter(Boolean);
         for (const line of lines) {
-            const m = line.match(
-                /👤\s*([^:]+):\s*.*?strikes:\s*(\d+)\s*\|\s*attaques:\s*(\d+)/i
-            );
+            const m = line.match(/👤\s*([^:]+):.*?strikes\s*:\s*(\d+).*?attaques\s*:\s*(\d+)/i);
             if (!m) continue;
-
             result.performances.push({
                 pseudo: m[1].trim(),
                 strikes: Number(m[2]),
@@ -163,38 +156,33 @@ function parseRazorXNew(text) {
     }
 
     // ---------- WINNER ----------
-    const winMatch = text.match(/Winner:\*?\s*([^\n]+)/i);
+    const winMatch = text.match(/✅\s*\*?Winner:?\*?\s*([^*\n]+)/i);
     if (winMatch) {
-        const raw = winMatch[1];
         result.winner = {
-            pseudo: raw.replace(/\+\s*[✅❌]/g, '').replace(/[✅❌]/g, '').trim(),
-            bonus: raw.includes("✅")
+            pseudo: winMatch[1].trim(),
+            bonus: true // ✅ indique bonus
         };
     }
 
     // ---------- LOSER ----------
-    const loseMatch = text.match(/Loser:\*?\s*([^\n]+)/i);
+    const loseMatch = text.match(/❌\s*\*?Loser:?\*?\s*([^*\n]+)/i);
     if (loseMatch) {
         result.loser = {
-            pseudo: loseMatch[1].replace(/\+\s*[✅❌]/g, '').replace(/[✅❌]/g, '').trim()
+            pseudo: loseMatch[1].trim()
         };
     }
 
     return result;
-} 
+}
 
-//================ RAZORX AUTO =================
+//================= RAZORX AUTO =================
 ovlcmd({
     nom_cmd: "razorx_auto",
     isfunc: true
 }, async (ms_org, ovl, { texte, ms }) => {
+    if (!texte?.includes("⚡RAZORX™")) return;
 
-    if (!texte) return;
-
-    const cleanText = clean(texte);
-    if (!cleanText.includes("RAZORX™")) return;
-
-    const parsed = parseRazorXNew(cleanText);
+    const parsed = await parseRazorXLive(texte);
 
     if (
         !parsed.performances.length &&
@@ -242,24 +230,24 @@ ovlcmd({
 
     if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
-            text: "Performances appliquées pour ce match!✅"
+            text: "✅ Performances et résultats appliqués pour ce match!"
         }, { quoted: ms });
     }
 });
 
-//================= +PAVEMODO SIMPLE =================
+//================= +PAVEMODO =================
 ovlcmd({
     nom_cmd: "pavemodo",
     classe: "Duel",
-    react: "⚡"
-}, async (ms_org, ovl, { ms }) => {
-
-    const message = `
+    react: "📄",
+    desc: "Envoie le pavé modèle RazorX™."
+}, async (ms_org, ovl, { repondre }) => {
+    const paveStats = `
 .                    ⚡RAZORX™ LIVE▶️
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 📊 \`PERFORMANCES\`
 👤j1:  → strikes: 0 | attaques: 0
-👤J2: → strikes: 0 | attaques: 0
+👤j2: → strikes: 0 | attaques: 0
 
 🏆\`RESULTAT FINAL\`:
 ✅ *Winner:*
@@ -270,5 +258,6 @@ ovlcmd({
 🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
 `.trim();
 
-    await ovl.sendMessage(ms_org, { text: message }, { quoted: ms });
+    await ovl.sendMessage(ms_org, { text: paveStats });
 });
+
