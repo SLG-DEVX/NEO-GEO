@@ -130,16 +130,29 @@ async function processUpdates(argArray, player) {
   let i = 0;
 
   while (i < argArray.length) {
-    const stat = argArray[i++];
+    let stat = argArray[i++];
     const op = argArray[i++];
     const value = Number(argArray[i++]);
 
-    if (!ALLOWED_STATS[stat]) throw new Error("Stat inconnue");
-    if (!["+","-"].includes(op)) throw new Error("Opérateur invalide");
-    if (isNaN(value) || value <= 0) throw new Error("Valeur invalide");
+    // 🔥 NORMALISATION
+    stat = stat.toLowerCase().trim();
+
+    if (!ALLOWED_STATS[stat]) {
+      throw new Error(`Stat inconnue : ${stat}`);
+    }
+
+    if (!["+","-"].includes(op)) {
+      throw new Error(`Opérateur invalide : ${op}`);
+    }
+
+    if (isNaN(value) || value <= 0) {
+      throw new Error(`Valeur invalide : ${value}`);
+    }
 
     const oldValue = Number(player[stat] || 0);
-    const newValue = op === "+" ? oldValue + value : Math.max(0, oldValue - value);
+    const newValue = op === "+"
+      ? oldValue + value
+      : Math.max(0, oldValue - value);
 
     updates.push({ colonne: stat, oldValue, newValue });
     player[stat] = newValue;
