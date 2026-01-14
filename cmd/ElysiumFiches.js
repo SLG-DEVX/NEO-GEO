@@ -233,50 +233,6 @@ ovlcmd({
   await sendFiche(ms_org, ovl, jid, ms);
 });
 
-// ============================
-// COMMANDES DYNAMIQUES PAR USER
-// ============================
-function registerUserCommand(user, jid) {
-  if (!user || !jid) return;
-
-  ovlcmd({
-    nom_cmd: `${user}💠`, // Commande dynamique basée sur data.user
-    classe: "Elysium",
-    react: "⚙️"
-  }, async (ms_org, ovl, { repondre, arg, ms }) => {
-    try {
-      if (!arg.length || arg.length % 3 !== 0)
-        return repondre(`❌ Syntaxe : +${user}💠 stat +|- valeur [stat +|- valeur ...]`);
-
-      // Récupère les données du joueur
-      const player = await PlayerFunctions.getPlayer({ jid });
-      if (!player) return repondre("❌ Aucune fiche trouvée pour ce user.");
-
-      // Traitement des mises à jour
-      const updates = await processUpdates(arg, player);
-      await updatePlayerData(updates, player.jid, ovl, ms_org);
-
-      // Préparation du message final
-      const message = updates
-        .map(u => `🛠️ *${u.colonne}* : \`${u.oldValue}\` ➤ \`${u.newValue}\``)
-        .join("\n");
-
-      // Envoi du message en texte progressif (curseur unique, edit tous les 8 caractères)
-      await sendProgressiveText(
-        ovl,
-        ms_org,
-        `✅ Fiche mise à jour avec succès !\n\n${message}`,
-        2,  // vitesse 2ms
-        8   // éditer tous les 8 caractères
-      );
-
-    } catch (err) {
-      console.error(`Erreur +${user}💠 :`, err);
-      await repondre("❌ Une erreur est survenue. Vérifie les paramètres.");
-    }
-  });
-}
-
 // +add💠
 ovlcmd({
   nom_cmd: "add💠",
@@ -342,15 +298,91 @@ ovlcmd({
 });
 
 // ============================
-// INIT AUTO
+// COMMANDES DYNAMIQUES PAR USER
 // ============================
-async function initElysiumFiches() {
-  const all = await PlayerFunctions.getAllPlayers();
-  for (const p of all) {
-    if (p.code_fiche && p.jid && !registeredFiches.has(p.code_fiche)) {
-      registeredFiches.set(p.code_fiche, p.jid);
+function registerUserCommand(username, jid) {
+  if (!username || !jid) return;
+
+  const cmd = `${username.toLowerCase()}💠`;
+
+  ovlcmd({
+    nom_cmd: cmd,
+    classe: "Elysium",
+    react: "⚙️"
+  }, async (ms_org, ovl, { repondre, arg }) => {
+    try {
+      if (!arg.length || arg.length % 3 !== 0) {
+        return repondre(
+          `❌ Syntaxe : +${cmd} stat +|- valeur [stat +|- valeur ...]`
+        );
+      }
+
+      const playerRaw = await PlayerFunctions.getPlayer({ jid });
+      if (!playerRaw) return repondre("❌ Fiche introuvable.");
+
+      const player = playerRaw.dataValues ?? playerRaw;
+
+      const updates = await processUpdates(arg, player);
+      await updatePlayerData(updates, jid, ovl, ms_org);
+
+      const message =
+        `✅ [ SYSTEM - ELYSIUM ] Mise à jour réussie\n\n` +
+        updates
+          .map(u => `🛠️ ${u.colonne} : ${u.oldValue} ➤ ${u.newValue}`)
+          .join("\n");
+
+      // 🔥 TEXTE PROGRESSIF
+      await sendProgressiveText(
+        ovl,
+        ms_org,
+        message,
+        2
+      );
+
+    } catch (err) {
+      console.error(`[${cmd}]`, err);
+      await repondre("❌ Erreur interne.");
     }
+  });
+}
+
+// ============================
+// INIT COMMANDES USERS (DYNAMIQUE)
+// ============================
+async function initDynamicUserCommands() {
+  try {
+    const players = await PlayerFunctions.getAllPlayers();
+
+    for (const p of players) {
+      const data = p.dataValues ?? p;
+      if (!data.user || !data.jid) continue;
+
+      registerUserCommand(data.user, data.jid);
+    }
+
+    console.log("[ELYSIUM] Commandes users initialisées");
+  } catch (e) {
+    console.error("[ELYSIUM INIT USERS]", e);
   }
 }
 
+// ============================
+// INIT AUTO (GLOBAL)
+// ============================
+async function initElysiumFiches() {
+  const all = await PlayerFunctions.getAllPlayers();
+
+  for (const p of all) {
+    const data = p.dataValues ?? p;
+
+    if (data.code_fiche && data.jid && !registeredFiches.has(data.code_fiche)) {
+      registeredFiches.set(data.code_fiche, data.jid);
+    }
+  }
+
+  // 🔥 Init des commandes dynamiques par user
+  await initDynamicUserCommands();
+}
+
+// 🔥 APPEL UNIQUE AU DÉMARRAGE
 initElysiumFiches();
