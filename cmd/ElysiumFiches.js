@@ -311,12 +311,13 @@ ovlcmd({
 });
 
 // ============================
-// COMMANDES DYNAMIQUES PAR USER
+// COMMANDES DYNAMIQUES USER / JID
 // ============================
-function registerUserCommand(username, jid) {
-  if (!username || !jid) return;
+function registerDynamicCommand(identifier) {
+  if (!identifier) return;
 
-  const cmd = `${username.toLowerCase()}💠`;
+  const cleanIdentifier = identifier.replace(/💠/g, "");
+  const cmd = `${cleanIdentifier.toLowerCase()}💠`;
 
   ovlcmd({
     nom_cmd: cmd,
@@ -325,42 +326,46 @@ function registerUserCommand(username, jid) {
   }, async (ms_org, ovl, { repondre, arg }) => {
     try {
       if (!arg.length || arg.length % 3 !== 0) {
-        return repondre(
-          `❌ Syntaxe : +${cmd} stat +|- valeur [stat +|- valeur ...]`
-        );
+        return repondre(`❌ Syntaxe : +${cleanIdentifier}💠 stat +|- valeur [stat +|- valeur ...]`);
       }
 
-      const playerRaw = await PlayerFunctions.getPlayer({ jid });
+      let targetJid;
+
+      if (/^\d+$/.test(identifier) || identifier.includes("@")) {
+        targetJid = identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net";
+      } else {
+        const allPlayers = await PlayerFunctions.getAllPlayers();
+        const playerMatch = allPlayers.find(p => {
+          const data = p.dataValues ?? p;
+          return (data.user?.replace(/💠/g, "").toLowerCase() === cleanIdentifier.toLowerCase());
+        });
+        if (!playerMatch) return repondre("❌ Joueur introuvable.");
+        targetJid = (playerMatch.dataValues ?? playerMatch).jid;
+      }
+
+      const playerRaw = await PlayerFunctions.getPlayer({ jid: targetJid });
       if (!playerRaw) return repondre("❌ Fiche introuvable.");
 
       const player = playerRaw.dataValues ?? playerRaw;
 
       const updates = await processUpdates(arg, player);
-      await updatePlayerData(updates, jid, ovl, ms_org);
+      await updatePlayerData(updates, targetJid, ovl, ms_org);
 
       const message =
         `✅ [ SYSTEM - ELYSIUM ] Mise à jour réussie\n\n` +
-        updates
-          .map(u => `🛠️ ${u.colonne} : ${u.oldValue} ➤ ${u.newValue}`)
-          .join("\n");
+        updates.map(u => `🛠️ ${u.colonne} : ${u.oldValue} ➤ ${u.newValue}`).join("\n");
 
-      // 🔥 TEXTE PROGRESSIF
-      await sendProgressiveText(
-        ovl,
-        ms_org,
-        message,
-        2
-      );
+      await sendProgressiveText(ovl, ms_org, message, 2);
 
     } catch (err) {
-      console.error(`[${cmd}]`, err);
-      await repondre("❌ Erreur interne.");
+      console.error(`[${cleanIdentifier}💠]`, err);
+      await sendProgressiveText(ovl, ms_org, `❌ [ SYSTEM - ELYSIUM ] Erreur interne.`, 2);
     }
   });
 }
 
 // ============================
-// INIT COMMANDES USERS (DYNAMIQUE)
+// INIT DYNAMIQUE DE TOUS LES USERS ET JID
 // ============================
 async function initDynamicUserCommands() {
   try {
@@ -370,17 +375,20 @@ async function initDynamicUserCommands() {
       const data = p.dataValues ?? p;
       if (!data.user || !data.jid) continue;
 
-      registerUserCommand(data.user, data.jid);
+      // Register par username
+      registerDynamicCommand(data.user);
+      // Register par JID (sans @s.whatsapp.net)
+      registerDynamicCommand(data.jid.replace("@s.whatsapp.net", ""));
     }
 
-    console.log("[ELYSIUM] Commandes users initialisées");
+    console.log("[ELYSIUM] Commandes users initialisées (username + JID)");
   } catch (e) {
     console.error("[ELYSIUM INIT USERS]", e);
   }
 }
 
 // ============================
-// INIT AUTO (GLOBAL)
+// INIT GLOBAL AU DÉMARRAGE
 // ============================
 async function initElysiumFiches() {
   const all = await PlayerFunctions.getAllPlayers();
@@ -393,9 +401,9 @@ async function initElysiumFiches() {
     }
   }
 
-  // 🔥 Init des commandes dynamiques par user
+  // Init commandes dynamiques
   await initDynamicUserCommands();
 }
 
-// 🔥 APPEL UNIQUE AU DÉMARRAGE
+// 🔥 Appel unique
 initElysiumFiches();
