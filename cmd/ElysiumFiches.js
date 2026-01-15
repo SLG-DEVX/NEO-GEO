@@ -67,10 +67,8 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
   oldExp = Number(oldExp) || 0;
   newExp = Number(newExp) || 0;
 
-  // ✅ FIX ICI
   const dataRaw = await PlayerFunctions.getPlayer({ jid });
   if (!dataRaw) return;
-
   const data = dataRaw.dataValues ?? dataRaw;
 
   let currentLevel = Number(data.niveau) || 0;
@@ -79,12 +77,13 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
   const oldLevelByExp = Math.floor(oldExp / 100);
   const newLevelByExp = Math.floor(newExp / 100);
 
+  // 🔼 Montée de niveau
   if (newLevelByExp > oldLevelByExp) {
     const gain = newLevelByExp - oldLevelByExp;
     for (let i = 0; i < gain; i++) {
       if (currentLevel >= maxLevel) break;
       currentLevel++;
-      await PlayerFunctions.setfiche("niveau", currentLevel, jid);
+      await PlayerFunctions.setPlayer("niveau", currentLevel, jid); // ✅ correction
 
       await sendProgressiveText(
         ovl,
@@ -95,12 +94,13 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
     }
   }
 
+  // 🔽 Descente de niveau
   if (newLevelByExp < oldLevelByExp) {
     const loss = oldLevelByExp - newLevelByExp;
     for (let i = 0; i < loss; i++) {
       if (currentLevel <= 0) break;
       currentLevel--;
-      await PlayerFunctions.setfiche("niveau", currentLevel, jid);
+      await PlayerFunctions.setPlayer("niveau", currentLevel, jid); // ✅ correction
 
       await sendProgressiveText(
         ovl,
@@ -117,7 +117,7 @@ async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
 // ============================
 async function updatePlayerData(updates, jid, ovl, ms_org) {
   for (const u of updates) {
-    await PlayerFunctions.setfiche(u.colonne, u.newValue, jid);
+    await PlayerFunctions.setPlayer(u.colonne, u.newValue, jid); // ✅ correction
 
     if (u.colonne === "exp") {
       await checkLevelProgressive(jid, u.oldValue, u.newValue, ovl, ms_org);
