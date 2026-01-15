@@ -306,7 +306,7 @@ défaite :
 ⏱️Durée: 
 
 ╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™`;
+🏆NSL PRO ESPORT ARENA® | RAZORX⚡™ `;
 
     await ovl.sendMessage(ms_org, { text: pave });
 });
