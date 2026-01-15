@@ -132,116 +132,159 @@ ovlcmd({
         limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
     }
 });    
-//================ PARSER RAZORX™ LIVE =================
-async function parseRazorXLive(text) {
-    const result = {
-        performances: [], // { pseudo, strikes, attaques }
-        winner: null,     // { pseudo, bonus }
-        loser: null       // { pseudo }
-    };
+//---------------- PARSER STATS RAZORX ----------------
+function parseStatsRazorX(text) {
+    const bloc = text.match(/▶️`Match Live`:\s*([\s\S]+)/i);
+    if (!bloc) return [];
 
-    // ---------- PERFORMANCES ----------
-    const perfBloc = text.match(/📊\s*`PERFORMANCES`([\s\S]+?)(?:🏆`RESULTAT FINAL`|$)/i);
-    if (perfBloc) {
-        const lines = perfBloc[1].split('\n').map(l => l.trim()).filter(Boolean);
-        for (const line of lines) {
-            const m = line.match(/👤\s*([^:]+):.*?strikes\s*:\s*(\d+).*?attaques\s*:\s*(\d+)/i);
+    const lignes = bloc[1].split('\n').map(l => l.trim()).filter(Boolean);
+    const actions = [];
+
+    for (const ligne of lignes) {
+        const clean = ligne.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '');
+        const [p, s] = clean.split(':').map(v => v.trim());
+        if (!p || !s) continue;
+
+        const tag = p.startsWith("@") ? p.slice(1) : p;
+        if (!tag) continue;
+
+        const stats = s.split(',').map(v => v.trim());
+        for (const st of stats) {
+            const m = st.match(/(talent|strikes|attaques|pv|sta|energie)\s*([+-])\s*(\d+)/i);
             if (!m) continue;
-            result.performances.push({
-                pseudo: m[1].trim(),
-                strikes: Number(m[2]),
-                attaques: Number(m[3])
+
+            actions.push({
+                tag,
+                isMention: p.startsWith("@"),
+                stat: m[1].toLowerCase(),
+                valeur: parseInt(m[3]) * (m[2] === "-" ? -1 : 1)
             });
         }
     }
-
-    // ---------- WINNER ----------
-const winMatch = text.match(/Winner:\*?:?\s*(.+)/i);
-if (winMatch) {
-    const raw = clean(winMatch[1]);
-    result.winner = {
-        pseudo: raw.replace(/[✅❌]/g, '').trim(), // enlève les emojis
-        bonus: raw.includes("✅")
-    };
+    return actions;
 }
 
-// ---------- LOSER ----------
-const loseMatch = text.match(/Loser:\*?:?\s*(.+)/i);
-if (loseMatch) {
-    const raw = clean(loseMatch[1]);
-    result.loser = {
-        pseudo: raw.replace(/[✅❌]/g, '').trim()
-    };
-}
-return result; 
-} 
-//================= RAZORX AUTO =================
+//---------------- RAZORX AUTO ----------------
 ovlcmd({
-    nom_cmd: "razorx_auto",
+    nom: "razorx_auto",
     isfunc: true
-}, async (ms_org, ovl, { texte, ms }) => {
+}, async (ms_org, ovl, { texte, ms, getJid }) => {
+    if (!texte?.includes("⚡RAZORX™")) return;
 
-    if (!texte) return;
+    //---------------- STATS ----------------
+    if (texte.includes("▶️`Match Live`")) {
+        const actions = parseStatsRazorX(texte);
+        if (!actions.length) return;
 
-    const cleanText = clean(texte);
-    if (!cleanText.includes("RAZORX™")) return;
+        const duelKey = Object.keys(duelsEnCours).find(k =>
+            actions.some(a => k.toLowerCase().includes(a.tag.toLowerCase()))
+        );
+        const duel = duelKey ? duelsEnCours[duelKey] : null;
 
-    const parsed = parseRazorXNew(cleanText);
+        let duelTouched = false;
+        let allStarsTouched = false;
 
-    if (
-        !parsed.performances.length &&
-        !parsed.winner &&
-        !parsed.loser
-    ) return;
+        for (const act of actions) {
+            if (['pv', 'sta', 'energie'].includes(act.stat) && duel) {
+                const joueur =
+                    duel.equipe1.find(j => j.nom.toLowerCase() === act.tag.toLowerCase()) ||
+                    duel.equipe2.find(j => j.nom.toLowerCase() === act.tag.toLowerCase());
+                if (!joueur) continue;
 
-    let allStarsTouched = false;
+                limiterStats(joueur.stats, act.stat, act.valeur);
+                duelTouched = true;
+            }
 
-    // ---------- PERFORMANCES ----------
-    for (const p of parsed.performances) {
-        const data = await getData({ pseudo: p.pseudo });
-        if (!data) continue;
+            if (act.isMention && ['talent', 'strikes', 'attaques'].includes(act.stat) && act.tag) {
+                let jid;
+                try { jid = await getJid(act.tag + "@lid", ms_org, ovl); } catch { continue; }
 
-        await setfiche("strikes", (Number(data.strikes) || 0) + p.strikes, p.pseudo);
-        await setfiche("attaques", (Number(data.attaques) || 0) + p.attaques, p.pseudo);
+                const data = await getData({ jid });
+                if (!data) continue;
 
-        allStarsTouched = true;
-    }
+                const oldVal = Number(data[act.stat]) || 0;
+                await setfiche(act.stat, oldVal + act.valeur, jid);
+                allStarsTouched = true;
+            }
+        }
 
-    // ---------- WINNER ----------
-    if (parsed.winner) {
-        const { pseudo, bonus } = parsed.winner;
-        const pseudoClean = pseudo.replace(/^@/, '').replace(/\*/g, '').trim(); // supprime * et @ si présent
-        const data = await getData({ pseudo: pseudoClean });
+        if (duelTouched && duel) {
+            const fiche = generateFicheDuel(duel);
+            await ovl.sendMessage(ms_org, {
+                image: { url: duel.arene.image },
+                caption: fiche
+            }, { quoted: ms });
+        }
 
-        if (data) {
-            await setfiche("victoires", (Number(data.victoires) || 0) + 1, pseudoClean);
-            await setfiche("exp", (Number(data.exp) || 0) + (bonus ? 10 : 5), pseudoClean);
-            await setfiche("talent", (Number(data.talent) || 0) + (bonus ? 1 : 0), pseudoClean);
-            allStarsTouched = true;
+        if (allStarsTouched) {
+            await ovl.sendMessage(ms_org, { text: "✅ Stats All Stars mises à jour." });
         }
     }
 
-    // ---------- LOSER ----------
-    if (parsed.loser) {
-        const pseudo = parsed.loser.pseudo.replace(/^@/, '').replace(/\*/g, '').trim(); // supprime * et @ si présent
-        const data = await getData({ pseudo });
+    //---------------- RESULTAT ----------------
+    if (texte.includes("🏆`RESULTAT`")) {
+        const bloc = texte.match(/🏆`RESULTAT`:\s*([\s\S]+)/i);
+        if (!bloc) return;
 
-        if (data) {
-            await setfiche("defaites", (Number(data.defaites) || 0) + 1, pseudo);
-            await setfiche("exp", Math.max(0, (Number(data.exp) || 0) - 5), pseudo);
-            allStarsTouched = true;
+        const lignes = bloc[1].split('\n').map(l => l.trim()).filter(Boolean);
+
+        for (const ligne of lignes) {
+            const m = ligne.match(/@?([^\s:]+)\s*:\s*(victoire|defaite|défaite)(?:\s*\+\s*([✅❌]))?/i);
+            if (!m) continue;
+
+            const tag = m[1];
+            let type = m[2].toLowerCase();
+            const symbol = m[3] || null;
+            if (type === "défaite") type = "defaite";
+
+            let jid;
+            try { jid = await getJid(tag + "@lid", ms_org, ovl); } catch { continue; }
+
+            const data = await getData({ jid });
+            if (!data) continue;
+
+            let exp = Number(data.exp) || 0;
+            let fans = Number(data.fans) || 0;
+            let talent = Number(data.talent) || 0;
+            let victoires = Number(data.victoires) || 0;
+            let defaites = Number(data.defaites) || 0;
+
+            if (type === "victoire") {
+                victoires += 1;
+                if (symbol === "✅") {
+                    exp += 10;
+                    fans += 1000;
+                    talent += 1;
+                } else {
+                    exp += 5;
+                    fans += 500;
+                }
+            } else {
+                defaites += 1;
+                if (symbol === "❌") {
+                    exp -= 5;
+                    fans -= 500;
+                    exp = Math.max(0, exp);
+                    fans = Math.max(0, fans);
+                } else {
+                    exp += 2;
+                }
+            }
+
+            await setfiche("exp", exp, jid);
+            await setfiche("fans", fans, jid);
+            await setfiche("talent", talent, jid);
+            await setfiche("victoires", victoires, jid);
+            await setfiche("defaites", defaites, jid);
         }
-    }
 
-    // ---------- CONFIRMATION ----------
-    if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
-            text: "Performances appliquées pour ce match!✅"
-        }, { quoted: ms });
+            text: "✅ Résultat appliqué et fiches All Stars mises à jour."
+        });
     }
 });
 
-//================= +PAVEMODO =================
+//---------------- COMMANDE +PAVEMODO ----------------
 ovlcmd({
     nom_cmd: "pavemodo",
     classe: "Duel",
@@ -249,21 +292,34 @@ ovlcmd({
     desc: "Envoie le pavé modèle RazorX™."
 }, async (ms_org, ovl, { repondre }) => {
     const paveStats = `
-.                    ⚡RAZORX™ LIVE▶️
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-📊 \`PERFORMANCES\`
-👤j1:  → strikes: 0 | attaques: 0
-👤j2: → strikes: 0 | attaques: 0
-
-🏆\`RESULTAT FINAL\`:
-✅ *Winner:*
-❌ *Loser:*
-*⏱️Durée:*
+.                    ⚡RAZORX™
+▔▔▔▔▔▔▔▔▔░▒░▔▔▔
+                             
+▶️\`Match Live\`:
+-
 
 ╰───────────────────
 🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
-`.trim();
-
+`;
     await ovl.sendMessage(ms_org, { text: paveStats });
 });
 
+ovlcmd({
+    nom_cmd: "endmatch",
+    classe: "Duel",
+    react: "📄",
+    desc: "Envoie le pavé résultats RazorX™."
+}, async (ms_org, ovl, { repondre }) => {
+    const paveResult = `
+.                    ⚡RAZORX™ LIVE▶️
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+🏆\`RESULTAT\`: 
+@tag :    
+@tag :  
+⏱️Durée: 
+
+╰───────────────────
+🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
+`;
+    await ovl.sendMessage(ms_org, { text: paveResult });
+});
