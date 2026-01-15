@@ -62,12 +62,15 @@ async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
 
 // ============================
 // LEVEL-UP / LEVEL-DOWN
-// ============================
+// ===========================
 async function checkLevelProgressive(jid, oldExp, newExp, ovl, ms_org) {
   oldExp = Number(oldExp) || 0;
   newExp = Number(newExp) || 0;
 
-  const dataRaw = await PlayerFunctions.getData({ jid });
+  // ✅ FIX ICI
+  const dataRaw = await PlayerFunctions.getPlayer({ jid });
+  if (!dataRaw) return;
+
   const data = dataRaw.dataValues ?? dataRaw;
 
   let currentLevel = Number(data.niveau) || 0;
