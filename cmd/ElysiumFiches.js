@@ -128,37 +128,38 @@ async function updatePlayerData(updates, jid, ovl, ms_org) {
 // ============================
 // PROCESS MULTI UPDATES
 // ============================
-async function processUpdates(argArray, player) {
+async function processUpdates(args, jid) {
   const updates = [];
+
+  const dataRaw = await PlayerFunctions.getPlayer({ jid });
+  if (!dataRaw) throw new Error("❌ Fiche introuvable.");
+
+  const values = dataRaw.dataValues ?? dataRaw;
+
   let i = 0;
-
-  while (i < argArray.length) {
-    let stat = argArray[i++];
-    const op = argArray[i++];
-    const value = Number(argArray[i++]);
-
-    // 🔥 NORMALISATION
-    stat = stat.toLowerCase().trim();
+  while (i < args.length) {
+    const stat = args[i++].toLowerCase().trim();
+    const signe = args[i++];
+    const valeur = Number(args[i++]);
 
     if (!ALLOWED_STATS[stat]) {
-      throw new Error(`Stat inconnue : ${stat}`);
+      throw new Error(`❌ Stat inconnue : ${stat}`);
     }
 
-    if (!["+","-"].includes(op)) {
-      throw new Error(`Opérateur invalide : ${op}`);
+    if (!["+","-"].includes(signe)) {
+      throw new Error(`❌ Signe invalide : ${signe}`);
     }
 
-    if (isNaN(value) || value <= 0) {
-      throw new Error(`Valeur invalide : ${value}`);
+    if (isNaN(valeur) || valeur <= 0) {
+      throw new Error(`❌ Valeur invalide : ${valeur}`);
     }
 
-    const oldValue = Number(player[stat] || 0);
-    const newValue = op === "+"
-      ? oldValue + value
-      : Math.max(0, oldValue - value);
+    const oldValue = Number(values[stat]) || 0;
+    const newValue = signe === "+"
+      ? oldValue + valeur
+      : Math.max(0, oldValue - valeur);
 
     updates.push({ colonne: stat, oldValue, newValue });
-    player[stat] = newValue;
   }
 
   return updates;
@@ -350,9 +351,8 @@ function registerDynamicCommand(identifier) {
       if (!playerRaw) return repondre("❌ Fiche introuvable.");
 
       const player = playerRaw.dataValues ?? playerRaw;
-      const updates = await processUpdates(arg, player);
-
-      await updatePlayerData(updates, targetJid, ovl, ms_org);
+      const updates = await processUpdates(arg, targetJid);
+await updatePlayerData(updates, targetJid, ovl, ms_org);
 
       const message =
         `✅ [ SYSTEM - ELYSIUM ] Mise à jour réussie\n\n` +
