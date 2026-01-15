@@ -1,11 +1,9 @@
-// ============================
-// ElysiumHUD.js
-// ============================
-
 const { ovlcmd } = require('../lib/ovlcmd');
 const { HUDFunctions } = require("../DataBase/ElysiumHudDB"); 
 const { saveUser: saveHUD, deleteUser: delHUD, getUserData: getHUD, updateUser: updateHUD } = HUDFunctions;
 const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
+
+const registeredHUDs = new Map(); // username/jid => id
 
 // ============================
 // UTILITAIRES
@@ -18,29 +16,60 @@ function normalizeJid(input) {
 }
 
 // ============================
-// FONCTION AFFICHAGE HUD
+// PROCESS UPDATE HUD
 // ============================
-async function sendHUD(ms_org, ovl, jid, ms) {
-  const data = await getHUD(jid);
-  if (!data) return ovl.sendMessage(ms_org, { text: "❌ Aucun HUD trouvé pour ce joueur." }, { quoted: ms });
+async function processHUDUpdates(args, data) {
+  const modifiables = [
+    "besoins","pv","energie","forme","stamina","plaisir",
+    "intelligence","force","vitesse","reflexes","resistance",
+    "gathering","driving","hacking"
+  ];
 
-  const hud = `➤ ──⦿ \`P L A Y E R\` | ⦿──
+  let updates = {};
+  for (let i = 0; i < args.length;) {
+    const field = args[i]?.toLowerCase();
+    const op = args[i+1];
+    const val = parseInt(args[i+2], 10);
 
-> 🍗: ${data.besoins || 100}%    ❤️: ${data.pv || 100}%   💠: ${data.energie || 100}%
-💪🏼: ${data.forme || 100}%    🫁: ${data.stamina || 100}%   🙂: ${data.plaisir || 100}%
+    if (!modifiables.includes(field) || !['+','-','='].includes(op) || isNaN(val)) { i++; continue; }
 
-🧠Intelligence: ${data.intelligence || 1}     👊🏽Force: ${data.force || 1}
-🔍Gathering: ${data.gathering || 0}     ⚡Vitesse: ${data.vitesse || 1}
-🛞Driving: ${data.driving || 0}        👁️Reflexes: ${data.reflexes || 1}
-👾Hacking: ${data.hacking || 0}      🛡️Résistance: ${data.resistance || 1}
+    if (op === '=') updates[field] = val;
+    if (op === '+') updates[field] = (data[field] || 0) + val;
+    if (op === '-') updates[field] = (data[field] || 0) - val;
 
-➤ \`+Package\`🎒 ➤ \`+Phone\`📱`;
- 
-  return ovl.sendMessage(ms_org, { image: { url: data.oc_url }, caption: hud }, { quoted: ms });
+    i += 3;
+  }
+
+  return updates;
 }
 
 // ============================
-// COMMANDE +HUD💠
+// AFFICHAGE HUD
+// ============================
+async function sendHUD(ms_org, ovl, jid, ms) {
+  const dataRaw = await getHUD(jid);
+  if (!dataRaw) return ovl.sendMessage(ms_org, { text: "❌ Aucun HUD trouvé pour ce joueur." }, { quoted: ms });
+
+  const data = dataRaw.dataValues ?? dataRaw;
+
+  const hud = `
+➤ ──⦿ \`P L A Y E R\` | ⦿──
+
+> 🍗: ${data.besoins}%    ❤️: ${data.pv}%   💠: ${data.energie}%
+💪🏼: ${data.forme}%    🫁: ${data.stamina}%   🙂: ${data.plaisir}%
+
+🧠Intelligence: ${data.intelligence}     👊🏽Force: ${data.force}
+🔍Gathering: ${data.gathering}     ⚡Vitesse: ${data.vitesse}
+🛞Driving: ${data.driving}        👁️Reflexes: ${data.reflexes}
+👾Hacking: ${data.hacking}      🛡️Résistance: ${data.resistance}
+
+➤ \`+Package\`🎒 ➤ \`+Phone\`📱`;
+
+  return ovl.sendMessage(ms_org, { caption: hud }, { quoted: ms });
+}
+
+// ============================
+// COMMANDE +HUD💠 (DYNAMIQUE USERNAME / JID)
 // ============================
 ovlcmd({
   nom_cmd: "hud💠",
@@ -48,114 +77,61 @@ ovlcmd({
   react: "💠"
 }, async (ms_org, ovl, { repondre, arg, ms, auteur_Message }) => {
   try {
-    const jid = normalizeJid(arg[0] || auteur_Message);
-    if (!jid) return repondre("❌ Impossible de récupérer le JID du joueur.");
+    if (!arg.length) return repondre("❌ Syntaxe : +hud username💠 stat +|-|= valeur");
 
-    const data = await getHUD(jid);
-    if (!data) return repondre("❌ Aucun HUD trouvé pour ce joueur.");
+    const usernameOrJid = arg[0].replace(/💠/g,"");
+    let targetJid;
 
-    // Affichage simple si pas de modifications
-    if (arg.length <= 1) return sendHUD(ms_org, ovl, jid, ms);
-
-    // --- Modification du HUD ---
-    const modifiables = [
-      "besoins","pv","energie","forme","stamina","plaisir",
-      "intelligence","force","vitesse","reflexes","resistance",
-      "gathering","driving","hacking"
-    ];
-
-    let updates = {};
-    for (let i = 1; i < arg.length;) {
-      const field = arg[i]?.toLowerCase();
-      const op = arg[i+1];
-      const val = parseInt(arg[i+2], 10);
-
-      if (!modifiables.includes(field) || !['+','-','='].includes(op) || isNaN(val)) { i++; continue; }
-
-      if (op === '=') updates[field] = val;
-      if (op === '+') updates[field] = (data[field] || 0) + val;
-      if (op === '-') updates[field] = (data[field] || 0) - val;
-
-      i += 3;
+    // Chercher par JID ou username
+    if (/^\d+$/.test(usernameOrJid) || usernameOrJid.includes("@")) {
+      targetJid = usernameOrJid.includes("@") ? usernameOrJid : usernameOrJid + "@s.whatsapp.net";
+    } else {
+      const allPlayers = await PlayerFunctions.getAllPlayers();
+      const playerMatch = allPlayers.find(p => {
+        const data = p.dataValues ?? p;
+        return (data.user?.replace(/💠/g,"").toLowerCase() === usernameOrJid.toLowerCase());
+      });
+      if (!playerMatch) return repondre("❌ Joueur introuvable.");
+      targetJid = (playerMatch.dataValues ?? playerMatch).jid;
     }
 
-    if (Object.keys(updates).length === 0) 
-      return repondre("⚠️ Format incorrect. Exemple : +hud💠 pv + 10 énergie - 5");
+    const hudDataRaw = await getHUD(targetJid);
+    if (!hudDataRaw) return repondre("❌ Aucun HUD trouvé pour ce joueur.");
 
-    await updateHUD(jid, updates);
-    return repondre("✅ HUD mis à jour avec succès !");
+    // Si pas d'arguments supplémentaires, afficher le HUD
+    if (arg.length === 1) return sendHUD(ms_org, ovl, targetJid, ms);
+
+    const updates = await processHUDUpdates(arg.slice(1), hudDataRaw.dataValues ?? hudDataRaw);
+    if (!Object.keys(updates).length) return repondre("⚠️ Format incorrect. Exemple : +hud NEO💠 pv + 10 énergie - 5");
+
+    await updateHUD(targetJid, updates);
+
+    const message =
+      `✅ [ SYSTEM - HUD ] Mise à jour réussie pour @${targetJid.split("@")[0]}\n` +
+      Object.entries(updates).map(([k,v]) => `🛠️ ${k} ➤ ${v}`).join("\n");
+
+    return repondre(message);
+
   } catch (err) {
-    console.error("[HUD] Erreur :", err);
-    return repondre("❌ Une erreur est survenue lors de l'affichage ou modification du HUD.");
+    console.error("[HUD DYNAMIQUE] Erreur :", err);
+    return repondre("❌ Une erreur est survenue lors de la mise à jour ou affichage du HUD.");
   }
 });
 
 // ============================
-// COMMANDE +SAVE HUD💠
+// INIT DYNAMIQUE
 // ============================
-ovlcmd({
-  nom_cmd: "savehud",
-  classe: "Other",
-  react: "💾",
-  desc: "Enregistrer un HUD pour un joueur"
-}, async (ms_org, ovl, { arg, repondre, prenium_id }) => {
-  try {
-    if (!prenium_id) return repondre("⚠️ Seuls les membres de la NS peuvent enregistrer un HUD.");
-
-    const rawMention = arg[0];       
-    const type = arg[1]?.toLowerCase(); 
-
-    if (!rawMention) return repondre("⚠️ Mentionne un utilisateur.");
-    const mention = normalizeJid(rawMention);
-
-    if (type !== "hud💠") return repondre("⚠️ Type invalide. Utilise : hud💠");
-
-    const existing = await getHUD(mention);
-    if (existing) return repondre("⚠️ Ce joueur possède déjà un HUD.");
-
-    const baseHUD = {
-      besoins: 100, pv: 100, energie: 100,
-      forme: 100, stamina: 100, plaisir: 100,
-      intelligence: 1, force: 1, vitesse: 1,
-      reflexes: 1, resistance: 1,
-      gathering: 0, driving: 0, hacking: 0,
-      oc_url: ""
-    };
-
-    await saveHUD(mention, baseHUD);
-    return repondre(`✅ HUD créé pour le joueur : ${rawMention} (JID : ${mention})`);
-  } catch (err) {
-    console.error("❌ Erreur save HUD:", err);
-    return repondre("⚠️ Une erreur est survenue lors de la création du HUD.");
+async function initDynamicHUDs() {
+  const huds = await HUDFunctions.getAllHUDs?.() ?? [];
+  for (const h of huds) {
+    const data = h.dataValues ?? h;
+    if (!data.id) continue;
+    registeredHUDs.set(data.id, data.id);
   }
-});
+  console.log("[HUD] Initialisation dynamique terminée.");
+}
 
-// ============================
-// COMMANDE +DELETE HUD💠
-// ============================
-ovlcmd({
-  nom_cmd: "deletehud",
-  classe: "Other",
-  react: "🗑️",
-  desc: "Supprimer le HUD d’un joueur"
-}, async (ms_org, ovl, { arg, repondre, prenium_id }) => {
-  try {
-    if (!prenium_id) return repondre("⚠️ Seuls les membres de la NS peuvent supprimer un HUD.");
+// 🔥 Appel initial
+initDynamicHUDs();
 
-    const rawMention = arg[0];       
-    const type = arg[1]?.toLowerCase(); 
-
-    if (!rawMention) return repondre("⚠️ Mentionne un utilisateur.");
-    const mention = normalizeJid(rawMention);
-
-    if (type !== "hud💠") return repondre("⚠️ Type invalide. Utilise : hud💠");
-
-    const deleted = await delHUD(mention);
-    if (!deleted) return repondre("⚠️ Aucun HUD trouvé pour ce joueur.");
-
-    return repondre(`✅ HUD supprimé pour le joueur : ${rawMention} (JID : ${mention})`);
-  } catch (err) {
-    console.error("❌ Erreur delete HUD:", err);
-    return repondre("⚠️ Une erreur est survenue lors de la suppression du HUD.");
-  }
-});
+module.exports = { sendHUD, processHUDUpdates, registeredHUDs };
