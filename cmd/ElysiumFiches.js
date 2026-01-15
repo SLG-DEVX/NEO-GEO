@@ -232,7 +232,6 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 // ============================
 // COMMANDES
 // ============================
-
 // +elysiumme💠
 ovlcmd({
   nom_cmd: "elysiumme💠",
@@ -240,6 +239,18 @@ ovlcmd({
   react: "💠"
 }, async (ms_org, ovl, { auteur_Message, arg, ms }) => {
   const jid = arg[0] || auteur_Message;
+
+  const playerRaw = await PlayerFunctions.getPlayer({ jid });
+
+  if (!playerRaw) {
+    // ⚠️ Joueur n'a pas encore de fiche
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      `❌ Joueur @${jid.split("@")[0]} n'a pas encore de fiche.`,
+      2
+    );
+  }
 
   await sendProgressiveText(
     ovl,
@@ -256,15 +267,39 @@ ovlcmd({
   nom_cmd: "add💠",
   classe: "Elysium",
   react: "➕"
-}, async (ms_org, ovl, { arg, repondre }) => {
-  if (arg.length < 2) return repondre("❌ Syntaxe : +add💠 <jid> <code_fiche>");
+}, async (ms_org, ovl, { arg, repondre, auteur_Message }) => {
+
+  // ✅ Vérification setsudo
+  if (!SETSUDO.includes(auteur_Message.split("@")[0])) {
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      "❌ Seul un setsudo peut créer une fiche avec +add💠.",
+      2
+    );
+  }
+
+  if (arg.length < 2) {
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      "❌ Syntaxe : +add💠 <jid> <code_fiche>",
+      2
+    );
+  }
 
   const jid = arg[0];
   const code_fiche = arg.slice(1).join(" ");
 
   const existing = await PlayerFunctions.getPlayer({ jid });
-  if (existing && existing.code_fiche !== "aucun")
-    return repondre("❌ Ce joueur possède déjà une fiche.");
+  if (existing && existing.code_fiche !== "aucun") {
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      `❌ Le joueur @${jid.split("@")[0]} possède déjà une fiche.`,
+      2
+    );
+  }
 
   await sendProgressiveText(
     ovl,
@@ -286,7 +321,13 @@ ovlcmd({
   });
 
   registeredFiches.set(code_fiche, jid);
-  return repondre(`✅ Fiche créée : ${code_fiche}`);
+
+  return sendProgressiveText(
+    ovl,
+    ms_org,
+    `✅ Fiche créée : ${code_fiche}`,
+    2
+  );
 });
 
 // +del💠
