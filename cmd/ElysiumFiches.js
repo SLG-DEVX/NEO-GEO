@@ -357,6 +357,89 @@ ovlcmd({
 });
 
 // ============================
+// COMMANDE DYNAMIQUE POUR MODIFIER oc_url
+// ============================
+function registerOcUrlCommand(identifier) {
+  if (!identifier) return;
+
+  const cleanIdentifier = identifier.replace(/💠/g, "");
+  const cmd = `${cleanIdentifier}💠`;
+
+  ovlcmd({
+    nom_cmd: cmd,
+    classe: "Elysium",
+    react: "🖼️"
+  }, async (ms_org, ovl, { arg, repondre }) => {
+    try {
+      if (!arg.length) return repondre(`❌ Syntaxe : +${cleanIdentifier}💠 oc_url = <lien>`);
+
+      const input = arg.join(" ");
+      const match = input.match(/oc_url\s*=\s*(.+)/i);
+      if (!match) return repondre("❌ Syntaxe invalide. Ex: +username💠 oc_url = https://files.catbox.moe/xxxxx.jpg");
+
+      const newUrl = match[1].trim();
+      if (!newUrl.startsWith("http")) return repondre("❌ Lien invalide.");
+
+      // Récupérer le JID du joueur
+      let targetJid;
+      if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
+        targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
+      } else {
+        const allPlayers = await PlayerFunctions.getAllPlayers();
+        const playerMatch = allPlayers.find(p => {
+          const data = p.dataValues ?? p;
+          return (data.user?.replace(/💠/g, "").toLowerCase() === cleanIdentifier.toLowerCase());
+        });
+        if (!playerMatch) return repondre("❌ Joueur introuvable.");
+        targetJid = (playerMatch.dataValues ?? playerMatch).jid;
+      }
+
+      const playerRaw = await PlayerFunctions.getPlayer({ jid: targetJid });
+      if (!playerRaw) return repondre("❌ Fiche introuvable.");
+
+      // Mise à jour de l'URL
+      await PlayerFunctions.setPlayer("oc_url", newUrl, targetJid);
+
+      await sendProgressiveText(
+        ovl,
+        ms_org,
+        `✅ [ SYSTEM - ELYSIUM ] L'URL de l'image du joueur @${targetJid.split("@")[0]} a été mise à jour.`,
+        2
+      );
+
+    } catch (err) {
+      console.error(`[${cleanIdentifier}💠]`, err);
+      await sendProgressiveText(ovl, ms_org, "❌ [ SYSTEM - ELYSIUM ] Erreur interne.", 2);
+    }
+  });
+}
+
+// ============================
+// INIT DYNAMIQUE oc_url POUR TOUS LES USERS
+// ============================
+async function initDynamicOcUrlCommands() {
+  try {
+    const players = await PlayerFunctions.getAllPlayers();
+
+    for (const p of players) {
+      const data = p.dataValues ?? p;
+      if (!data.user || !data.jid) continue;
+
+      registerOcUrlCommand(data.user); // username
+      registerOcUrlCommand(data.jid.replace("@s.whatsapp.net", "")); // JID
+    }
+
+    console.log("[ELYSIUM] Commandes oc_url initialisées (username + JID)");
+  } catch (e) {
+    console.error("[ELYSIUM INIT OC_URL]", e);
+  }
+}
+
+// 🔥 Appel unique après initElysiumFiches
+initDynamicOcUrlCommands(); 
+
+
+// ============================
 // DYNAMIQUE USERS / JID
 // ============================
 function registerDynamicCommand(identifier) {
