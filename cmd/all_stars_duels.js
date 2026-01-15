@@ -290,17 +290,17 @@ ovlcmd({
     react: "📄",
     desc: "Envoie le pavé RazorX™ vide."
 }, async (ms_org, ovl) => {
-
-    const pave = `
+    
+const pave = `
 . .                    ⚡RAZORX™
 ▔▔▔▔▔▔▔▔▔░▒░▔▔▔
                              
-▶️`Match Live`:
+▶️\`Match Live\`:
 @j1 : Strikes 0 | attaques: 0
 @j2 : Strikes 0 | attaques: 0
 
 ▔▔▔▔▔▔▔▔▔▔▔▔░▔▔▔▔▔▔▔▔▔▔▔▔
-🏆`RESULTAT`: 
+🏆\`RESULTAT\`: 
 victoire :  
 défaite :   
 ⏱️Durée: 
