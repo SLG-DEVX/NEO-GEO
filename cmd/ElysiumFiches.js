@@ -20,6 +20,7 @@ const ALLOWED_STATS = {
   lifestyle: "lifestyle",
   missions: "missions",
   gameover: "gameover",
+  cyberwares: "cyberwares",
   pvp: "pvp",
   points_combat: "points_combat",
   points_chasse: "points_chasse",
