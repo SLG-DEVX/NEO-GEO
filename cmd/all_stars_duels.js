@@ -295,19 +295,18 @@ ovlcmd({
 . .                    ⚡RAZORX™
 ▔▔▔▔▔▔▔▔▔░▒░▔▔▔
                              
-▶️\`Match Live\`:
-@⁨J1 ⁩: Strikes 0 | attaques: 0
-@⁨j2⁩ : Strikes 0 | attaques: 0
+▶️`Match Live`:
+@j1 : Strikes 0 | attaques: 0
+@j2 : Strikes 0 | attaques: 0
 
 ▔▔▔▔▔▔▔▔▔▔▔▔░▔▔▔▔▔▔▔▔▔▔▔▔
-🏆\`RESULTAT\`: 
-victoire:  
-défaite:   
+🏆`RESULTAT`: 
+victoire :  
+défaite :   
 ⏱️Durée: 
 
 ╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™
-`;
+🏆NSL PRO ESPORT ARENA® | RAZORX⚡™`;
 
     await ovl.sendMessage(ms_org, { text: pave });
 });
