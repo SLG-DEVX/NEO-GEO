@@ -48,6 +48,7 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
   charisme: { type: DataTypes.INTEGER, defaultValue: 0 },
   reputation: { type: DataTypes.INTEGER, defaultValue: 0 },
   cyberwares: { type: DataTypes.TEXT, defaultValue: '' },
+  infos: { type: DataTypes.TEXT, defaultValue: '' },
   missions: { type: DataTypes.INTEGER, defaultValue: 0 },
   gameover: { type: DataTypes.INTEGER, defaultValue: 0 },
   pvp: { type: DataTypes.INTEGER, defaultValue: 0 },
