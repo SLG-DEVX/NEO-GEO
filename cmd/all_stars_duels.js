@@ -106,10 +106,12 @@ ovlcmd({
 
     const duel = duelsEnCours[ms_org];
 
+    // ===== SI AUCUN ARG : AFFICHER FICHE =====
     if (!arg.length) {
         if (!duel) return;
         return ovl.sendMessage(ms_org, {
-            image: { url: duel.arene.image },            caption: generateFicheDuel(duel)
+            image: { url: duel.arene.image },
+            caption: generateFicheDuel(duel)
         }, { quoted: ms });
     }
 
@@ -117,7 +119,6 @@ ovlcmd({
     const [left, rest] = input.split(':').map(v => v.trim());
     if (!left || !rest) return;
 
-    // ===== STATS DUEL (si aucun mention) =====
     if (!duel) return;
 
     const joueur =
@@ -129,9 +130,20 @@ ovlcmd({
     for (const p of rest.split(',')) {
         const m = p.match(/(sta|energie|pv)\s*([+-])\s*(\d+)/i);
         if (!m) continue;
-        limiterStats(joueur.stats, m[1], m[2] === '-' ? -Number(m[3]) : Number(m[3]));
+
+        limiterStats(
+            joueur.stats,
+            m[1].toLowerCase(),
+            m[2] === '-' ? -Number(m[3]) : Number(m[3])
+        );
     }
-});    
+
+    // ===== RENVOI DE LA FICHE MISE À JOUR =====
+    await ovl.sendMessage(ms_org, {
+        image: { url: duel.arene.image },
+        caption: generateFicheDuel(duel)
+    }, { quoted: ms });
+});
 
 /* ================= UTILS ================= */
 
@@ -196,7 +208,6 @@ function parseRazorX(text) {
 }
 
 /* ================= RAZORX AUTO ================= */
-
 ovlcmd({
     nom: "razorx_auto",
     isfunc: true
@@ -207,7 +218,7 @@ ovlcmd({
 
     let allStarsTouched = false;
 
-    // ---------- MATCH LIVE (SET DIRECT) ----------
+    // ---------- MATCH LIVE ----------
     for (const act of actions) {
         if (!['talent', 'strikes', 'attaques', 'pv', 'sta', 'energie'].includes(act.stat)) continue;
 
@@ -221,7 +232,18 @@ ovlcmd({
         const data = await getData({ jid });
         if (!data) continue;
 
-        await setfiche(act.stat, act.valeur, jid);
+        // 🔥 STATS QUI S'AJOUTENT
+        if (act.stat === "strikes" || act.stat === "attaques") {
+            const oldValue = Number(data[act.stat]) || 0;
+            const newValue = oldValue + act.valeur;
+            await setfiche(act.stat, newValue, jid);
+        }
+
+        // 🎯 STATS QUI S'ÉCRASENT
+        else {
+            await setfiche(act.stat, act.valeur, jid);
+        }
+
         allStarsTouched = true;
     }
 
@@ -253,7 +275,6 @@ ovlcmd({
             } else if (!r.symbol) {
                 victoires += 1;
             }
-            // victoire ❌ => rien
         }
 
         // ----- DEFAITE -----
@@ -274,13 +295,15 @@ ovlcmd({
         allStarsTouched = true;
     }
 
-    // ---------- CONFIRMATION UNIQUEMENT SI JOUEURS VALIDES ----------
+    // ---------- CONFIRMATION ----------
     if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
-            text: "✅ Fiches All Stars mises à jour."
+            text: "✅ Données mises à jour pour ce match."
         }, { quoted: ms });
     }
 });
+
+
 
 /* ================= +PAVEMODO (PAVÉ VIDE ATTENDU) ================= */
 
