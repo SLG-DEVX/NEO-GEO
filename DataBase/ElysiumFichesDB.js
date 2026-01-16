@@ -84,34 +84,14 @@ const ElysiumFiche = sequelize.define('ElysiumFiche', {
 // FONCTIONS DB (MODE ALL STARS)
 // ============================
 
-// 🔒 Récupère ou crée automatiquement une fiche
+// 🔒 Récupère automatiquement une fiche
 async function getPlayer(where = {}) {
-  const [player] = await ElysiumFiche.findOrCreate({
-    where,
-    defaults: {
-      code_fiche: 'aucun',
-      pseudo: 'Nouveau Joueur',
-      user: where.jid || 'inconnu',
-      exp: 0,
-      niveau: 1,
-      rang: 'Novice🥉',
-      ecash: 50000,
-      lifestyle: 0,
-      charisme: 0,
-      reputation: 0,
-      cyberwares: '',
-      missions: 0,
-      gameover: 0,
-      pvp: 0,
-      points_combat: 0,
-      points_chasse: 0,
-      points_recoltes: 0,
-      points_hacking: 0,
-      points_conduite: 0,
-      points_exploration: 0,
-      trophies: 0
-    }
-  });
+  const player = await ElysiumFiche.findOne({ where });
+
+  if (!player) {
+    throw new Error("❌ Joueur non trouvé");
+  }
+
   return player;
 }
 
