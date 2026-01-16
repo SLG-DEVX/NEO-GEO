@@ -223,7 +223,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 *⏫Exp:*        ➤ ${data.exp}/4000 \`XP\`
 *🔰Niveau:*   ➤ ${data.niveau} ▲
 *🎖️Rang:*      ➤ ${data.rang}
-*🛄Infos:* ➤  
+*🛄Infos:* ➤ ${data.infos}
 
 ▒▒▒░░ \`P L A Y E R\` 💠 
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░ 
