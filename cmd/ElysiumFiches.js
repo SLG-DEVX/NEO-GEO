@@ -491,12 +491,45 @@ function registerDynamicCommand(identifier) {
     react: "⚙️"
   }, async (ms_org, ovl, { repondre, arg }) => {
     try {
-      if (!arg.length || arg.length % 3 !== 0) {
-        return repondre(`❌ Syntaxe : +${cleanIdentifier}💠 stat +|- valeur [stat +|- valeur ...]`);
+      if (!arg.length) return repondre(`❌ Syntaxe : +${cleanIdentifier}💠 stat +|- valeur ... ou +${cleanIdentifier}💠 oc_url = <lien>`);
+
+      // 🔹 Vérification si c'est oc_url
+      const input = arg.join(" ");
+      const ocMatch = input.match(/^oc_url\s*=\s*(.+)$/i);
+      if (ocMatch) {
+        const newUrl = ocMatch[1].trim();
+        if (!newUrl.startsWith("http")) return repondre("❌ Lien invalide.");
+
+        // Récupérer le JID du joueur
+        let targetJid;
+        if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
+          targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
+        } else {
+          const allPlayers = await PlayerFunctions.getAllPlayers();
+          const playerMatch = allPlayers.find(p => {
+            const data = p.dataValues ?? p;
+            return (data.user?.replace(/💠/g, "").toLowerCase() === cleanIdentifier.toLowerCase());
+          });
+          if (!playerMatch) return repondre("❌ Joueur introuvable.");
+          targetJid = (playerMatch.dataValues ?? playerMatch).jid;
+        }
+
+        await PlayerFunctions.setPlayer("oc_url", newUrl, targetJid);
+
+        return sendProgressiveText(
+          ovl,
+          ms_org,
+          `✅ [ SYSTEM - ELYSIUM ] L'URL de l'image du joueur @${targetJid.split("@")[0]} a été mise à jour.`,
+          2
+        );
+      }
+
+      // 🔹 Sinon traitement stats
+      if (arg.length % 3 !== 0) {
+        return repondre(`❌ Syntaxe stats : +${cleanIdentifier}💠 stat +|- valeur ...`);
       }
 
       let targetJid;
-
       if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
         targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
       } else {
@@ -512,9 +545,8 @@ function registerDynamicCommand(identifier) {
       const playerRaw = await PlayerFunctions.getPlayer({ jid: targetJid });
       if (!playerRaw) return repondre("❌ Fiche introuvable.");
 
-      const player = playerRaw.dataValues ?? playerRaw;
       const updates = await processUpdates(arg, targetJid);
-await updatePlayerData(updates, targetJid, ovl, ms_org);
+      await updatePlayerData(updates, targetJid, ovl, ms_org);
 
       const message =
         `✅ [ SYSTEM - ELYSIUM ] Mise à jour réussie\n\n` +
