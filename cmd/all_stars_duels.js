@@ -115,8 +115,17 @@ ovlcmd({
     }
 
     const input = arg.join(' ');
-    const [left, rest] = input.split(':').map(v => v.trim());
-    if (!left || !rest) return;
+    let left, rest;
+
+if (input.includes(':')) {
+    [left, rest] = input.split(':').map(v => v.trim());
+} else if (input.includes('=')) {
+    [left, rest] = input.split('=').map(v => v.trim());
+} else {
+    const parts = input.split(' ');
+    left = parts.shift();
+    rest = parts.join(' ');
+}
 
     // Cherche le joueur
     const joueur =
