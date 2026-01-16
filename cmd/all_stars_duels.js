@@ -149,13 +149,6 @@ ovlcmd({
     }, { quoted: ms });
 });
 
-    // ===== RENVOI DE LA FICHE MISE À JOUR =====
-    await ovl.sendMessage(ms_org, {
-        image: { url: duel.arene.image },
-        caption: generateFicheDuel(duel)
-    }, { quoted: ms });
-});
-
 /* ================= UTILS ================= */
 
 function normalizeTag(tag) {
