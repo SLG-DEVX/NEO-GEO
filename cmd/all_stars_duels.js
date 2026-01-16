@@ -103,12 +103,11 @@ ovlcmd({
     classe: "Duel",
     react: "📉"
 }, async (ms_org, ovl, { arg, ms }) => {
-
     const duel = duelsEnCours[ms_org];
+    if (!duel) return;
 
-    // ===== SI AUCUN ARG : AFFICHER FICHE =====
+    // Si aucun argument, juste renvoyer la fiche mise à jour
     if (!arg.length) {
-        if (!duel) return;
         return ovl.sendMessage(ms_org, {
             image: { url: duel.arene.image },
             caption: generateFicheDuel(duel)
@@ -119,24 +118,36 @@ ovlcmd({
     const [left, rest] = input.split(':').map(v => v.trim());
     if (!left || !rest) return;
 
-    if (!duel) return;
-
+    // Cherche le joueur
     const joueur =
         duel.equipe1.find(j => j.nom.toLowerCase() === left.toLowerCase()) ||
         duel.equipe2.find(j => j.nom.toLowerCase() === left.toLowerCase());
 
     if (!joueur) return;
 
+    // Modifie les stats directement dans l'objet duel
     for (const p of rest.split(',')) {
-        const m = p.match(/(sta|energie|pv)\s*([+-])\s*(\d+)/i);
+        const m = p.match(/(sta|energie|pv)\s*([+-=])\s*(\d+)/i);
         if (!m) continue;
 
-        limiterStats(
-            joueur.stats,
-            m[1].toLowerCase(),
-            m[2] === '-' ? -Number(m[3]) : Number(m[3])
-        );
+        const stat = m[1].toLowerCase();
+        const op = m[2];
+        const val = Number(m[3]);
+
+        if (op === '+' || op === '-') {
+            limiterStats(joueur.stats, stat, op === '-' ? -val : val);
+        } else if (op === '=') {
+            // pour = on met directement la valeur mais toujours limiter entre 0 et 100
+            joueur.stats[stat] = Math.max(0, Math.min(100, val));
+        }
     }
+
+    // Renvoi de la fiche mise à jour
+    await ovl.sendMessage(ms_org, {
+        image: { url: duel.arene.image },
+        caption: generateFicheDuel(duel)
+    }, { quoted: ms });
+});
 
     // ===== RENVOI DE LA FICHE MISE À JOUR =====
     await ovl.sendMessage(ms_org, {
@@ -218,9 +229,9 @@ ovlcmd({
 
     let allStarsTouched = false;
 
-    // ---------- MATCH LIVE ----------
+    // ---------- MATCH LIVE (STRIKES & ATTAQUES) ----------
     for (const act of actions) {
-        if (!['talent', 'strikes', 'attaques', 'pv', 'sta', 'energie'].includes(act.stat)) continue;
+        if (!['strikes','attaques'].includes(act.stat)) continue;
 
         let jid;
         try {
@@ -232,22 +243,15 @@ ovlcmd({
         const data = await getData({ jid });
         if (!data) continue;
 
-        // 🔥 STATS QUI S'AJOUTENT
-        if (act.stat === "strikes" || act.stat === "attaques") {
-            const oldValue = Number(data[act.stat]) || 0;
-            const newValue = oldValue + act.valeur;
-            await setfiche(act.stat, newValue, jid);
-        }
+        // Additionne toujours les valeurs existantes
+        const oldValue = Number(data[act.stat]) || 0;
+        const newValue = oldValue + Number(act.valeur);
 
-        // 🎯 STATS QUI S'ÉCRASENT
-        else {
-            await setfiche(act.stat, act.valeur, jid);
-        }
-
+        await setfiche(act.stat, newValue, jid);
         allStarsTouched = true;
     }
 
-    // ---------- RESULTAT ----------
+    // ---------- RESULTAT VICTOIRE / DEFAITE ----------
     for (const r of results) {
         let jid;
         try {
@@ -275,6 +279,7 @@ ovlcmd({
             } else if (!r.symbol) {
                 victoires += 1;
             }
+            // victoire ❌ => rien
         }
 
         // ----- DEFAITE -----
@@ -295,10 +300,10 @@ ovlcmd({
         allStarsTouched = true;
     }
 
-    // ---------- CONFIRMATION ----------
+    // ---------- CONFIRMATION SI JOUEURS TOUCHÉS ----------
     if (allStarsTouched) {
         await ovl.sendMessage(ms_org, {
-            text: "✅ Données mises à jour pour ce match."
+            text: "✅ Résultats mises à jour pour ce match !"
         }, { quoted: ms });
     }
 });
