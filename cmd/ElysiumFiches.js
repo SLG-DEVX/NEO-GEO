@@ -141,26 +141,61 @@ async function processUpdates(args, jid) {
   while (i < args.length) {
     const stat = args[i++].toLowerCase().trim();
     const signe = args[i++];
-    const valeur = Number(args[i++]);
+    const valeur = args[i++]; // texte ou chiffre
 
-    if (!ALLOWED_STATS[stat]) {
+    if (!ALLOWED_STATS[stat] && stat !== "cyberwares" && stat !== "rang" && stat !== "lifestyle") {
       throw new Error(`❌ Stat inconnue : ${stat}`);
     }
 
-    if (!["+","-"].includes(signe)) {
+    if (!["+","-","="].includes(signe)) {
       throw new Error(`❌ Signe invalide : ${signe}`);
     }
 
-    if (isNaN(valeur) || valeur <= 0) {
-      throw new Error(`❌ Valeur invalide : ${valeur}`);
+    const oldValue = values[stat] ?? "";
+
+    // === Stats numériques ===
+    const isNumberStat = ["exp","niveau","ecash","charisme","reputation","missions","gameover","pvp","points_combat","points_chasse","points_recoltes","points_hacking","points_conduite","points_exploration","trophies"].includes(stat);
+
+    if (isNumberStat) {
+      let oldNum = Number(oldValue) || 0;
+      let newNum;
+
+      if (signe === "+") newNum = oldNum + Number(valeur);
+      else if (signe === "-") newNum = Math.max(0, oldNum - Number(valeur));
+      else newNum = Number(valeur);
+
+      if (isNaN(newNum)) throw new Error(`❌ Valeur invalide pour ${stat} : ${valeur}`);
+
+      updates.push({ colonne: stat, oldValue: oldNum, newValue: newNum });
+    } 
+    // === Stats texte ===
+    else {
+      let newText = oldValue;
+
+      if (stat === "cyberwares") {
+        const list = oldValue.split("\n").filter(Boolean);
+
+        if (signe === "+") {
+          if (!list.includes(valeur)) list.push(valeur);
+        } else if (signe === "-") {
+          const index = list.indexOf(valeur);
+          if (index !== -1) list.splice(index, 1);
+        } else if (signe === "=") {
+          list.length = 0;
+          if (valeur) list.push(valeur);
+        }
+
+        newText = list.join("\n");
+      } 
+      else {
+        // Autres champs texte
+        if (signe === "+") newText = oldValue ? oldValue + " " + valeur : valeur;
+        else if (signe === "-") newText = oldValue.replace(valeur, "").trim();
+        else if (signe === "=") newText = valeur;
+      }
+
+      updates.push({ colonne: stat, oldValue, newValue: newText });
     }
-
-    const oldValue = Number(values[stat]) || 0;
-    const newValue = signe === "+"
-      ? oldValue + valeur
-      : Math.max(0, oldValue - valeur);
-
-    updates.push({ colonne: stat, oldValue, newValue });
   }
 
   return updates;
@@ -177,6 +212,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
   data.cyberwares ||= "";
   data.oc_url ||= "https://files.catbox.moe/2k3S1yf.png";
 
+  // 🔹 Calcul automatique du total des cyberwares
   const cyberwaresCount = data.cyberwares.split("\n").filter(Boolean).length;
 
   const fiche = `
@@ -200,7 +236,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 
 ░▒▒▒▒░ \`C Y B E R W A R E S\` 💠 
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░░
-🩻Cyberwares (Total) ➤ ${cyberwaresCount}
+🩻Cyberwares ➤ ${cyberwaresCount}
 ➤ ${data.cyberwares.split("\n").join(" • ") || "-"}
 
 ░▒▒▒▒░░▒░ \`S T A T S\`  💠
@@ -222,6 +258,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 ▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
                               💠▯▯▯▯▯▯⎢⎢⎢⎢⎢`;
 
+  // 🔹 Envoi avec image et légende
   return ovl.sendMessage(
     ms_org,
     { image: { url: data.oc_url }, caption: fiche },
