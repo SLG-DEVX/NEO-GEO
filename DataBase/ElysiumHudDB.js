@@ -25,7 +25,7 @@ const sequelize = db
 const HUD = sequelize.define(
   'elysiumhud',
   {
-    id: { type: DataTypes.STRING, primaryKey: true },
+    id: { type: DataTypes.TEXT, primaryKey: true },
 
     besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
     pv: { type: DataTypes.INTEGER, defaultValue: 100 },
@@ -44,7 +44,7 @@ const HUD = sequelize.define(
     driving: { type: DataTypes.INTEGER, defaultValue: 0 },
     hacking: { type: DataTypes.INTEGER, defaultValue: 0 },
 
-    oc_url: { type: DataTypes.STRING, defaultValue: "" },
+    oc_url: { type: DataTypes.TEXT, defaultValue: "" },
   },
   {
     tableName: "elysium_hud",
