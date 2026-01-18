@@ -180,7 +180,11 @@ function parseRazorX(text) {
 
         for (const ligne of lignes) {
             const clean = ligne.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '');
-            const [p, s] = clean.split(':').map(v => v.trim());
+            const idx = clean.indexOf(':');
+if (idx === -1) continue;
+
+const p = clean.slice(0, idx).trim();
+const s = clean.slice(idx + 1).trim();
             if (!p || !s) continue;
 
             const tag = normalizeTag(p);
