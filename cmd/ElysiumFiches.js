@@ -280,15 +280,14 @@ ovlcmd({
 
   const playerRaw = await PlayerFunctions.getPlayer({ jid });
 
-  if (!playerRaw) {
-    // ⚠️ Joueur n'a pas encore de fiche
-    return sendProgressiveText(
-      ovl,
-      ms_org,
-      `❌ Joueur @${jid.split("@")[0]} n'a pas encore de fiche.`,
-      2
-    );
-  }
+if (!playerRaw) {
+  return sendProgressiveText(
+    ovl,
+    ms_org,
+    `❌ Joueur @${jid.split("@")[0]} ne possède pas encore de fiche.`,
+    2
+  );
+}
 
   await sendProgressiveText(
     ovl,
