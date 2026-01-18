@@ -28,6 +28,7 @@ const HUD = sequelize.define(
     // ID = JID WhatsApp
     id: { type: DataTypes.STRING, primaryKey: true }, 
 
+    user: { type: DataTypes.TEXT, defaultValue: "" },
     besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
     pv: { type: DataTypes.INTEGER, defaultValue: 100 },
     energie: { type: DataTypes.INTEGER, defaultValue: 100 },
