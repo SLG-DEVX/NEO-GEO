@@ -25,7 +25,7 @@ const sequelize = db
 const HUD = sequelize.define(
   'elysiumhud',
   {
-    id: { type: DataTypes.TEXT, primaryKey: true },
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true }, 
 
     besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
     pv: { type: DataTypes.INTEGER, defaultValue: 100 },
