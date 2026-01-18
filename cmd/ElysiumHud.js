@@ -96,12 +96,12 @@ ovlcmd({
   nom_cmd: "savehud💠",
   classe: "Elysium",
   react: "💾"
-}, async (ms_org, ovl, { arg, repondre, auteur_Message }) => {
+}, async (ms_org, ovl, { arg }) => {
   try {
     if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +savehud💠 <username/JID>", 2);
 
     const identifier = arg[0].replace(/💠/g,"");
-    let targetJid = /^\d+$/.test(identifier) ? identifier + "@s.whatsapp.net" : (identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net");
+    const targetJid = /^\d+$/.test(identifier) ? identifier + "@s.whatsapp.net" : (identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net");
 
     const existing = await getHUD(targetJid);
     if (existing) return sendProgressiveText(ovl, ms_org, `❌ HUD déjà existant pour @${targetJid.split("@")[0]}`, 2);
@@ -129,12 +129,12 @@ ovlcmd({
   nom_cmd: "delhud💠",
   classe: "Elysium",
   react: "🗑️"
-}, async (ms_org, ovl, { arg, repondre }) => {
+}, async (ms_org, ovl, { arg }) => {
   try {
     if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +delhud💠 <username/JID>", 2);
 
     const identifier = arg[0].replace(/💠/g,"");
-    let targetJid = /^\d+$/.test(identifier) ? identifier + "@s.whatsapp.net" : (identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net");
+    const targetJid = /^\d+$/.test(identifier) ? identifier + "@s.whatsapp.net" : (identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net");
 
     const existing = await getHUD(targetJid);
     if (!existing) return sendProgressiveText(ovl, ms_org, `❌ Aucun HUD trouvé pour @${targetJid.split("@")[0]}`, 2);
@@ -162,9 +162,10 @@ function registerDynamicHUD(identifier) {
     nom_cmd: cmd,
     classe: "Elysium",
     react: "💠"
-  }, async (ms_org, ovl, { repondre, arg, ms }) => {
+  }, async (ms_org, ovl, { arg, ms }) => {
     try {
       let targetJid;
+
       if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
         targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
       } else {
@@ -201,14 +202,38 @@ function registerDynamicHUD(identifier) {
 }
 
 // ============================
+// COMMANDE GLOBALE +HUD💠 (affiche le HUD du joueur qui envoie)
+// ============================
+ovlcmd({
+  nom_cmd: "hud💠",
+  classe: "Elysium",
+  react: "💠"
+}, async (ms_org, ovl, { auteur_Message, ms }) => {
+  try {
+    const senderJid = auteur_Message?.sender || auteur_Message?.jid;
+    if (!senderJid) return sendProgressiveText(ovl, ms_org, "❌ Impossible de récupérer votre JID.", 2, ms);
+
+    await sendProgressiveText(ovl, ms_org, "[ SYSTEM-ELYSIUM ] chargement de HUD du joueur♻️...", 2, ms);
+
+    const hudDataRaw = await getHUD(senderJid);
+    if (!hudDataRaw) return sendProgressiveText(ovl, ms_org, "❌ Aucun HUD trouvé pour vous.", 2, ms);
+
+    return sendHUD(ms_org, ovl, senderJid, ms);
+
+  } catch (err) {
+    console.error("[HUD GLOBAL]", err);
+    return sendProgressiveText(ovl, ms_org, "❌ Une erreur est survenue lors de l'affichage du HUD.", 2, ms);
+  }
+});
+
+// ============================
 // INIT DYNAMIQUE DE TOUS LES HUDS
 // ============================
 async function initDynamicHUDs() {
   const huds = await getAllHUDs?.() ?? [];
   for (const h of huds) {
     const data = h.dataValues ?? h;
-    if (!data.id || !data.user) continue;
-    registerDynamicHUD(data.user); // username
+    if (!data.id) continue;
     registerDynamicHUD(data.id);   // id / JID
     registeredHUDs.set(data.id, data.id);
   }
