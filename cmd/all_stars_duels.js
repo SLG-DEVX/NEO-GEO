@@ -35,6 +35,14 @@ function clean(txt) {
     return txt.replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '').trim();
 }
 
+function normalizeName(n) {
+    return n
+        .toLowerCase()
+        .replace(/@/g, '')
+        .replace(/[\u2066-\u2069\u200e\u200f\u202a-\u202e]/g, '')
+        .trim();
+}
+
 //================= FICHE DUEL =================
 function generateFicheDuel(duel) {
     return `*🆚VERSUS ARENA BATTLE🏆🎮*
@@ -97,6 +105,9 @@ ovlcmd({
     }, { quoted: ms });
 });
 
+
+
+
 //================= +STATS =================
 ovlcmd({
     nom_cmd: "stats",
@@ -106,7 +117,7 @@ ovlcmd({
     const duel = duelsEnCours[ms_org];
     if (!duel) return;
 
-    // Si aucun argument, juste renvoyer la fiche mise à jour
+    // Si aucun argument → renvoyer fiche actuelle
     if (!arg.length) {
         return ovl.sendMessage(ms_org, {
             image: { url: duel.arene.image },
@@ -117,24 +128,30 @@ ovlcmd({
     const input = arg.join(' ');
     let left, rest;
 
-if (input.includes(':')) {
-    [left, rest] = input.split(':').map(v => v.trim());
-} else if (input.includes('=')) {
-    [left, rest] = input.split('=').map(v => v.trim());
-} else {
-    const parts = input.split(' ');
-    left = parts.shift();
-    rest = parts.join(' ');
-}
+    if (input.includes(':')) {
+        const idx = input.indexOf(':');
+        left = input.slice(0, idx).trim();
+        rest = input.slice(idx + 1).trim();
+    } else if (input.includes('=')) {
+        const idx = input.indexOf('=');
+        left = input.slice(0, idx).trim();
+        rest = input.slice(idx + 1).trim();
+    } else {
+        const parts = input.split(' ');
+        left = parts.shift();
+        rest = parts.join(' ');
+    }
 
-    // Cherche le joueur
+    const leftNorm = normalizeName(left);
+
     const joueur =
-        duel.equipe1.find(j => j.nom.toLowerCase() === left.toLowerCase()) ||
-        duel.equipe2.find(j => j.nom.toLowerCase() === left.toLowerCase());
+        duel.equipe1.find(j => normalizeName(j.nom) === leftNorm) ||
+        duel.equipe2.find(j => normalizeName(j.nom) === leftNorm);
 
-    if (!joueur) return;
+    if (!joueur) {
+        return ovl.sendMessage(ms_org, { text: "❌ Joueur introuvable." }, { quoted: ms });
+    }
 
-    // Modifie les stats directement dans l'objet duel
     for (const p of rest.split(',')) {
         const m = p.match(/(sta|energie|pv)\s*([+-=])\s*(\d+)/i);
         if (!m) continue;
@@ -146,18 +163,18 @@ if (input.includes(':')) {
         if (op === '+' || op === '-') {
             limiterStats(joueur.stats, stat, op === '-' ? -val : val);
         } else if (op === '=') {
-            // pour = on met directement la valeur mais toujours limiter entre 0 et 100
             joueur.stats[stat] = Math.max(0, Math.min(100, val));
         }
     }
 
-    // Renvoi de la fiche mise à jour
+    console.log("STATS MAJ:", joueur.nom, joueur.stats);
+
     await ovl.sendMessage(ms_org, {
         image: { url: duel.arene.image },
         caption: generateFicheDuel(duel)
     }, { quoted: ms });
-});
-
+}); 
+    
 /* ================= UTILS ================= */
 
 function normalizeTag(tag) {
