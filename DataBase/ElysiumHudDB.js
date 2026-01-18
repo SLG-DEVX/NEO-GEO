@@ -23,7 +23,7 @@ const sequelize = db
 // TABLE HUD
 // ============================
 const HUD = sequelize.define(
-  "elysiumhud",
+  'elysiumhud',
   {
     id: { type: DataTypes.STRING, primaryKey: true },
 
