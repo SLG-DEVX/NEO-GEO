@@ -25,7 +25,8 @@ const sequelize = db
 const HUD = sequelize.define(
   'elysiumhud',
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true }, 
+    // ID = JID WhatsApp
+    id: { type: DataTypes.STRING, primaryKey: true }, 
 
     besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
     pv: { type: DataTypes.INTEGER, defaultValue: 100 },
@@ -57,26 +58,28 @@ const HUD = sequelize.define(
 // FONCTIONS HUD
 // ============================
 const HUDFunctions = {
-  // 🔧 Récupérer un HUD (sans créer)
-  async getUserData(id) {
+  // 🔧 Récupérer un HUD par JID
+  async getUserData(jid) {
     try {
-      return await HUD.findByPk(id);
-    } catch {
+      return await HUD.findByPk(jid);
+    } catch (err) {
+      console.error("[HUD GET ERROR]", err);
       return null;
     }
   },
 
-  // 🔧 Alias getHUD
-  async getHUD(id) {
-    return this.getUserData(id);
+  // 🔧 Alias
+  async getHUD(jid) {
+    return this.getUserData(jid);
   },
 
-  // ➕ Créer un HUD explicitement
-  async saveUser(id, data = {}) {
+  // ➕ Créer un HUD
+  async saveUser(jid, data = {}) {
     try {
-      const exists = await HUD.findByPk(id);
-      if (exists) return null;
-      const created = await HUD.create({ id, ...data });
+      const exists = await HUD.findByPk(jid);
+      if (exists) return null; // HUD déjà existant
+
+      const created = await HUD.create({ id: jid, ...data });
       return created;
     } catch (err) {
       console.error("[HUD SAVE ERROR]", err);
@@ -85,9 +88,9 @@ const HUDFunctions = {
   },
 
   // ❌ Supprimer un HUD
-  async deleteUser(id) {
+  async deleteUser(jid) {
     try {
-      const deleted = await HUD.destroy({ where: { id } });
+      const deleted = await HUD.destroy({ where: { id: jid } });
       return deleted;
     } catch (err) {
       console.error("[HUD DELETE ERROR]", err);
@@ -96,9 +99,9 @@ const HUDFunctions = {
   },
 
   // 🔧 Mettre à jour un HUD
-  async updateUser(id, updates) {
+  async updateUser(jid, updates) {
     try {
-      const [updated] = await HUD.update(updates, { where: { id } });
+      const [updated] = await HUD.update(updates, { where: { id: jid } });
       return updated;
     } catch (err) {
       console.error("[HUD UPDATE ERROR]", err);
@@ -110,7 +113,8 @@ const HUDFunctions = {
   async getAllHUDs() {
     try {
       return await HUD.findAll();
-    } catch {
+    } catch (err) {
+      console.error("[HUD GETALL ERROR]", err);
       return [];
     }
   },
