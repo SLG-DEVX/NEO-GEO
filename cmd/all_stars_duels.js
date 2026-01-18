@@ -168,12 +168,8 @@ ovlcmd({
     }
 
     console.log("STATS MAJ:", joueur.nom, joueur.stats);
-
-    await ovl.sendMessage(ms_org, {
-        image: { url: duel.arene.image },
-        caption: generateFicheDuel(duel)
-    }, { quoted: ms });
-}); 
+// Silence total, aucun message envoyé
+return;
     
 /* ================= UTILS ================= */
 
