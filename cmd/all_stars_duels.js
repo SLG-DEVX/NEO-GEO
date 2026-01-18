@@ -170,6 +170,7 @@ ovlcmd({
     console.log("STATS MAJ:", joueur.nom, joueur.stats);
 // Silence total, aucun message envoyé
 return;
+});
     
 /* ================= UTILS ================= */
 
