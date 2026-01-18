@@ -347,8 +347,8 @@ const pave = `
 ▔▔▔▔▔▔▔▔▔░▒░▔▔▔
                              
 ▶️\`Match Live\`:
-@j1 : Strikes 0 | attaques: 0
-@j2 : Strikes 0 | attaques: 0
+@j1 : Strikes: 0 | attaques: 0
+@j2 : Strikes: 0 | attaques: 0
 
 ▔▔▔▔▔▔▔▔▔▔▔▔░▔▔▔▔▔▔▔▔▔▔▔▔
 🏆\`RESULTAT\`: 
