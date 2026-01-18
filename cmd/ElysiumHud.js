@@ -1,9 +1,8 @@
 const { ovlcmd } = require("../lib/ovlcmd");
 const { HUDFunctions } = require("../DataBase/ElysiumHudDB");
 const { saveUser: saveHUD, deleteUser: delHUD, getUserData: getHUD, updateUser: updateHUD, getAllHUDs } = HUDFunctions;
-const PlayerFunctions = require('../DataBase/ElysiumFichesDB');
 
-const registeredHUDs = new Map(); // username/jid => id
+const registeredHUDs = new Map(); // jid => jid
 
 // ============================
 // TEXTE PROGRESSIF
@@ -95,7 +94,7 @@ ovlcmd({
     if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +savehud💠 <username/JID>", 2);
 
     const identifier = arg[0].replace(/💠/g,"");
-    const targetJid = /^\d+$/.test(identifier) ? identifier + "@s.whatsapp.net" : identifier;
+    const targetJid = identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net";
 
     const existing = await getHUD(targetJid);
     if (existing) return sendProgressiveText(ovl, ms_org, `❌ HUD déjà existant pour @${targetJid.split("@")[0]}`, 2);
@@ -128,7 +127,7 @@ ovlcmd({
     if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +delhud💠 <username/JID>", 2);
 
     const identifier = arg[0].replace(/💠/g,"");
-    const targetJid = /^\d+$/.test(identifier) ? identifier + "@s.whatsapp.net" : identifier;
+    const targetJid = identifier.includes("@") ? identifier : identifier + "@s.whatsapp.net";
 
     const existing = await getHUD(targetJid);
     if (!existing) return sendProgressiveText(ovl, ms_org, `❌ Aucun HUD trouvé pour @${targetJid.split("@")[0]}`, 2);
@@ -155,19 +154,9 @@ ovlcmd({
     const senderJid = ms?.key?.participant || ms?.key?.remoteJid;
     if (!senderJid) return sendProgressiveText(ovl, ms_org, "❌ Impossible de récupérer votre JID.", 2, ms);
 
-    await sendProgressiveText(
-      ovl,
-      ms_org,
-      "[ SYSTEM-ELYSIUM ] chargement de HUD du joueur♻️...",
-      2,
-      ms
-    );
-
-    const hudDataRaw = await getHUD(senderJid);
-    if (!hudDataRaw) return sendProgressiveText(ovl, ms_org, "❌ Aucun HUD trouvé pour vous.", 2, ms);
+    await sendProgressiveText(ovl, ms_org, "[ SYSTEM-ELYSIUM ] chargement de HUD du joueur♻️...", 2, ms);
 
     return sendHUD(ms_org, ovl, senderJid, ms);
-
   } catch (err) {
     console.error("[HUD GLOBAL]", err);
     return sendProgressiveText(ovl, ms_org, "❌ Une erreur est survenue lors de l'affichage du HUD.", 2, ms);
