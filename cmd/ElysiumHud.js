@@ -1,10 +1,11 @@
+
 const { ovlcmd } = require("../lib/ovlcmd");
 const { HUDFunctions } = require("../DataBase/ElysiumHudDB");
 
 const registeredHUDs = new Map(); // jid => jid
 
 // ============================
-// CONFIG SETSUDO
+// CONFIG SETSUDO (optionnel)
 // ============================
 const SETSUDO = ["242055759975", "22651463203", "242069983150"];
 
@@ -38,9 +39,9 @@ function normalizeJID(jid) {
   return jid.includes("@") ? jid.split("@")[0] + "@s.whatsapp.net" : jid + "@s.whatsapp.net";
 }
 
-async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
+async function sendProgressiveText(ovl, ms_org, text, speed = 2, ms = null) {
   let currentText = "";
-  const { key } = await ovl.sendMessage(ms_org, { text: "|" });
+  const { key } = await ovl.sendMessage(ms_org, { text: "|" }, ms ? { quoted: ms } : {});
 
   for (let i = 0; i < text.length; i++) {
     currentText += text[i];
@@ -55,16 +56,7 @@ async function sendProgressiveText(ovl, ms_org, text, speed = 2) {
 }
 
 // ============================
-// UPDATE HUD DATA
-// ============================
-async function updateHUDData(updates, jid, ovl, ms_org) {
-  for (const u of updates) {
-    await HUDFunctions.updateUser(jid, { [u.colonne]: u.newValue });
-  }
-}
-
-// ============================
-// PROCESS MULTI UPDATES
+// PROCESS HUD UPDATES
 // ============================
 async function processHUDUpdates(args, jid) {
   const updates = [];
@@ -90,6 +82,12 @@ async function processHUDUpdates(args, jid) {
   }
 
   return updates;
+}
+
+async function updateHUDData(updates, jid) {
+  for (const u of updates) {
+    await HUDFunctions.updateUser(u.colonne, u.newValue, jid);
+  }
 }
 
 // ============================
@@ -121,91 +119,60 @@ async function sendHUD(ms_org, ovl, jid, ms) {
 // ============================
 
 // +savehud💠
-ovlcmd(
-  {
-    nom_cmd: "savehud💠",
-    classe: "Elysium",
-    react: "💾"
-  },
-  async (ms_org, ovl, { arg }) => {
-    if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +savehud💠 <JID>", 2);
-    const jid = normalizeJID(arg[0]);
-    if (await HUDFunctions.getUserData(jid))
-      return sendProgressiveText(ovl, ms_org, "❌ HUD déjà existant.", 2);
+ovlcmd({ nom_cmd: "savehud💠", classe: "Elysium", react: "💾" }, async (ms_org, ovl, { arg }) => {
+  if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +savehud💠 <JID>", 2);
+  const jid = normalizeJID(arg[0]);
+  if (await HUDFunctions.getUserData(jid)) return sendProgressiveText(ovl, ms_org, "❌ HUD déjà existant.", 2);
 
-    await HUDFunctions.saveUser(jid, {
-      user: jid.split("@")[0],
-      besoins: 100, pv: 100, energie: 100, forme: 100, stamina: 100, plaisir: 100,
-      intelligence: 0, force: 0, vitesse: 0, reflexes: 0, resistance: 0,
-      gathering: 0, driving: 0, hacking: 0
-    });
+  await HUDFunctions.saveUser(jid, {
+    user: jid.split("@")[0],
+    besoins: 100, pv: 100, energie: 100, forme: 100, stamina: 100, plaisir: 100,
+    intelligence: 0, force: 0, vitesse: 0, reflexes: 0, resistance: 0,
+    gathering: 0, driving: 0, hacking: 0
+  });
 
-    registeredHUDs.set(jid, jid);
-    registerDynamicHUD(jid);
-    return sendProgressiveText(ovl, ms_org, `✅ HUD créé pour @${jid.split("@")[0]}`, 2);
-  }
-);
+  registeredHUDs.set(jid, jid);
+  registerDynamicHUD(jid);
+  return sendProgressiveText(ovl, ms_org, `✅ HUD créé pour @${jid.split("@")[0]}`, 2);
+});
 
 // +hud💠
-ovlcmd(
-  {
-    nom_cmd: "hud💠",
-    classe: "Elysium",
-    react: "💠"
-  },
-  async (ms_org, ovl, { ms }) => {
-    const jid = normalizeJID(ms?.key?.participant || ms?.key?.remoteJid);
-    if (!jid) return sendProgressiveText(ovl, ms_org, "❌ Impossible de récupérer votre JID.", 2, ms);
-    await sendProgressiveText(ovl, ms_org, "[ SYSTEM-ELYSIUM ] Chargement du HUD...", 2, ms);
-    return sendHUD(ms_org, ovl, jid, ms);
-  }
-);
+ovlcmd({ nom_cmd: "hud💠", classe: "Elysium", react: "💠" }, async (ms_org, ovl, { ms }) => {
+  const jid = normalizeJID(ms?.key?.participant || ms?.key?.remoteJid);
+  if (!jid) return sendProgressiveText(ovl, ms_org, "❌ Impossible de récupérer votre JID.", 2, ms);
+  await sendProgressiveText(ovl, ms_org, "[ SYSTEM-ELYSIUM ] Chargement du HUD...", 2, ms);
+  return sendHUD(ms_org, ovl, jid, ms);
+});
 
 // +delhud💠
-ovlcmd(
-  {
-    nom_cmd: "delhud💠",
-    classe: "Elysium",
-    react: "🗑️"
-  },
-  async (ms_org, ovl, { arg }) => {
-    if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +delhud💠 <JID>", 2);
-    const jid = normalizeJID(arg[0]);
-    if (!await HUDFunctions.getUserData(jid))
-      return sendProgressiveText(ovl, ms_org, "❌ Aucun HUD trouvé.", 2);
-
-    await HUDFunctions.deleteUser(jid);
-    registeredHUDs.delete(jid);
-    return sendProgressiveText(ovl, ms_org, `✅ HUD supprimé pour @${jid.split("@")[0]}`, 2);
-  }
-);
+ovlcmd({ nom_cmd: "delhud💠", classe: "Elysium", react: "🗑️" }, async (ms_org, ovl, { arg }) => {
+  if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +delhud💠 <JID>", 2);
+  const jid = normalizeJID(arg[0]);
+  if (!await HUDFunctions.getUserData(jid)) return sendProgressiveText(ovl, ms_org, "❌ Aucun HUD trouvé.", 2);
+  await HUDFunctions.deleteUser(jid);
+  registeredHUDs.delete(jid);
+  return sendProgressiveText(ovl, ms_org, `✅ HUD supprimé pour @${jid.split("@")[0]}`, 2);
+});
 
 // ============================
-// DYNAMIQUE HUD PAR JID / NOM
+// DYNAMIQUE HUD PAR JID
 // ============================
 function registerDynamicHUD(identifier) {
   if (!identifier) return;
   const cleanIdentifier = normalizeJID(identifier);
   const cmd = `${cleanIdentifier.split("@")[0]}💠`;
 
-  ovlcmd(
-    {
-      nom_cmd: cmd,
-      classe: "Elysium",
-      react: "⚙️"
-    },
-    async (ms_org, ovl, { arg, repondre, ms }) => {
-      if (!arg.length) return sendHUD(ms_org, ovl, cleanIdentifier, ms);
-      if (arg.length % 3 !== 0) return repondre(`❌ Syntaxe : ${cmd} stat +|- valeur ...`);
+  ovlcmd({ nom_cmd: cmd, classe: "Elysium", react: "⚙️" }, async (ms_org, ovl, { arg, repondre, ms }) => {
+    if (!arg.length) return sendHUD(ms_org, ovl, cleanIdentifier, ms);
+    if (arg.length % 3 !== 0) return repondre(`❌ Syntaxe : ${cmd} stat +|- valeur ...`);
 
-      const updates = await processHUDUpdates(arg, cleanIdentifier);
-      await updateHUDData(updates, cleanIdentifier, ovl, ms_org);
+    const updates = await processHUDUpdates(arg, cleanIdentifier);
+    await updateHUDData(updates, cleanIdentifier);
 
-      const msg = `✅ [ SYSTEM - HUD ] Mise à jour réussie\n` +
-                  updates.map(u => `🛠️ ${u.colonne}: ${u.oldValue} ➤ ${u.newValue}`).join("\n");
-      return sendProgressiveText(ovl, ms_org, msg, 2, ms);
-    }
-  );
+    const msg = `✅ [ SYSTEM - HUD ] Mise à jour réussie\n` +
+                updates.map(u => `🛠️ ${u.colonne}: ${u.oldValue} ➤ ${u.newValue}`).join("\n");
+    return sendProgressiveText(ovl, ms_org, msg, 2, ms);
+  });
 }
 
 // ============================
@@ -214,7 +181,7 @@ function registerDynamicHUD(identifier) {
 async function initDynamicHUDs() {
   const all = await HUDFunctions.getAllHUDs();
   for (const h of all) {
-    const jid = normalizeJID(h.dataValues?.jid ?? h.jid ?? h.id);
+    const jid = normalizeJID(h.dataValues?.id ?? h.id);
     if (!jid) continue;
     registerDynamicHUD(jid);
     registeredHUDs.set(jid, jid);
@@ -225,4 +192,7 @@ async function initDynamicHUDs() {
 // 🔥 Initialisation
 initDynamicHUDs();
 
+// ============================
+// EXPORTS
+// ============================
 module.exports = { sendHUD, registeredHUDs, registerDynamicHUD, sendProgressiveText };
