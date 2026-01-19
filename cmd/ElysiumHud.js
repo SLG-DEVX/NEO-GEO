@@ -137,13 +137,60 @@ ovlcmd({ nom_cmd: "savehud💠", classe: "Elysium", react: "💾" }, async (ms_o
 });
 
 // +hud💠
-ovlcmd({ nom_cmd: "hud💠", classe: "Elysium", react: "💠" }, async (ms_org, ovl, { ms }) => {
-  const jid = normalizeJID(ms?.key?.participant || ms?.key?.remoteJid);
-  if (!jid) return sendProgressiveText(ovl, ms_org, "❌ Impossible de récupérer votre JID.", 2, ms);
+ovlcmd(
+  {
+    nom_cmd: "hud💠",
+    classe: "Elysium",
+    react: "💠"
+  },
+  async (
+    ms_org,
+    ovl,
+    {
+      auteur_Message,
+      arg,
+      ms
+    }
+  ) => {
 
-  await sendProgressiveText(ovl, ms_org, "[ SYSTEM-ELYSIUM ] Chargement du HUD...", 2, ms);
-  await sendHUD(ms_org, ovl, jid, ms);
-});
+    let targetJid;
+
+    if (arg[0]) {
+      targetJid = arg[0];
+    } else {
+      targetJid = auteur_Message;
+    }
+
+    const jid = normalizeJID(
+      targetJid
+    );
+
+    if (!jid) {
+      return sendProgressiveText(
+        ovl,
+        ms_org,
+        "❌ JID invalide.",
+        2,
+        ms
+      );
+    }
+
+    await sendProgressiveText(
+      ovl,
+      ms_org,
+      "💠 [ SYSTEM - HUD ] Chargement du HUD ♻️ ...",
+      2,
+      ms
+    );
+
+    return sendHUD(
+      ms_org,
+      ovl,
+      jid,
+      ms
+    );
+  }
+);
 
 // +delhud💠
 ovlcmd({ nom_cmd: "delhud💠", classe: "Elysium", react: "🗑️" }, async (ms_org, ovl, { arg, ms }) => {
