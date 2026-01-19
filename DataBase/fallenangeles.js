@@ -35,7 +35,7 @@ const neoCityFALocations = {
     traffic: 45,
     securite: 70,
     rank: "B",
-    imageDay: "",
+    imageDay: "https://files.catbox.moe/zbsryi.jpg",
     imageNight: ""
   },
 
@@ -52,7 +52,7 @@ const neoCityFALocations = {
     traffic: 75,
     securite: 85,
     rank: "S",
-    imageDay: "",
+    imageDay: "https://files.catbox.moe/nw8cgg.jpg",
     imageNight: ""
   },
 
@@ -69,7 +69,7 @@ const neoCityFALocations = {
     traffic: 70,
     securite: 100,
     rank: "S",
-    imageDay: "",
+    imageDay: "https://files.catbox.moe/zcrdd3.jpg",
     imageNight: ""
   },
 
