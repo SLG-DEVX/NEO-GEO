@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("./sequelize"); // EXACTEMENT comme Fiches
+const sequelize = require("./sequelize"); // 
 
 // ============================
-// MODEL HUD (CLONE FICHE)
+// MODEL HUD 
 // ============================
 const HUD = sequelize.define("ElysiumHUD", {
   jid: {
@@ -38,7 +38,7 @@ const HUD = sequelize.define("ElysiumHUD", {
 });
 
 // ============================
-// FUNCTIONS (MIROIR FICHES)
+// FUNCTIONS 
 // ============================
 const HUDFunctions = {
 
@@ -60,7 +60,7 @@ const HUDFunctions = {
     );
   },
 
-  async deleteHUD(where) {
+  async delHUD(where) {
     return HUD.destroy({ where });
   },
 
@@ -71,7 +71,7 @@ const HUDFunctions = {
 };
 
 // ============================
-// SYNC DB (COMME FICHES)
+// SYNC DB 
 // ============================
 (async () => {
   await HUD.sync();
