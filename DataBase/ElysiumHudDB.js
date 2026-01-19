@@ -1,43 +1,20 @@
-// ============================
-// ElysiumHudDB.js
-// ============================
-
-const { Sequelize, DataTypes } = require('sequelize');
-const config = require('../set');
-const db = config.DATABASE;
-
-let sequelize;
+const { DataTypes } = require("sequelize");
+const sequelize = require("./sequelize"); // EXACTEMENT comme Fiches
 
 // ============================
-// CONNEXION DB
+// MODEL HUD (CLONE FICHE)
 // ============================
-if (!db) {
-  sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: './database.db',
-    logging: false,
-  });
-} else {
-  sequelize = new Sequelize(db, {
-    dialect: 'postgres',
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
-    logging: false,
-  });
-}
+const HUD = sequelize.define("ElysiumHUD", {
+  jid: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  user: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
 
-// ============================
-// MODELE
-// ============================
-const ElysiumHUD = sequelize.define('ElysiumHUD', {
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  jid: { type: DataTypes.STRING, unique: true },
-
-  user: { type: DataTypes.STRING, defaultValue: 'aucun' },
   besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
   pv: { type: DataTypes.INTEGER, defaultValue: 100 },
   energie: { type: DataTypes.INTEGER, defaultValue: 100 },
@@ -45,74 +22,62 @@ const ElysiumHUD = sequelize.define('ElysiumHUD', {
   stamina: { type: DataTypes.INTEGER, defaultValue: 100 },
   plaisir: { type: DataTypes.INTEGER, defaultValue: 100 },
 
-  intelligence: { type: DataTypes.INTEGER, defaultValue: 1 },
-  force: { type: DataTypes.INTEGER, defaultValue: 1 },
-  vitesse: { type: DataTypes.INTEGER, defaultValue: 1 },
-  reflexes: { type: DataTypes.INTEGER, defaultValue: 1 },
-  resistance: { type: DataTypes.INTEGER, defaultValue: 1 },
+  intelligence: { type: DataTypes.INTEGER, defaultValue: 0 },
+  force: { type: DataTypes.INTEGER, defaultValue: 0 },
+  vitesse: { type: DataTypes.INTEGER, defaultValue: 0 },
+  reflexes: { type: DataTypes.INTEGER, defaultValue: 0 },
+  resistance: { type: DataTypes.INTEGER, defaultValue: 0 },
 
   gathering: { type: DataTypes.INTEGER, defaultValue: 0 },
   driving: { type: DataTypes.INTEGER, defaultValue: 0 },
-  hacking: { type: DataTypes.INTEGER, defaultValue: 0 },
+  hacking: { type: DataTypes.INTEGER, defaultValue: 0 }
+
 }, {
-  tableName: 'elysium_hud',
-  freezeTableName: true,
-  timestamps: false,
+  tableName: "elysium_hud",
+  timestamps: false
 });
 
 // ============================
-// SYNC
+// FUNCTIONS (MIROIR FICHES)
 // ============================
-(async () => {
-  try {
-    await sequelize.authenticate();
-    await sequelize.sync();
-    console.log("✔ [HUD] Base de données synchronisée");
-  } catch (e) {
-    console.error("❌ [HUD DB ERROR]", e);
-  }
-})();
-
-// ============================
-// FONCTIONS
-// ============================
-
-async function getHUD(where = {}) {
-  return await ElysiumHUD.findOne({ where });
-}
-
-async function setHUD(colonne, valeur, jid) {
-  const updateData = {};
-  updateData[colonne] = valeur;
-
-  const [updated] = await ElysiumHUD.update(updateData, { where: { jid } });
-  if (!updated) return null;
-  return true;
-}
-
-async function addHUD(jid, data = {}) {
-  if (!jid) throw new Error("JID requis");
-
-  const exists = await ElysiumHUD.findOne({ where: { jid } });
-  if (exists) return null;
-
-  return await ElysiumHUD.create({ jid, ...data });
-}
-
-async function deleteHUD(jid) {
-  return await ElysiumHUD.destroy({ where: { jid } });
-}
-
-async function getAllHUDs() {
-  return await ElysiumHUD.findAll();
-}
-
 const HUDFunctions = {
-  getUserData: getHUD,
-  updateUser: setHUD,
-  saveUser: addHUD,
-  deleteUser: deleteHUD,
-  getAllHUDs
+
+  async addHUD(jid, data = {}) {
+    return HUD.create({
+      jid,
+      ...data
+    });
+  },
+
+  async getHUD(where) {
+    return HUD.findOne({ where });
+  },
+
+  async setHUD(colonne, value, jid) {
+    return HUD.update(
+      { [colonne]: value },
+      { where: { jid } }
+    );
+  },
+
+  async deleteHUD(where) {
+    return HUD.destroy({ where });
+  },
+
+  async getAllHUDs() {
+    return HUD.findAll();
+  }
+
 };
 
-module.exports = { HUDFunctions };
+// ============================
+// SYNC DB (COMME FICHES)
+// ============================
+(async () => {
+  await HUD.sync();
+})();
+
+module.exports = {
+  HUD,
+  HUDFunctions
+};
