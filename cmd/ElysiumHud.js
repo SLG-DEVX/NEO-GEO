@@ -1,5 +1,5 @@
 const { ovlcmd } = require("../lib/ovlcmd");
-const { HUDFunctions } = require("../DataBase/ElysiumHUDDB");
+const { HUDFunctions } = require("../DataBase/ElysiumHudDB");
 
 const registeredHUDs = new Map(); // jid => jid
 
