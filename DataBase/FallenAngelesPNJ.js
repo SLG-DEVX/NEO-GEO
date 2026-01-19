@@ -46,24 +46,24 @@ const fallenAngeles = [
     social: "service worker",
     lieux: [
       { name: "Fallen Angeles", chance: 50 },
-      { name: "LUX", chance: 30 },
-      { name: "Contoir", chance: 20 }
+      { name: "LUX", chance: 100 },
+      { name: "Contoir", chance: 100 }
     ],
     horaires: "19:30-03:30",
     adresse: "Av.Westshores", 
-    lifestyle: 1000,
+    lifestyle: 5000,
     niveau: 20,
     cash: 1200000,
     statut: "employée",
     caractere: "neutre",
     charisme: 20,
     likes: ["Musique", "Art", "Fashion"],
-    dislikes: ["Animaux", "Études", "Politique"],
+    dislikes: ["Sport", "Études", "Politique"],
     friends: [],
     lovers: [],
-    image: "https://files.catbox.moe/tel9ci.jpg",
+    image: "https://files.catbox.moe/rs8axx.jpg",
     image_home: "",
-    image_extra: "https://files.catbox.moe/ra9gmg.jpg",
+    image_extra: "https://files.catbox.moe/qn1z16.jpg",
     image_hot: "",
     conversation_styles: {
       texto: [
