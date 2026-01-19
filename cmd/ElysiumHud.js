@@ -142,7 +142,6 @@ async function sendHUD(ms_org, ovl, jid, ms) {
 // ============================
 // COMMANDES HUD
 // ============================
-
 // +savehud💠
 ovlcmd({
   nom_cmd: "savehud💠",
@@ -150,21 +149,28 @@ ovlcmd({
   react: "💾"
 }, async (ms_org, ovl, { arg, auteur_Message }) => {
   try {
+    // ✅ Vérification SETSUDO
     if (!SETSUDO.includes(auteur_Message.split("@")[0])) {
       return sendProgressiveText(ovl, ms_org, "❌ Seul un setsudo peut créer un HUD.", 2);
     }
 
+    // ❌ Vérifie la syntaxe
     if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +savehud💠 <jid>", 2);
 
     const jid = normalizeJID(arg[0]);
     if (!jid) return sendProgressiveText(ovl, ms_org, "❌ JID invalide.", 2);
 
-    const existing = await HUDFunctions.getUserData(jid);
-    if (existing) return sendProgressiveText(ovl, ms_org, `❌ HUD pour @${jid.split("@")[0]} existe déjà.`, 2);
+    // 🔍 Vérification HUD existant
+    const existingHUD = await HUDFunctions.getUserData(jid);
+    if (existingHUD) {
+      return sendProgressiveText(ovl, ms_org, `❌ HUD pour @${jid.split("@")[0]} existe déjà.`, 2);
+    }
 
+    // ⏳ Message système
     await sendProgressiveText(ovl, ms_org, "💠 Initialisation du HUD ♻️ ...", 2);
 
-    const { data, error } = await HUDFunctions.addHUD(jid, {
+    // 💾 Création HUD par défaut
+    const newHUD = await HUDFunctions.saveUser(jid, {
       jid,
       user: jid.replace("@s.whatsapp.net", ""),
       besoins: 100,
@@ -183,19 +189,21 @@ ovlcmd({
       hacking: 0
     });
 
-    if (error) {
-      console.error("❌ HUD creation error:", error);
-      return sendProgressiveText(ovl, ms_org, "❌ Erreur lors de la création du HUD.", 2);
+    if (!newHUD) {
+      return sendProgressiveText(ovl, ms_org, `❌ HUD pour @${jid.split("@")[0]} existe déjà.`, 2);
     }
 
+    // ✅ Ajout à la liste dynamique
     registeredHUDs.set(jid, true);
 
+    // ✅ Confirmation
     return sendProgressiveText(ovl, ms_org, `✅ HUD créé pour @${jid.split("@")[0]}`, 2);
+
   } catch (err) {
     console.error("[+savehud💠] Exception:", err);
     return sendProgressiveText(ovl, ms_org, "❌ Erreur interne lors de la création du HUD.", 2);
   }
-});
+}); 
 
 // +hud💠
 ovlcmd({
@@ -249,6 +257,7 @@ function registerDynamicHUD(identifier) {
     try {
       if (!arg.length) return repondre(`❌ Syntaxe : +${cleanIdentifier}hud💠 stat +|- valeur ...`);
 
+      // 🔹 Résolution JID
       let targetJid;
       if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
         targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
@@ -265,6 +274,7 @@ function registerDynamicHUD(identifier) {
       const hud = await HUDFunctions.getUserData(targetJid);
       if (!hud) return repondre("❌ HUD introuvable.");
 
+      // 🔹 Vérification syntaxe stats
       if (arg.length % 3 !== 0) return repondre(`❌ Syntaxe : +${cleanIdentifier}hud💠 stat +|- valeur ...`);
 
       const updates = await processHUDUpdates(arg, targetJid);
@@ -285,17 +295,24 @@ function registerDynamicHUD(identifier) {
 // INIT DYNAMIQUE HUD
 // ============================
 async function initDynamicHUDs() {
-  const allHUD = await HUDFunctions.getAllHUDs();
-  for (const h of allHUD) {
-    const jid = normalizeJID(h.dataValues?.jid ?? h.jid);
-    if (!jid) continue;
-    registerDynamicHUD(jid);
-    registeredHUDs.set(jid, true);
+  try {
+    const allHUD = await HUDFunctions.getAllHUDs();
+
+    for (const h of allHUD) {
+      const jid = normalizeJID(h.dataValues?.jid ?? h.jid);
+      if (!jid) continue;
+      // enregistre dynamiquement le HUD
+      registerDynamicHUD(jid);
+      registeredHUDs.set(jid, true);
+    }
+
+    console.log("[HUD] Commandes dynamiques initialisées.");
+  } catch (err) {
+    console.error("[HUD INIT ERROR]", err);
   }
-  console.log("[HUD] Commandes dynamiques initialisées.");
 }
 
-// 🔥 Initialisation
+// 🔥 Initialisation à l'import
 initDynamicHUDs();
 
 module.exports = { sendHUD, registeredHUDs, registerDynamicHUD, sendProgressiveText };
