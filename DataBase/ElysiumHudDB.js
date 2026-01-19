@@ -107,10 +107,12 @@ async function getAllHUDs() {
   return await ElysiumHUD.findAll();
 }
 
-module.exports = {
-  getHUD,
-  setHUD,
-  addHUD,
-  deleteHUD,
+const HUDFunctions = {
+  getUserData: getHUD,
+  updateUser: setHUD,
+  saveUser: addHUD,
+  deleteUser: deleteHUD,
   getAllHUDs
 };
+
+module.exports = { HUDFunctions };
