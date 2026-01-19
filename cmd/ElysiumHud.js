@@ -85,24 +85,44 @@ async function sendHUD(ms_org, ovl, jid, ms) {
   if (!dataRaw) return ovl.sendMessage(ms_org, { text: "❌ HUD introuvable." }, ms ? { quoted: ms } : {});
   const data = dataRaw.dataValues ?? dataRaw;
 
+  // Valeurs par défaut si manquantes
+  data.user ||= jid.split("@")[0];
+  data.besoins ||= 0;
+  data.pv ||= 0;
+  data.energie ||= 0;
+  data.forme ||= 0;
+  data.stamina ||= 0;
+  data.plaisir ||= 0;
+  data.intelligence ||= 0;
+  data.force ||= 0;
+  data.vitesse ||= 0;
+  data.reflexes ||= 0;
+  data.resistance ||= 0;
+  data.gathering ||= 0;
+  data.driving ||= 0;
+  data.hacking ||= 0;
+
   const hud = `
 ➤ ──⦿ \`P L A Y E R\` | ⦿──
-*User:* ${data.user}
+*👤\`User\`:* ${data.user}
 
-🍗Besoins: ${data.besoins}%   ❤️PV: ${data.pv}%   💠Énergie: ${data.energie}%
-💪Forme: ${data.forme}%   🫁Stamina: ${data.stamina}%   🙂Plaisir: ${data.plaisir}%
-
+🍗: ${data.besoins}%   ❤️: ${data.pv}%   💠: ${data.energie}%
+💪🏻: ${data.forme}%   🫁: ${data.stamina}%   🙂: ${data.plaisir}%
+▔▔▔▔▔▔▔▔░░░ SKILLS📊
+                              
 🧠 Intelligence: ${data.intelligence}
+🔍 Gathering: ${data.gathering}
+🛞 Driving: ${data.driving}
+👾 Hacking: ${data.hacking}
+---------------------[ COMBAT
 👊 Force: ${data.force}
 ⚡ Vitesse: ${data.vitesse}
 👁️ Réflexes: ${data.reflexes}
 🛡️ Résistance: ${data.resistance}
 
-🔍 Gathering: ${data.gathering}
-🛞 Driving: ${data.driving}
-👾 Hacking: ${data.hacking}
-
 ➤ \`+Package\` 🎒   ➤ \`+Phone\` 📱
+▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
+                              💠▯▯▯▯▯▯⎢⎢⎢⎢⎢
 `;
 
   await sendProgressiveText(ovl, ms_org, "💠 Chargement du HUD ♻️ ...", 2, ms);
@@ -121,18 +141,19 @@ ovlcmd({
     if (!SETSUDO.includes(auteur_Message.split("@")[0]))
       return sendProgressiveText(ovl, ms_org, "❌ Seul un setsudo peut créer un HUD.", 2);
 
-    if (!arg.length)
-      return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +addhud💠 <jid>", 2);
+    if (arg.length < 2)
+      return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +addhud💠 <jid> <username>", 2);
 
     const jid = normalizeJID(arg[0]);
+    const username = arg.slice(1).join(" "); // Permet les noms avec espaces
     if (!jid) return sendProgressiveText(ovl, ms_org, "❌ JID invalide.", 2);
 
     const exists = await HUDFunctions.getUserData(jid);
-    if (exists) return sendProgressiveText(ovl, ms_org, `❌ HUD existe déjà pour @${jid.split("@")[0]}`, 2);
+    if (exists) return sendProgressiveText(ovl, ms_org, `❌ HUD existe déjà pour @${username}`, 2);
 
     await HUDFunctions.saveUser(jid, {
       jid,
-      user: jid.split("@")[0],
+      user: username,
       besoins: 100,
       pv: 100,
       energie: 100,
@@ -150,7 +171,7 @@ ovlcmd({
     });
 
     registeredHUDs.set(jid, true);
-    return sendProgressiveText(ovl, ms_org, `✅ HUD créé pour @${jid.split("@")[0]}`, 2);
+    return sendProgressiveText(ovl, ms_org, `✅ HUD créé pour @${username}`, 2);
 
   } catch (err) {
     console.error("[+addhud💠]", err);
@@ -179,27 +200,33 @@ ovlcmd({
   classe: "Elysium",
   react: "🗑️"
 }, async (ms_org, ovl, { arg, repondre }) => {
-  try {
-    if (!arg.length) return repondre("❌ Syntaxe : +delhud💠 <jid>");
-    const jid = normalizeJID(arg[0]);
-    if (!jid) return repondre("❌ JID invalide.");
-    const hud = await HUDFunctions.getUserData(jid);
-    if (!hud) return repondre("❌ Aucun HUD trouvé.");
+  if (!arg.length) return repondre("❌ Syntaxe : +delhud💠 <username>");
+  
+  const username = arg.join(" "); // Support noms avec espaces
+  const clean = username.replace(/💠/g, ""); // Ignore le 💠 pour chercher le HUD
 
-    await HUDFunctions.deleteUser(jid);
-    registeredHUDs.delete(jid);
-    return repondre(`✅ HUD supprimé pour @${jid.split("@")[0]}`);
-  } catch (err) {
-    console.error("[+delhud💠]", err);
-    return repondre("❌ Erreur interne lors de la suppression du HUD.");
-  }
+  // Cherche le HUD par username nettoyé
+  const allHUDs = await HUDFunctions.getAllHUDs();
+  const target = allHUDs.find(h => {
+    const data = h.dataValues ?? h;
+    return data.user.replace(/💠/g, "").toLowerCase() === clean.toLowerCase();
+  });
+
+  if (!target) return repondre("❌ Aucun HUD trouvé pour ce joueur.");
+
+  const jid = target.dataValues?.jid ?? target.jid;
+
+  await HUDFunctions.deleteUser(jid);
+  registeredHUDs.delete(jid);
+
+  return repondre(`✅ HUD supprimé pour @${target.dataValues?.user ?? target.user}`);
 });
 
 // ================= DYNAMIQUE =================
 function registerDynamicHUD(identifier) {
   if (!identifier) return;
 
-  const clean = identifier.replace(/💠/g, "");
+  const clean = identifier.replace(/💠/g, ""); // supprime les 💠 pour créer la commande
   const cmd = `${clean.toLowerCase()}hud💠`;
 
   ovlcmd({
@@ -211,9 +238,15 @@ function registerDynamicHUD(identifier) {
       if (!arg.length)
         return repondre(`❌ Syntaxe : +${clean}hud💠 stat +|- valeur ...`);
 
-      const jid = normalizeJID(clean.includes("@") ? clean : clean + "@s.whatsapp.net");
-      const hud = await HUDFunctions.getUserData(jid);
-      if (!hud) return repondre("❌ HUD introuvable.");
+      // Récupération du JID par username, IGNORE le 💠
+      const allHUDs = await HUDFunctions.getAllHUDs();
+      const target = allHUDs.find(h => {
+        const data = h.dataValues ?? h;
+        return data.user.replace(/💠/g, "").toLowerCase() === clean.toLowerCase();
+      });
+      if (!target) return repondre("❌ Joueur introuvable.");
+
+      const jid = target.dataValues?.jid ?? target.jid;
       if (arg.length % 3 !== 0)
         return repondre(`❌ Syntaxe : +${clean}hud💠 stat +|- valeur ...`);
 
