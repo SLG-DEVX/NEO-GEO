@@ -232,7 +232,7 @@ async function sendFiche(ms_org, ovl, jid, ms) {
 ⭐Charisme:      ➤ ${data.charisme} ⭐
 🫱🏼‍🫲🏽Réputation:   ➤ ${data.reputation} 🫱🏼‍🫲🏽
 -------------------\\--------------
-+Me💠             ➤ ( interface joueur )
++Hud💠            ➤ ( interface joueur )
 +Inventaire💠     ➤ ( Propriétés )
 
 ░▒▒▒▒░ \`C Y B E R W A R E S\` 💠 
