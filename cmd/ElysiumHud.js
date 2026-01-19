@@ -1,8 +1,6 @@
 const { ovlcmd } = require("../lib/ovlcmd");
 const { HUDFunctions } = require("../DataBase/ElysiumHudDB");
 
-const registeredHUDs = new Map(); // jid => true
-
 // ============================
 // CONFIG SETSUDO
 // ============================
@@ -29,35 +27,39 @@ const ALLOWED_STATS = {
 };
 
 // ============================
-// UTILITAIRES
+// UTILITAIRES (COPIE FICHES)
 // ============================
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-function normalizeJID(jid) {
-  if (!jid) return null;
-  return jid.includes("@") ? jid.split("@")[0] + "@s.whatsapp.net" : jid + "@s.whatsapp.net";
-}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function sendProgressiveText(ovl, ms_org, text, speed = 2, ms = null) {
-  let currentText = "";
+  let current = "";
   const { key } = await ovl.sendMessage(ms_org, { text: "|" }, ms ? { quoted: ms } : {});
   for (let i = 0; i < text.length; i++) {
-    currentText += text[i];
+    current += text[i];
     if ((i + 1) % 5 === 0 || i === text.length - 1) {
-      await ovl.sendMessage(ms_org, { text: currentText + " |", edit: key });
+      await ovl.sendMessage(ms_org, { text: current + " |", edit: key });
     }
     await sleep(speed);
   }
-  await ovl.sendMessage(ms_org, { text: currentText, edit: key });
-  return key;
+  await ovl.sendMessage(ms_org, { text: current, edit: key });
 }
 
 // ============================
-// PROCESS HUD UPDATES
+// UPDATE HUD DATA
+// ============================
+async function updateHUDData(updates, jid) {
+  for (const u of updates) {
+    await HUDFunctions.setHUD(u.colonne, u.newValue, jid);
+  }
+}
+
+// ============================
+// PROCESS MULTI UPDATES (COPIE FICHES)
 // ============================
 async function processHUDUpdates(args, jid) {
   const updates = [];
-  const hudRaw = await HUDFunctions.getUserData(jid);
+
+  const hudRaw = await HUDFunctions.getHUD({ jid });
   if (!hudRaw) throw new Error("❌ HUD introuvable.");
 
   const values = hudRaw.dataValues ?? hudRaw;
@@ -65,15 +67,19 @@ async function processHUDUpdates(args, jid) {
   let i = 0;
   while (i < args.length) {
     const stat = args[i++]?.toLowerCase();
-    const op = args[i++];
-    const val = Number(args[i++]);
-    if (!ALLOWED_STATS[stat] || isNaN(val) || !["+", "-", "="].includes(op)) continue;
+    const signe = args[i++];
+    const valeur = Number(args[i++]);
+
+    if (!ALLOWED_STATS[stat]) throw new Error(`❌ Stat inconnue : ${stat}`);
+    if (!["+","-","="].includes(signe)) throw new Error(`❌ Signe invalide`);
+    if (isNaN(valeur)) throw new Error(`❌ Valeur invalide`);
 
     const oldValue = Number(values[stat]) || 0;
     let newValue;
-    if (op === "+") newValue = oldValue + val;
-    else if (op === "-") newValue = Math.max(0, oldValue - val);
-    else newValue = val;
+
+    if (signe === "+") newValue = oldValue + valeur;
+    else if (signe === "-") newValue = Math.max(0, oldValue - valeur);
+    else newValue = valeur;
 
     updates.push({ colonne: stat, oldValue, newValue });
   }
@@ -81,129 +87,41 @@ async function processHUDUpdates(args, jid) {
   return updates;
 }
 
-async function updateHUDData(updates, jid) {
-  for (const u of updates) {
-    await HUDFunctions.updateUser(u.colonne, u.newValue, jid);
-  }
-}
-
 // ============================
 // SEND HUD
 // ============================
 async function sendHUD(ms_org, ovl, jid, ms) {
-  const dataRaw = await HUDFunctions.getUserData(jid);
-
+  const dataRaw = await HUDFunctions.getHUD({ jid });
   if (!dataRaw) {
     return ovl.sendMessage(ms_org, { text: "❌ HUD introuvable." }, ms ? { quoted: ms } : {});
   }
 
-  const data = dataRaw.dataValues ?? dataRaw;
-
-  // Valeurs par défaut
-  data.user ||= jid.replace("@s.whatsapp.net", "");
-  data.besoins ||= 0;
-  data.pv ||= 0;
-  data.energie ||= 0;
-  data.forme ||= 0;
-  data.stamina ||= 0;
-  data.plaisir ||= 0;
-  data.intelligence ||= 0;
-  data.force ||= 0;
-  data.vitesse ||= 0;
-  data.reflexes ||= 0;
-  data.resistance ||= 0;
-  data.gathering ||= 0;
-  data.driving ||= 0;
-  data.hacking ||= 0;
+  const d = dataRaw.dataValues ?? dataRaw;
 
   const hud = `
-➤ ──⦿ \`P L A Y E R\` | ⦿──
-*User:* ${data.user}
+➤ ──⦿ \`HUD ELYSIUM\` ⦿──
+*User:* ${d.user}
 
-🍗Besoins: ${data.besoins}%   ❤️PV: ${data.pv}%   💠Énergie: ${data.energie}%
-💪Forme: ${data.forme}%   🫁Stamina: ${data.stamina}%   🙂Plaisir: ${data.plaisir}%
+🍗 Besoins: ${d.besoins}%   ❤️ PV: ${d.pv}%   ⚡ Énergie: ${d.energie}%
+💪 Forme: ${d.forme}%   🫁 Stamina: ${d.stamina}%   🙂 Plaisir: ${d.plaisir}%
 
-🧠 Intelligence: ${data.intelligence}
-👊 Force: ${data.force}
-⚡ Vitesse: ${data.vitesse}
-👁️ Réflexes: ${data.reflexes}
-🛡️ Résistance: ${data.resistance}
+🧠 Intelligence: ${d.intelligence}
+👊 Force: ${d.force}
+⚡ Vitesse: ${d.vitesse}
+👁️ Réflexes: ${d.reflexes}
+🛡️ Résistance: ${d.resistance}
 
-🔍 Gathering: ${data.gathering}
-🛞 Driving: ${data.driving}
-👾 Hacking: ${data.hacking}
-
-➤ \`+Package\` 🎒   ➤ \`+Phone\` 📱
+🔍 Gathering: ${d.gathering}
+🛞 Driving: ${d.driving}
+👾 Hacking: ${d.hacking}
 `;
 
   return ovl.sendMessage(ms_org, { text: hud }, ms ? { quoted: ms } : {});
 }
 
 // ============================
-// COMMANDES HUD
+// COMMANDES
 // ============================
-// +savehud💠
-ovlcmd({
-  nom_cmd: "savehud💠",
-  classe: "Elysium",
-  react: "💾"
-}, async (ms_org, ovl, { arg, auteur_Message }) => {
-  try {
-    // ✅ Vérification SETSUDO
-    if (!SETSUDO.includes(auteur_Message.split("@")[0])) {
-      return sendProgressiveText(ovl, ms_org, "❌ Seul un setsudo peut créer un HUD.", 2);
-    }
-
-    // ❌ Vérifie la syntaxe
-    if (!arg.length) return sendProgressiveText(ovl, ms_org, "❌ Syntaxe : +savehud💠 <jid>", 2);
-
-    const jid = normalizeJID(arg[0]);
-    if (!jid) return sendProgressiveText(ovl, ms_org, "❌ JID invalide.", 2);
-
-    // 🔍 Vérification HUD existant
-    const existingHUD = await HUDFunctions.getUserData(jid);
-    if (existingHUD) {
-      return sendProgressiveText(ovl, ms_org, `❌ HUD pour @${jid.split("@")[0]} existe déjà.`, 2);
-    }
-
-    // ⏳ Message système
-    await sendProgressiveText(ovl, ms_org, "💠 Initialisation du HUD ♻️ ...", 2);
-
-    // 💾 Création HUD par défaut
-    const newHUD = await HUDFunctions.saveUser(jid, {
-      jid,
-      user: jid.replace("@s.whatsapp.net", ""),
-      besoins: 100,
-      pv: 100,
-      energie: 100,
-      forme: 100,
-      stamina: 100,
-      plaisir: 50,
-      intelligence: 0,
-      force: 0,
-      vitesse: 0,
-      reflexes: 0,
-      resistance: 0,
-      gathering: 0,
-      driving: 0,
-      hacking: 0
-    });
-
-    if (!newHUD) {
-      return sendProgressiveText(ovl, ms_org, `❌ HUD pour @${jid.split("@")[0]} existe déjà.`, 2);
-    }
-
-    // ✅ Ajout à la liste dynamique
-    registeredHUDs.set(jid, true);
-
-    // ✅ Confirmation
-    return sendProgressiveText(ovl, ms_org, `✅ HUD créé pour @${jid.split("@")[0]}`, 2);
-
-  } catch (err) {
-    console.error("[+savehud💠] Exception:", err);
-    return sendProgressiveText(ovl, ms_org, "❌ Erreur interne lors de la création du HUD.", 2);
-  }
-}); 
 
 // +hud💠
 ovlcmd({
@@ -211,108 +129,128 @@ ovlcmd({
   classe: "Elysium",
   react: "💠"
 }, async (ms_org, ovl, { auteur_Message, arg, ms }) => {
-  const targetJid = normalizeJID(arg[0] || auteur_Message);
-  if (!targetJid) return sendProgressiveText(ovl, ms_org, "❌ JID invalide.", 2, ms);
+  const jid = (arg[0] || auteur_Message).replace("@s.whatsapp.net", "") + "@s.whatsapp.net";
 
   await sendProgressiveText(ovl, ms_org, "💠 Chargement du HUD ♻️ ...", 2, ms);
-  return sendHUD(ms_org, ovl, targetJid, ms);
+  await sendHUD(ms_org, ovl, jid, ms);
 });
 
-// +delhud💠
+// +addhud💠
+ovlcmd({
+  nom_cmd: "addhud💠",
+  classe: "Elysium",
+  react: "➕"
+}, async (ms_org, ovl, { arg, auteur_Message }) => {
+  if (!SETSUDO.includes(auteur_Message.split("@")[0])) {
+    return sendProgressiveText(ovl, ms_org, "❌ Seul un setsudo peut créer un HUD.", 2);
+  }
+
+  const jid = arg[0]?.replace("@s.whatsapp.net", "") + "@s.whatsapp.net";
+  if (!jid) return;
+
+  const exists = await HUDFunctions.getHUD({ jid });
+  if (exists) {
+    return sendProgressiveText(ovl, ms_org, "❌ HUD déjà existant.", 2);
+  }
+
+  await HUDFunctions.addHUD(jid, {
+    user: jid.replace("@s.whatsapp.net", "")
+  });
+
+  return sendProgressiveText(ovl, ms_org, "✅ HUD créé avec succès.", 2);
+});
+
+// +deletehud💠
 ovlcmd({
   nom_cmd: "delhud💠",
   classe: "Elysium",
   react: "🗑️"
-}, async (ms_org, ovl, { arg, repondre }) => {
-  if (!arg.length) return repondre("❌ Syntaxe : +delhud💠 @jid");
+}, async (ms_org, ovl, { arg, auteur_Message }) => {
 
-  const jidToDelete = normalizeJID(arg[0]);
-  if (!jidToDelete) return repondre("❌ JID invalide.");
+  if (!SETSUDO.includes(auteur_Message.split("@")[0])) {
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      "❌ Seul un setsudo peut supprimer un HUD.",
+      2
+    );
+  }
 
-  const hud = await HUDFunctions.getUserData(jidToDelete);
-  if (!hud) return repondre("❌ Aucun HUD trouvé pour ce joueur.");
+  const jid = arg[0]?.replace("@s.whatsapp.net", "") + "@s.whatsapp.net";
+  if (!arg[0]) {
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      "❌ JID manquant.",
+      2
+    );
+  }
 
-  await sendProgressiveText(ovl, ms_org, "💠 Suppression du HUD ♻️ ...", 2);
+  const hud = await HUDFunctions.getHUD({ jid });
+  if (!hud) {
+    return sendProgressiveText(
+      ovl,
+      ms_org,
+      "❌ HUD introuvable.",
+      2
+    );
+  }
 
-  await HUDFunctions.deleteHUD(jidToDelete);
-  registeredHUDs.delete(jidToDelete);
+  await HUDFunctions.deleteHUD({ jid });
 
-  return repondre(`✅ HUD supprimé pour @${jidToDelete.split("@")[0]}`);
+  return sendProgressiveText(
+    ovl,
+    ms_org,
+    `🗑️ HUD supprimé avec succès : ${jid.replace("@s.whatsapp.net", "")}`,
+    2
+  );
 });
 
 // ============================
-// DYNAMIQUE HUD PAR JID / USERNAME
+// COMMANDE DYNAMIQUE (COPIE FICHES)
 // ============================
 function registerDynamicHUD(identifier) {
-  if (!identifier) return;
-
-  const cleanIdentifier = identifier.replace(/💠/g, "");
-  const cmd = `${cleanIdentifier.toLowerCase()}hud💠`;
+  const clean = identifier.replace(/💠/g, "");
+  const cmd = `${clean}hud💠`;
 
   ovlcmd({
     nom_cmd: cmd,
     classe: "Elysium",
     react: "⚙️"
-  }, async (ms_org, ovl, { repondre, arg }) => {
-    try {
-      if (!arg.length) return repondre(`❌ Syntaxe : +${cleanIdentifier}hud💠 stat +|- valeur ...`);
+  }, async (ms_org, ovl, { arg }) => {
+    const jid = clean + "@s.whatsapp.net";
 
-      // 🔹 Résolution JID
-      let targetJid;
-      if (/^\d+$/.test(cleanIdentifier) || cleanIdentifier.includes("@")) {
-        targetJid = cleanIdentifier.includes("@") ? cleanIdentifier : cleanIdentifier + "@s.whatsapp.net";
-      } else {
-        const allPlayers = await PlayerFunctions.getAllPlayers();
-        const playerMatch = allPlayers.find(p => {
-          const data = p.dataValues ?? p;
-          return data.user?.replace(/💠/g, "").toLowerCase() === cleanIdentifier.toLowerCase();
-        });
-        if (!playerMatch) return repondre("❌ Joueur introuvable.");
-        targetJid = (playerMatch.dataValues ?? playerMatch).jid;
-      }
-
-      const hud = await HUDFunctions.getUserData(targetJid);
-      if (!hud) return repondre("❌ HUD introuvable.");
-
-      // 🔹 Vérification syntaxe stats
-      if (arg.length % 3 !== 0) return repondre(`❌ Syntaxe : +${cleanIdentifier}hud💠 stat +|- valeur ...`);
-
-      const updates = await processHUDUpdates(arg, targetJid);
-      await updateHUDData(updates, targetJid);
-
-      const message = `✅ [SYSTEM] HUD mis à jour\n\n` +
-        updates.map(u => `🛠️ ${u.colonne} : ${u.oldValue} ➤ ${u.newValue}`).join("\n");
-
-      await sendProgressiveText(ovl, ms_org, message, 2);
-    } catch (err) {
-      console.error(`[${cleanIdentifier}hud💠]`, err);
-      await sendProgressiveText(ovl, ms_org, "❌ Erreur interne.", 2);
+    if (arg.length % 3 !== 0) {
+      return sendProgressiveText(ovl, ms_org, "❌ Syntaxe invalide.", 2);
     }
+
+    const updates = await processHUDUpdates(arg, jid);
+    await updateHUDData(updates, jid);
+
+    const msg =
+      `✅ HUD mis à jour\n\n` +
+      updates.map(u => `🛠️ ${u.colonne} : ${u.oldValue} ➤ ${u.newValue}`).join("\n");
+
+    await sendProgressiveText(ovl, ms_org, msg, 2);
   });
 }
 
 // ============================
-// INIT DYNAMIQUE HUD
+// INIT GLOBAL (COPIE FICHES)
 // ============================
-async function initDynamicHUDs() {
-  try {
-    const allHUD = await HUDFunctions.getAllHUDs();
+async function initElysiumHUD() {
+  const all = await HUDFunctions.getAllHUDs();
 
-    for (const h of allHUD) {
-      const jid = normalizeJID(h.dataValues?.jid ?? h.jid);
-      if (!jid) continue;
-      // enregistre dynamiquement le HUD
-      registerDynamicHUD(jid);
-      registeredHUDs.set(jid, true);
-    }
+  for (const h of all) {
+    const d = h.dataValues ?? h;
+    if (!d.jid || !d.user) continue;
 
-    console.log("[HUD] Commandes dynamiques initialisées.");
-  } catch (err) {
-    console.error("[HUD INIT ERROR]", err);
+    registerDynamicHUD(d.user);
+    registerDynamicHUD(d.jid.replace("@s.whatsapp.net", ""));
   }
+
+  console.log("[HUD] Initialisation complète");
 }
 
-// 🔥 Initialisation à l'import
-initDynamicHUDs();
-
-module.exports = { sendHUD, registeredHUDs, registerDynamicHUD, sendProgressiveText };
+// 🔥 APPEL UNIQUE
+initElysiumHUD();
