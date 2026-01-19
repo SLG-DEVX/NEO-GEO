@@ -1,19 +1,40 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("./sequelize"); // 
+const { Sequelize, DataTypes } = require("sequelize");
+const config = require("../set");
+
+const db = config.DATABASE;
 
 // ============================
-// MODEL HUD 
+// CONNEXION DB (CLONE FICHES)
 // ============================
-const HUD = sequelize.define("ElysiumHUD", {
-  jid: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
-  },
-  user: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
+let sequelize;
+
+if (!db) {
+  sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: "./database.db",
+    logging: false
+  });
+} else {
+  sequelize = new Sequelize(db, {
+    dialect: "postgres",
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    },
+    logging: false
+  });
+}
+
+// ============================
+// MODEL HUD (MIROIR FICHES)
+// ============================
+const ElysiumHUD = sequelize.define("ElysiumHUD", {
+  id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+
+  jid: { type: DataTypes.STRING, unique: true },
+  user: { type: DataTypes.STRING },
 
   besoins: { type: DataTypes.INTEGER, defaultValue: 100 },
   pv: { type: DataTypes.INTEGER, defaultValue: 100 },
@@ -34,50 +55,53 @@ const HUD = sequelize.define("ElysiumHUD", {
 
 }, {
   tableName: "elysium_hud",
+  freezeTableName: true,
   timestamps: false
 });
 
 // ============================
-// FUNCTIONS 
+// SYNC (COMME FICHES)
+// ============================
+(async () => {
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync();
+    console.log("✔ [HUD] Base synchronisée");
+  } catch (e) {
+    console.error("❌ [HUD DB ERROR]", e);
+  }
+})();
+
+// ============================
+// FUNCTIONS (COPIE FICHES)
 // ============================
 const HUDFunctions = {
 
-  async addHUD(jid, data = {}) {
-    return HUD.create({
-      jid,
-      ...data
-    });
+  async saveUser(jid, data = {}) {
+    const exist = await ElysiumHUD.findOne({ where: { jid } });
+    if (exist) return null;
+    return ElysiumHUD.create({ jid, ...data });
   },
 
-  async getHUD(where) {
-    return HUD.findOne({ where });
+  async getUserData(jid) {
+    return ElysiumHUD.findOne({ where: { jid } });
   },
 
-  async setHUD(colonne, value, jid) {
-    return HUD.update(
-      { [colonne]: value },
+  async updateUser(colonne, valeur, jid) {
+    return ElysiumHUD.update(
+      { [colonne]: valeur },
       { where: { jid } }
     );
   },
 
-  async delHUD(where) {
-    return HUD.destroy({ where });
+  async deleteUser(jid) {
+    return ElysiumHUD.destroy({ where: { jid } });
   },
 
   async getAllHUDs() {
-    return HUD.findAll();
+    return ElysiumHUD.findAll();
   }
 
 };
 
-// ============================
-// SYNC DB 
-// ============================
-(async () => {
-  await HUD.sync();
-})();
-
-module.exports = {
-  HUD,
-  HUDFunctions
-};
+module.exports = { HUDFunctions };
