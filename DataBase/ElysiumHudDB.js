@@ -50,8 +50,6 @@ const HUD = sequelize.define('HUD', {
   gathering: { type: DataTypes.INTEGER, defaultValue: 0 },
   driving: { type: DataTypes.INTEGER, defaultValue: 0 },
   hacking: { type: DataTypes.INTEGER, defaultValue: 0 },
-  oc_url: { type: DataTypes.STRING, defaultValue: 'https://files.catbox.moe/4quw3r.jpg' },
-  code_hud: { type: DataTypes.STRING, defaultValue: 'aucun' }, // optionnel comme code_fiche
 }, {
   tableName: 'elysium_hud',
   freezeTableName: true,
