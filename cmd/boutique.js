@@ -94,11 +94,17 @@ const autoRewardNS = async (jid, ovl, ms_org, nsGained = 0) => {
             });
 
             await ovl.sendMessage(ms_org, {
-                text: `🎉 Félicitations ! Tu as franchi un palier Royalities !  
-Tu gagnes +${totalReward} NS supplémentaires !  
-📈 Nouveau total: ${currentNS + totalReward} NS`,
-                mentions: [jid]
-            });
+  text: `🎉👑LEVEL UP ROYALITY XP
+▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
+                             
+👑! Félicitations *${playerName}👑*, tu viens de franchir les ${currentNS}👑 royalities !
+Les récompenses suivantes ont été ajoutées à ta fiche :
+💰 +500000 golds
+🔷 +50 NC
+🎫 +25 coupons
+💯 Royalities👑🎉`,
+  mentions: [jid]
+});
         } else {
             await MyNeoFunctions.updateUser(jid, { ns: currentNS });
         }
