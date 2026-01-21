@@ -267,14 +267,15 @@ Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣. Si 
       const num1 = await getChosenNumber();
       if (await checkNumber(num1)) {
   const freshUser = await MyNeoFunctions.getUserData(auteur_Message);
-const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
+  const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
 
-// Met à jour les victoires
-await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: newWins });
+  // Mise à jour des victoires
+  await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: newWins });
 
-// Appel NS automatique avec paliers
-await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
+  // Ajout NS + paliers
+  await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
 
+  // Jackpot check
   if (newWins >= 3) {
     await checkJackpot(auteur_Message, ovl, ms_org, ms);
   }
@@ -285,19 +286,23 @@ await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
       const num2 = await getChosenNumber(true);
      if (await checkNumber(num2, true)) {
   const freshUser = await MyNeoFunctions.getUserData(auteur_Message);
-
   const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
 
+  // Mise à jour des victoires
+  await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: newWins });
+
+  // Ajout NS + paliers
   await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
 
+  // Jackpot check
   if (newWins >= 3) {
     await checkJackpot(auteur_Message, ovl, ms_org, ms);
   }
-} 
-       else {
-        await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: 0 });
-      }
-    }
+}
+else {
+  // Reset si perdu
+  await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: 0 });
+}
 
   } catch (e) {
     console.error("Erreur roulette:", e);
