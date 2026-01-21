@@ -256,10 +256,8 @@ Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣. Si 
 
   const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
 
-  await MyNeoFunctions.updateUser(auteur_Message, {
-    wins_roulette: newWins,
-    ns: (parseInt(freshUser.ns) || 0) + 5
-  });
+  await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: newWins });
+await giveNS(auteur_Message, 5, ovl, ms_org);
 
   await ovl.sendMessage(ms_org, {
     text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes +5👑 royalities xp🍾🎉`
@@ -404,7 +402,7 @@ ovlcmd({
       //   AJOUT +5 NS
       // -------------------------
       const newNS = (parseInt(ficheNeo.ns) || 0) + 5;
-      await MyNeoFunctions.updateUser(auteur_Message, { ns: newNS });
+     await giveNS(auteur_Message, 5, ovl, ms_org);
       await repondre(`🎉 Félicitations +5👑 Royalities ajoutés à ta fiche 🎉🎉🥳🥳🍾`);
 
  // -------------------------
