@@ -6,7 +6,6 @@ const { TeamFunctions } = require("../DataBase/myneo_lineup_team");
 const { BlueLockFunctions } = require("../DataBase/myneo_lineup_team");
 const { getUserData: getLineup, updatePlayers } = BlueLockFunctions;
 const config = require("../set");
-const { giveNS } = require("../DataBase/myneo_lineup_team");
 
 // --- UTILITAIRES ---
 const formatNumber = n => {
@@ -257,7 +256,8 @@ Confirmer ${mode} ? (oui / non / +coupon)
         let cardsOwned = (userData.cards || "").split("\n").filter(Boolean);
         if (!cardsOwned.includes(card.name)) cardsOwned.push(card.name);
         await MyNeoFunctions.updateUser(auteur_Message, { cards: cardsOwned.join("\n") });
-        await giveNS(auteur_Message, 5, ovl, ms_org);
+        await MyNeoFunctions.updateUser(auteur_Message, { ns: (userData.ns + 5) });
+
         await addToLineup(auteur_Message, card, ovl, ms_org, repondre);
 
         await repondre(`
@@ -632,14 +632,11 @@ ovlcmd({
     const ncTirage = tiragesAffichage.find(t => t.type.toLowerCase() === typeTirage).nc;
     if ((ficheNeo.nc || 0) < ncTirage) return repondre(`❌ Pas assez de NC 🔷 (il te faut ${ncTirage})`);
 
-    
-    // --- Débit NC ---
-await MyNeoFunctions.updateUser(auteur_Message, {
-  nc: ficheNeo.nc - ncTirage
-});
-
-// --- Ajout NS via fonction giveNS ---
-await giveNS(auteur_Message, 5, ovl, ms_org);
+    // --- Débit NC + NS royalities ---
+    await MyNeoFunctions.updateUser(auteur_Message, {
+      nc: ficheNeo.nc - ncTirage,
+      ns: (ficheNeo.ns || 0) + 5
+    });
 
     // --- Message intermédiaire NC / NS ---
     await repondre(
