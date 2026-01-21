@@ -3,7 +3,42 @@ const fs = require('fs');
 const { cards } = require('../DataBase/cards');
 const { MyNeoFunctions } = require("../DataBase/myneo_lineup_team");
 const { getData, setfiche } = require("../DataBase/allstars_divs_fiches");
-const { giveNS } = require('../DataBase/myneo_lineup_team'); // ou le chemin correct vers giveNS
+
+// ============================
+// Fonction NS automatique
+// ============================
+async function addNSWithPaliers(jid, ovl, ms_org, nsGained = 5) {
+  const user = await MyNeoFunctions.getUserData(jid);
+  if (!user) return;
+
+  const currentNS = (parseInt(user.ns) || 0) + nsGained;
+  const lastRewardNS = parseInt(user.lastRewardNS || 0) || 0;
+
+  const currentTier = Math.floor(currentNS / 100);
+  const lastTier = Math.floor(lastRewardNS / 100);
+
+  if (currentTier > lastTier) {
+    const tiersGained = currentTier - lastTier;
+    const rewardPerTier = 5; // NS bonus par palier
+    const totalReward = tiersGained * rewardPerTier;
+
+    await MyNeoFunctions.updateUser(jid, {
+      ns: currentNS + totalReward,
+      lastRewardNS: currentNS
+    });
+
+    await ovl.sendMessage(ms_org, {
+      text: `🎉 Félicitations <@${jid.split('@')[0]}> ! Tu as franchi un palier Royalities !  
+Tu gagnes +${totalReward} NS supplémentaires !  
+📈 Nouveau total: ${currentNS + totalReward} NS`
+    });
+  } else {
+    await MyNeoFunctions.updateUser(jid, { ns: currentNS });
+    await ovl.sendMessage(ms_org, {
+      text: `🎉 +${nsGained}👑 Royalities ajoutés à ta fiche !`
+    });
+  }
+}
 
 // --- Helpers ---
 const generateRandomNumbers = (min, max, count) => {
@@ -232,17 +267,13 @@ Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣. Si 
       const num1 = await getChosenNumber();
       if (await checkNumber(num1)) {
   const freshUser = await MyNeoFunctions.getUserData(auteur_Message);
+const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
 
-  const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
+// Met à jour les victoires
+await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: newWins });
 
-  await MyNeoFunctions.updateUser(auteur_Message, {
-    wins_roulette: newWins,
-    ns: (parseInt(freshUser.ns) || 0) + 5
-  });
-
-  await ovl.sendMessage(ms_org, {
-    text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes +5👑 royalities xp 🍾🎉`
-  });
+// Appel NS automatique avec paliers
+await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
 
   if (newWins >= 3) {
     await checkJackpot(auteur_Message, ovl, ms_org, ms);
@@ -257,12 +288,7 @@ Bienvenue dans la Roulette, choisissez un chiffre parmis les 5️⃣0️⃣. Si 
 
   const newWins = (parseInt(freshUser.wins_roulette) || 0) + 1;
 
-  await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: newWins });
-await giveNS(auteur_Message, 5, ovl, ms_org);
-
-  await ovl.sendMessage(ms_org, {
-    text: `🎉😎 Félicitations <@${auteur_Message.split("@")[0]}> tu gagnes +5👑 royalities xp🍾🎉`
-  });
+  await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
 
   if (newWins >= 3) {
     await checkJackpot(auteur_Message, ovl, ms_org, ms);
@@ -402,8 +428,7 @@ ovlcmd({
       // -------------------------
       //   AJOUT +5 NS
       // -------------------------
-     await giveNS(auteur_Message, 5, ovl, ms_org);
-      await repondre(`🎉 Félicitations +5👑 Royalities ajoutés à ta fiche 🎉🎉🥳🥳🍾`);
+      await addNSWithPaliers(auteur_Message, ovl, ms_org, 5);
 
  // -------------------------
 //   AJOUT DES CARTES DANS ALL STARS
