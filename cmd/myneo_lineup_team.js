@@ -5,7 +5,6 @@ const { getData, setfiche } = require("../DataBase/allstars_divs_fiches");
 const { saveUser: saveMyNeo, deleteUser: delMyNeo, getUserData: getNeo, updateUser: updateMyNeo } = MyNeoFunctions;
 const { saveUser: saveTeam, deleteUser: delTeam, getUserData: getTeam, updateUser: updateTeam } = TeamFunctions;
 const { saveUser: saveLineup, deleteUser: delLineup, getUserData: getLineup, updatePlayers, updateStats } = BlueLockFunctions;
-const { giveNS } = require("../systems/neoScoreSystem");
 
 // --- NORMALISATION NOM ---
 const pureName = str => {
