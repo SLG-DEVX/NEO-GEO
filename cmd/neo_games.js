@@ -3,6 +3,7 @@ const fs = require('fs');
 const { cards } = require('../DataBase/cards');
 const { MyNeoFunctions } = require("../DataBase/myneo_lineup_team");
 const { getData, setfiche } = require("../DataBase/allstars_divs_fiches");
+const { giveNS } = require('../DataBase/myneo_lineup_team'); // ou le chemin correct vers giveNS
 
 // --- Helpers ---
 const generateRandomNumbers = (min, max, count) => {
@@ -401,7 +402,6 @@ ovlcmd({
       // -------------------------
       //   AJOUT +5 NS
       // -------------------------
-      const newNS = (parseInt(ficheNeo.ns) || 0) + 5;
      await giveNS(auteur_Message, 5, ovl, ms_org);
       await repondre(`🎉 Félicitations +5👑 Royalities ajoutés à ta fiche 🎉🎉🥳🥳🍾`);
 
