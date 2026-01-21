@@ -3,8 +3,6 @@ const { cards } = require('../DataBase/cards');
 const { MyNeoFunctions } = require("../DataBase/myneo_lineup_team");
 const { getData, setfiche, getAllFiches } = require("../DataBase/allstars_divs_fiches");
 const config = require("../set");
-const { giveNS } = require("../DataBase/myneo_lineup_team"); // ou le chemin correct
-
 
 //-------- UTILITAIRES
 const formatNumber = n => {
@@ -15,7 +13,6 @@ const formatNumber = n => {
     }
 };
 
-//-------- NORMALISATION (ANTI BUG CARTES)
 const normalize = str =>
     String(str)
         .toLowerCase()
@@ -27,43 +24,15 @@ const normalize = str =>
 const checkLevelRequirement = (playerLevel, cardCategory, cardGrade) => {
     let levelRequired = 0;
 
-    // 🔶 CARTES OR
     if (["or", "gold"].includes(cardCategory)) {
-
-        // OR S+
-        if (["s+", "sp", "sm"].includes(cardGrade)) {
-            levelRequired = 10;
-        } 
-        // OR S
-        else if (cardGrade === "s") {
-            levelRequired = 5;
-        }
-
-    // ⚪ CARTES ARGENT
+        if (["s+", "sp", "sm"].includes(cardGrade)) levelRequired = 10;
+        else if (cardGrade === "s") levelRequired = 5;
     } else if (["argent", "silver"].includes(cardCategory)) {
-
-        // ARGENT S+
-        if (["s+", "sp", "sm"].includes(cardGrade)) {
-            levelRequired = 5;
-        } 
-        // ARGENT S
-        else if (cardGrade === "s") {
-            levelRequired = 5;
-        }
-
-    // 🟤 CARTES BRONZE
+        if (["s+", "sp", "sm"].includes(cardGrade)) levelRequired = 5;
+        else if (cardGrade === "s") levelRequired = 5;
     } else if (["bronze"].includes(cardCategory)) {
-
-        // BRONZE S+
-        if (["s+", "sp", "sm"].includes(cardGrade)) {
-            levelRequired = 3;
-        } 
-        // BRONZE S
-        else if (cardGrade === "s") {
-            levelRequired = 3;
-        }
-
-    // 💠 SS (TOUS MÉTAUX)
+        if (["s+", "sp", "sm"].includes(cardGrade)) levelRequired = 3;
+        else if (cardGrade === "s") levelRequired = 3;
     } else if (["ss", "ss+", "ssp", "ss-", "ssm"].includes(cardGrade)) {
         levelRequired = 15;
     }
@@ -82,7 +51,7 @@ const checkLevelRequirement = (playerLevel, cardCategory, cardGrade) => {
     return { ok: true };
 };
 
-//-------- JOUEURS QUI POSSÈDENT UNE CARTE (AVEC JID)
+//-------- JOUEURS QUI POSSÈDENT UNE CARTE
 const getCardOwners = async (cardName) => {
     const allFiches = await getAllFiches();
     const owners = [];
@@ -98,6 +67,44 @@ const getCardOwners = async (cardName) => {
         }
     }
     return owners;
+};
+
+//============================
+// FONCTION AUTO-RECOMPENSE NS
+//============================
+const autoRewardNS = async (jid, ovl, ms_org, nsGained = 0) => {
+    try {
+        const userData = await MyNeoFunctions.getUserData(jid);
+        if (!userData) return;
+
+        const currentNS = parseInt(userData.ns || 0) + nsGained; 
+        const lastRewardNS = parseInt(userData.lastRewardNS || 0);
+
+        const currentTier = Math.floor(currentNS / 100);
+        const lastTier = Math.floor(lastRewardNS / 100);
+
+        if (currentTier > lastTier) {
+            const tiersGained = currentTier - lastTier;
+            const rewardPerTier = 5; 
+            const totalReward = tiersGained * rewardPerTier;
+
+            await MyNeoFunctions.updateUser(jid, {
+                ns: currentNS + totalReward,
+                lastRewardNS: currentNS
+            });
+
+            await ovl.sendMessage(ms_org, {
+                text: `🎉 Félicitations ! Tu as franchi un palier Royalities !  
+Tu gagnes +${totalReward} NS supplémentaires !  
+📈 Nouveau total: ${currentNS + totalReward} NS`,
+                mentions: [jid]
+            });
+        } else {
+            await MyNeoFunctions.updateUser(jid, { ns: currentNS });
+        }
+    } catch (err) {
+        console.log("Erreur autoRewardNS:", err);
+    }
 };
 
 //-------- COMMANDE BOUTIQUE
@@ -126,7 +133,6 @@ Après cela attendez la validation de votre achat ou de votre vente.
                           *🔷NEO🛍️STORE*`
         }, { quoted: ms });
 
-        //-------- ATTENTE MESSAGE
         const waitFor = async (timeout = 120000) => {
             const r = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: timeout });
             const txt =
@@ -136,7 +142,6 @@ Après cela attendez la validation de votre achat ou de votre vente.
             return txt ? txt.trim() : "";
         };
 
-        //-------- ATTENTE CONFIRMATION
         const waitForConfirm = async (timeout = 60000) => {
             while (true) {
                 const r = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: timeout });
@@ -150,7 +155,6 @@ Après cela attendez la validation de votre achat ou de votre vente.
             }
         };
 
-        //-------- LISTE CARTES
         const allCards = [];
         for (const [placementKey, placementCards] of Object.entries(cards)) {
             for (const c of placementCards) {
@@ -163,13 +167,11 @@ Après cela attendez la validation de votre achat ou de votre vente.
 
         while (true) {
             try {
-
                 if (userInput.toLowerCase() === "close") {
                     await repondre("✅ Boutique fermée.");
                     break;
                 }
 
-                //-------- DÉTECTION MODE
                 const cleanedInput = userInput.replace(/[^a-zA-Z]/g, "").toLowerCase();
                 let mode = null;
                 if (cleanedInput.startsWith("achat")) mode = "achat";
@@ -184,13 +186,10 @@ Après cela attendez la validation de votre achat ou de votre vente.
                     userInput = await waitFor();
                     continue;
                 }
-let query = parts.slice(1).join(":").trim();
 
-// 🎰 Détection vente casino
-const isCasinoSale = query.includes("🎰");
-
-// Nettoyage du 🎰 pour trouver la vraie carte
-query = query.replace("🎰", "").trim();
+                let query = parts.slice(1).join(":").trim();
+                const isCasinoSale = query.includes("🎰");
+                query = query.replace("🎰", "").trim();
                 if (!query) {
                     await repondre("❌ Tu dois écrire un nom après ':'");
                     userInput = await waitFor();
@@ -208,27 +207,20 @@ query = query.replace("🎰", "").trim();
                     continue;
                 }
 
-                //-------- PRIX / FONDS
                 let basePrix = Number(card.price) || 0;
                 let golds = parseInt(String(fiche.golds || "0").replace(/[^\d]/g, "")) || 0;
                 let nc = parseInt(String(userData.nc || "0").replace(/[^\d]/g, "")) || 0;
-
-                //-------- MONNAIE LIÉE À LA CARTE
                 const cardCurrency = card.unit === "nc" ? "nc" : "golds";
                 const cardIcon = cardCurrency === "nc" ? "🔷" : "🧭"; 
-                
-                //-------- INFLATION + MESSAGE PROPRIÉTAIRES
+
                 let confirmPrice = basePrix;
                 const owners = await getCardOwners(card.name);
-
                 if (owners.length >= 2) {
                     confirmPrice = Math.floor(confirmPrice * 1.5);
-
                     const taggedOwners = owners
                         .slice(0, 2)
                         .map(jid => `@${jid.split("@")[0]}`)
                         .join(" et ");
-
                     await ovl.sendMessage(ms_org, {
                         text:
                             `⚠️ Les joueurs ${taggedOwners} possèdent déjà cette carte.\n` +
@@ -239,7 +231,6 @@ query = query.replace("🎰", "").trim();
                     }, { quoted: ms });
                 }
 
-                //-------- CONFIRMATION
                 let confirmOptions = "oui / non";
                 if (mode === "achat") confirmOptions += " / +coupon";
 
@@ -264,28 +255,16 @@ query = query.replace("🎰", "").trim();
 
                 //================ ACHAT ================
                 if (mode === "achat") {
-
-                    //-------- VÉRIFICATION NIVEAU                  
-const playerLevel = parseInt(
-    fiche?.data?.niveau ?? fiche?.niveau ?? 0
-);
-
-// Vérification du niveau requis
-const levelCheck = checkLevelRequirement(
-    playerLevel,
-    card.category,
-    card.grade.toLowerCase()
-);
-                    
-if (!levelCheck.ok) {
-    await repondre(levelCheck.message);
-    userInput = await waitFor();
-    continue;
-}
+                    const playerLevel = parseInt(fiche?.data?.niveau ?? fiche?.niveau ?? 0);
+                    const levelCheck = checkLevelRequirement(playerLevel, card.category, card.grade.toLowerCase());
+                    if (!levelCheck.ok) {
+                        await repondre(levelCheck.message);
+                        userInput = await waitFor();
+                        continue;
+                    }
 
                     let finalPrice = confirmPrice;
                     let couponUsed = false;
-
                     if (conf.includes("+coupon")) {
                         const userCoupons = parseInt(userData.coupons || 0);
                         if (userCoupons < 100) {
@@ -295,9 +274,7 @@ if (!levelCheck.ok) {
                         }
                         finalPrice = Math.floor(finalPrice / 2);
                         couponUsed = true;
-                        await MyNeoFunctions.updateUser(auteur_Message, {
-                            coupons: userCoupons - 100
-                        });
+                        await MyNeoFunctions.updateUser(auteur_Message, { coupons: userCoupons - 100 });
                     }
 
                     if (cardCurrency === "golds" && golds < finalPrice) {
@@ -311,9 +288,7 @@ if (!levelCheck.ok) {
                         continue;
                     }
 
-                    await MyNeoFunctions.updateUser(auteur_Message, {
-                        np: (userData.np || 0) - 1
-                    });
+                    await MyNeoFunctions.updateUser(auteur_Message, { np: (userData.np || 0) - 1 });
 
                     if (cardCurrency === "golds")
                         await setfiche("golds", golds - finalPrice, auteur_Message);
@@ -330,8 +305,8 @@ if (!levelCheck.ok) {
 
                     await setfiche("cards", cardsList.join("\n"), auteur_Message);
 
-                    // ---------- AJOUT +5 NS -------------------------
-                    await giveNS(auteur_Message, 5, ovl, ms_org);
+                    // ---------- AJOUT +5 NS avec auto-reward -------------------------
+                    await autoRewardNS(auteur_Message, ovl, ms_org, 5);
 
                     await ovl.sendMessage(ms_org, {
                         image: { url: card.image },
@@ -341,7 +316,6 @@ if (!levelCheck.ok) {
 🎴 Carte ajoutée: ${card.name}
 💳 Paiement: 1 NP + ${formatNumber(finalPrice)} ${cardIcon}
 ${couponUsed ? "✅ Coupon utilisé (100🎟️)" : ""}
-👑 +5 NS ajouté ! Royalities xp 👑🎉🍾🥂
 
 Merci pour ton achat !
 ╰───────────────────`
@@ -350,16 +324,12 @@ Merci pour ton achat !
 
                 //================ VENTE ================
                 else {
-
                     let cardsList = (fiche.cards || "")
-    .split(/\n|•/g)
-    .map(c => c.trim())
-    .filter(Boolean); 
+                        .split(/\n|•/g)
+                        .map(c => c.trim())
+                        .filter(Boolean); 
 
-                    const index = cardsList.findIndex(
-                        c => normalize(c) === normalize(card.name)
-                    );
-
+                    const index = cardsList.findIndex(c => normalize(c) === normalize(card.name));
                     if (index === -1) {
                         await repondre("❌ Tu ne possèdes pas cette carte.");
                         userInput = await waitFor();
@@ -369,15 +339,9 @@ Merci pour ton achat !
                     cardsList.splice(index, 1);
                     await setfiche("cards", cardsList.join("\n"), auteur_Message);
 
-                    let finalSalePrice;
-
-if (isCasinoSale) {
-    // 🎰 Vente casino = 15%
-    finalSalePrice = Math.floor(basePrix * 0.15);
-} else {
-    // Vente normale = 50%
-    finalSalePrice = Math.floor(basePrix / 2);
-}
+                    let finalSalePrice = isCasinoSale
+                        ? Math.floor(basePrix * 0.15)
+                        : Math.floor(basePrix / 2);
 
                     if (cardCurrency === "golds")
                         await setfiche("golds", golds + finalSalePrice, auteur_Message);
