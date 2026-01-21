@@ -77,6 +77,8 @@ const autoRewardNS = async (jid, ovl, ms_org, nsGained = 0) => {
         const userData = await MyNeoFunctions.getUserData(jid);
         if (!userData) return;
 
+        const playerName = userData.name || userData.pseudo || "Joueur";
+
         const currentNS = parseInt(userData.ns || 0) + nsGained; 
         const lastRewardNS = parseInt(userData.lastRewardNS || 0);
 
@@ -94,20 +96,24 @@ const autoRewardNS = async (jid, ovl, ms_org, nsGained = 0) => {
             });
 
             await ovl.sendMessage(ms_org, {
-  text: `🎉👑LEVEL UP ROYALITY XP
+                text: `🎉👑 LEVEL UP ROYALITY XP
 ▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░
                              
-👑! Félicitations *${playerName}👑*, tu viens de franchir les ${currentNS}👑 royalities !
-Les récompenses suivantes ont été ajoutées à ta fiche :
+👑 Félicitations *${playerName}* 👑
+Tu viens de franchir les ${currentNS} Royalities !
+
+🎁 Récompenses :
 💰 +500000 golds
 🔷 +50 NC
 🎫 +25 coupons
-💯 Royalities👑🎉`,
-  mentions: [jid]
-});
+💯 Royalities 👑🎉`,
+                mentions: [jid]
+            });
+
         } else {
             await MyNeoFunctions.updateUser(jid, { ns: currentNS });
         }
+
     } catch (err) {
         console.log("Erreur autoRewardNS:", err);
     }
