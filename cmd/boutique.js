@@ -3,6 +3,8 @@ const { cards } = require('../DataBase/cards');
 const { MyNeoFunctions } = require("../DataBase/myneo_lineup_team");
 const { getData, setfiche, getAllFiches } = require("../DataBase/allstars_divs_fiches");
 const config = require("../set");
+const { giveNS } = require("../DataBase/myneo_lineup_team"); // ou le chemin correct
+
 
 //-------- UTILITAIRES
 const formatNumber = n => {
@@ -329,9 +331,7 @@ if (!levelCheck.ok) {
                     await setfiche("cards", cardsList.join("\n"), auteur_Message);
 
                     // ---------- AJOUT +5 NS -------------------------
-                    const ficheNeo = await MyNeoFunctions.getUserData(auteur_Message);
-                    const newNS = (parseInt(ficheNeo.ns) || 0) + 5;
-                    await MyNeoFunctions.updateUser(auteur_Message, { ns: newNS });
+                    await giveNS(auteur_Message, 5, ovl, ms_org);
 
                     await ovl.sendMessage(ms_org, {
                         image: { url: card.image },
