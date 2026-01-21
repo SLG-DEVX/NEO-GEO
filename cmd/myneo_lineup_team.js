@@ -232,14 +232,15 @@ ovlcmd({
   desc: "Afficher ou modifier les données NEO d'un joueur.",
 }, async (ms_org, ovl, cmd_options) => {
   const { arg, auteur_Message, prenium_id, repondre } = cmd_options;
-  let userId = arg.length>=1 && arg[0].includes("@") ? normalizeJid(arg[0]) : auteur_Message;
+  const userId = arg.length >= 1 && arg[0].includes("@") ? normalizeJid(arg[0]) : auteur_Message;
 
   try {
     const data = await getNeo(userId);
-    if(!data) return repondre("⚠️ Aucune donnée trouvée pour cet utilisateur.");
+    if (!data) return repondre("⚠️ Aucune donnée trouvée pour cet utilisateur.");
 
-    if(arg.length<=1){
-      const myn = `╭───〔 *🪀COMPTE NEO🔷* 〕
+    // 1️⃣ Affichage compte
+    if (arg.length <= 1) {
+      const myn = `╭───〔 *🪀 COMPTE NEO 🔷* 〕
 👤User: ${data.users}
 📳Téléphone: ${data.tel}
 👑NEOscore: ${data.ns}👑
@@ -258,21 +259,23 @@ ovlcmd({
       return await ovl.sendMessage(ms_org,{image:{url:"https://files.catbox.moe/nyy6fb.jpg"},caption:myn},{quoted:cmd_options.ms});
     }
 
-    if(!prenium_id) return repondre("⚠️ Seuls les membres Premium peuvent actualiser un joueur.");
+    // 2️⃣ Vérification prenium
+    if (!prenium_id) return repondre("⚠️ Seuls les membres Premium peuvent actualiser un joueur.");
 
     const modifiables = ["users","tel","ns","nc","np","coupons","gift_box","all_stars","blue_lock","elysium"];
     let updates = {};
     let nsDelta = 0;
 
-    for(let i=1;i<arg.length;){
+    // 3️⃣ Lecture des arguments
+    for (let i = 1; i < arg.length;) {
       const field = arg[i]?.toLowerCase();
-      const op = arg[i+1];
-      if(!modifiables.includes(field) || !["=","+","-"].includes(op)){i++; continue;}
+      const op = arg[i + 1];
+      if (!modifiables.includes(field) || !["=", "+", "-"].includes(op)) { i++; continue; }
 
       const isNumeric = ["ns","nc","np","coupons","gift_box"].includes(field);
       let value;
 
-      if(op==="=" && !isNumeric){
+      if (op === "=" && !isNumeric) {
         let valParts=[], j=i+2;
         while(j<arg.length && !modifiables.includes(arg[j]?.toLowerCase())) valParts.push(arg[j++]);
         value = valParts.join(" "); i=j;
@@ -280,19 +283,18 @@ ovlcmd({
         value = arg[i+2]; i+=3;
       }
 
-      if(value!==undefined){
-        if(isNumeric){
+      if (value !== undefined) {
+        if (isNumeric) {
           const val = parseInt(value);
-          if(!isNaN(val)){
-            if(field==="ns"){
-              // ⚡ Ajout manuel via giveNS
+          if (!isNaN(val)) {
+            if (field==="ns") {
               if(op==="=") nsDelta = val-(data.ns||0);
               else if(op==="+") nsDelta = val;
               else if(op==="-") nsDelta = -val;
             } else {
               if(op==="=") updates[field]=val;
-              if(op==="+") updates[field]=(data[field]||0)+val;
-              if(op==="-") updates[field]=(data[field]||0)-val;
+              else if(op==="+") updates[field]=(data[field]||0)+val;
+              else if(op==="-") updates[field]=(data[field]||0)-val;
             }
           }
         } else if(op==="=") updates[field]=value;
@@ -304,12 +306,10 @@ ovlcmd({
     if(Object.keys(updates).length===0 && nsDelta===0)
       return repondre("⚠️ Aucun champ mis à jour. Exemple : +myNeo @user nc + 200 ou ns + 1");
 
-    // --- Gestion NS via giveNS() ---
-    if (nsDelta !== 0) {
-  await giveNS(userId, nsDelta, ovl, ms_org);
-}
+    // 4️⃣ NS via giveNS
+    if(nsDelta!==0) await giveNS(userId, nsDelta, ovl, ms_org);
 
-    // --- Mise à jour autres champs ---
+    // 5️⃣ Mise à jour autres champs
     if(Object.keys(updates).length>0){
       const msg = await updateMyNeo(userId, updates);
       return repondre(msg || "✅ Joueur mis à jour avec succès !");
@@ -317,8 +317,8 @@ ovlcmd({
       return repondre("✅ Joueur mis à jour avec succès !");
     }
 
-  } catch(err){
-    console.error("❌ Erreur ligne myNeo:",err);
+  } catch(err) {
+    console.error("❌ Erreur myNeo:", err);
     return repondre("❌ Une erreur est survenue.");
   }
 });
@@ -326,53 +326,62 @@ ovlcmd({
 // --- Fonction centralisée pour ajouter des NS (automatique et safe) ---
 async function giveNS(userId, amount, ovl, ms_org) {
   try {
-    if(amount === 0) return;
+    if (!amount || amount === 0) return;
+
+    // 1️⃣ Récupération données actuelles
     const data = await getNeo(userId);
     if (!data) return;
 
-    const newNS = (data.ns || 0) + amount;
-    await updateMyNeo(userId, { ns: newNS });
+    const ancienNS = data.ns || 0;
+    const nouveauNS = ancienNS + amount;
 
-    // 🔥 Vérification automatique des paliers
-    const myneoData = await getNeo(userId);
-    const nsActuel = myneoData.ns || 0;
-    const lastReward = Number.isFinite(myneoData.lastRewardNS) ? myneoData.lastRewardNS : 0;
-
-    const palierActuel = Math.floor(nsActuel / 100);
+    // 2️⃣ Détermination des paliers
+    const lastReward = Number.isFinite(data.lastRewardNS) ? data.lastRewardNS : 0;
     const dernierPalier = Math.floor(lastReward / 100);
+    const palierActuel = Math.floor(nouveauNS / 100);
+    const paliersGagnes = palierActuel - dernierPalier;
 
-    if(palierActuel > dernierPalier) {
-      const paliersGagnes = palierActuel - dernierPalier;
+    // 3️⃣ Mise à jour NS de la DB
+    await updateMyNeo(userId, { ns: nouveauNS });
+
+    // 4️⃣ Gestion des récompenses si nouveaux paliers franchis
+    if (paliersGagnes > 0) {
       const recompenses = {
         golds: 500_000 * paliersGagnes,
         nc: 50 * paliersGagnes,
         coupons: 25 * paliersGagnes
       };
 
+      // Mise à jour des champs NC et coupons + dernier palier
       await updateMyNeo(userId, {
-        nc: (myneoData.nc || 0) + recompenses.nc,
-        coupons: (myneoData.coupons || 0) + recompenses.coupons,
+        nc: (data.nc || 0) + recompenses.nc,
+        coupons: (data.coupons || 0) + recompenses.coupons,
         lastRewardNS: palierActuel * 100
       });
 
+      // ⚡ Mise à jour golds dans AllStars
       const allStarsFiche = await getData({ jid: userId });
       await setfiche("golds", (allStarsFiche.golds || 0) + recompenses.golds, userId);
 
-      const mention = myneoData.users || "@player";
-      const message = `🎉👑LEVEL UP ROYALITY XP👑! Félicitations ${mention}, tu viens de franchir les ${palierActuel*100}👑 royalities !
-Les récompenses suivantes ont été ajoutées à ta fiche :
+      // ⚡ Message au joueur
+      const mention = data.users || "@player";
+      const message = `🎉👑 LEVEL UP ROYALITY XP 👑
+Félicitations ${mention}, tu as franchi les ${palierActuel*100}👑 royalities !
 💰 +${recompenses.golds} golds
 🔷 +${recompenses.nc} NC
 🎫 +${recompenses.coupons} coupons
 💯 Royalities👑🎉`;
 
       await ovl.sendMessage(ms_org, { text: message });
+      console.log(`[NS] ${mention} : +${amount} NS => palier ${palierActuel} (gain ${paliersGagnes} palier(s))`);
+    } else {
+      console.log(`[NS] ${data.users || userId} : +${amount} NS (pas de palier atteint)`);
     }
 
   } catch(err) {
-    console.error("❌ Erreur dans giveNS:", err);
+    console.error("❌ Erreur giveNS:", err);
   }
-} 
+}
 
 ovlcmd({
   nom_cmd: "team⚽",
