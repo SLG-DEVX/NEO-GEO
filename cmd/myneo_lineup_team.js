@@ -126,7 +126,7 @@ ovlcmd({
   const { arg, repondre, prenium_id } = cmd;
 
   if (!prenium_id) return repondre("⚠️ Seuls les membres de la NS peuvent enregistrer un joueur.");
-  const mention = arg[0];
+ const mention = normalizeJid(arg[0]); 
   if (!mention) return repondre("⚠️ Mentionne un utilisateur.");
 
   const type = arg[1]?.toLowerCase();
@@ -198,7 +198,7 @@ ovlcmd({
     const msg = await saves[type](mention, base);
     return repondre(msg || "✅ Joueur enregistré avec succès !");
   } catch (e) {
-    console.error("❌ Erreur save/get :", e);
+    console.error("❌ Erreur save:", e);
    return repondre("⚠️ Une erreur est survenue lors de l'enregistrement.");
   }
 });
@@ -306,10 +306,9 @@ ovlcmd({
       return repondre("⚠️ Aucun champ mis à jour. Exemple : +myNeo @user nc + 200 ou ns + 1");
 
     // --- Gestion NS via giveNS() ---
-    if(nsDelta!==0){
-      const { giveNS } = require("../systems/neoScoreSystem");
-      await giveNS(userId, nsDelta, ovl, ms_org);
-    }
+    if (nsDelta !== 0) {
+  await giveNS(userId, nsDelta, ovl, ms_org);
+}
 
     // --- Mise à jour autres champs ---
     if(Object.keys(updates).length>0){
