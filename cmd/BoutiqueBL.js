@@ -48,9 +48,9 @@ const getCountryEmoji = country => countryEmojis[country] || "";
 
 // --- RANK LIMITS ---
 const rankLimits = {
-  "SS": { niveau: 10, goals: 30 },
-  "S": { niveau: 5, goals: 15 },
-  "A": { niveau: 3, goals: 5 }
+  "SS": { niveau: 20, goals: 30 },
+  "S": { niveau: 10, goals: 15 },
+  "A": { niveau: 5, goals: 5 }
 };
 
 // --- CALCUL DU PRIX ---
