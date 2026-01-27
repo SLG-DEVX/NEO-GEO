@@ -303,7 +303,7 @@ else {
   // Reset si perdu
   await MyNeoFunctions.updateUser(auteur_Message, { wins_roulette: 0 });
 }
-
+    }      
   } catch (e) {
     console.error("Erreur roulette:", e);
     repondre("❌ Une erreur est survenue.");
