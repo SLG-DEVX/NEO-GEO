@@ -60,18 +60,20 @@ Dans cette épreuve l'objectif est de toucher un autre joueur avec le ballon ava
 
     if (response === "oui") {
       epreuvesLoup.set(chatId, {
-        participants: new Map(),
-        positions: new Map(),
-        orientationLoup: 1,
-        loup: null,
-        tirEnCours: null,
-        attenteParticipants: true,
-        tempsRestant: 15 * 60 * 1000,
-        timer: null,
-        tour: 0
-      });
+  participants: new Map(),
+  positions: new Map(),
+  orientationLoup: 1,
+  loup: null,
+  tirEnCours: null,
+  attenteListe: true, // 👈 IMPORTANT
+  attenteParticipants: false,
+  tour: 0
+});
 
-      await repondre("✅ Épreuve démarrée ! Les joueurs peuvent maintenant s'inscrire avec `joinloup niveau`.");
+await repondre(
+  "✅📋 Envoie maintenant la **liste des participants** avec les niveaux.\n" +
+  "Ajoute `(Loup)` au joueur qui commence."
+);
     }
   } catch (err) {
     console.error(err);
@@ -83,31 +85,54 @@ Dans cette épreuve l'objectif est de toucher un autre joueur avec le ballon ava
 // INSCRIPTION DES PARTICIPANTS
 // ──────────────────────────────
 ovlcmd({
-  nom_cmd: 'joinloup',
+  nom_cmd: 'listeloup',
   isfunc: true
-}, async (ms_org, ovl, { texte, getJid, repondre }) => {
+}, async (ms_org, ovl, { texte }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve || !epreuve.attenteParticipants) return;
+  if (!epreuve || !epreuve.attenteListe) return;
 
-  const m = texte.match(/joinloup\s+(\d+)/i);
-  if (!m) return;
-  const niveau = parseInt(m[1]);
-  if (isNaN(niveau)) return;
+  // Vérification basique
+  if (!texte.includes("👤Participants")) return;
 
-  let jid;
-  try { jid = await getJid(ms_org.sender, ms_org, ovl); } catch { return; }
+  const lines = texte.split('\n');
+  let loupJid = null;
 
-  if (epreuve.participants.has(jid)) return repondre("⚠️ Tu es déjà inscrit.");
+  for (const line of lines) {
+    const m = line.match(/@([^\s:]+).*?:\s*(\d+)(.*)?/i);
+    if (!m) continue;
 
-  epreuve.participants.set(jid, niveau);
-  epreuve.positions.set(jid, Math.floor(Math.random()*4)+1);
+    const tag = m[1];
+    const niveau = parseInt(m[2]);
+    const isLoup = m[3]?.includes("Loup");
 
-  if (!epreuve.loup) epreuve.loup = jid;
+    let jid;
+    try {
+      jid = await ovl.getJid(tag + "@lid", ms_org, ovl);
+    } catch {
+      continue;
+    }
 
-  await ovl.sendMessage(chatId, renderFicheParticipants(epreuve));
+    epreuve.participants.set(jid, niveau);
+    epreuve.positions.set(jid, Math.floor(Math.random() * 4) + 1);
+
+    if (isLoup) loupJid = jid;
+  }
+
+  if (!loupJid || epreuve.participants.size < 2) {
+    return ovl.sendMessage(chatId, {
+      caption: "❌ Liste invalide : Loup manquant ou pas assez de joueurs."
+    });
+  }
+
+  epreuve.loup = loupJid;
+  epreuve.attenteListe = false;
+
+  await ovl.sendMessage(chatId, {
+    caption: `🐺 **L'ÉPREUVE DU LOUP COMMENCE !**\n\nLe Loup est @${loupJid.split('@')[0]}.\n\n🏃 Les joueurs peuvent courir.\n🎯 Le Loup peut tirer.`,
+    mentions: [loupJid]
+  });
 });
-
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION
 // ──────────────────────────────
