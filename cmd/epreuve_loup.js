@@ -92,26 +92,30 @@ ovlcmd({
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve || !epreuve.attenteListe) return;
 
-  // Vérification basique
   if (!texte.includes("👤Participants")) return;
+
+  const mentioned =
+    ms_org.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+  if (mentioned.length === 0) {
+    return ovl.sendMessage(chatId, { caption: "❌ Aucun joueur mentionné." });
+  }
 
   const lines = texte.split('\n');
   let loupJid = null;
+  let indexMention = 0;
 
   for (const line of lines) {
-    const m = line.match(/@([^\s:]+).*?:\s*(\d+)(.*)?/i);
-    if (!m) continue;
+    if (!line.includes("@") || !line.match(/:\s*\d+/)) continue;
 
-    const tag = m[1];
-    const niveau = parseInt(m[2]);
-    const isLoup = m[3]?.includes("Loup");
+    const niveauMatch = line.match(/:\s*(\d+)/);
+    if (!niveauMatch) continue;
 
-    let jid;
-    try {
-      jid = await ovl.getJid(tag + "@lid", ms_org, ovl);
-    } catch {
-      continue;
-    }
+    const niveau = parseInt(niveauMatch[1]);
+    const isLoup = /\(loup\)/i.test(line);
+
+    const jid = mentioned[indexMention++];
+    if (!jid) continue;
 
     epreuve.participants.set(jid, niveau);
     epreuve.positions.set(jid, Math.floor(Math.random() * 4) + 1);
@@ -119,9 +123,15 @@ ovlcmd({
     if (isLoup) loupJid = jid;
   }
 
-  if (!loupJid || epreuve.participants.size < 2) {
+  if (!loupJid) {
     return ovl.sendMessage(chatId, {
-      caption: "❌ Liste invalide : Loup manquant ou pas assez de joueurs."
+      caption: "❌ Aucun joueur marqué comme (Loup)."
+    });
+  }
+
+  if (epreuve.participants.size < 2) {
+    return ovl.sendMessage(chatId, {
+      caption: "❌ Pas assez de joueurs."
     });
   }
 
@@ -132,7 +142,7 @@ ovlcmd({
     caption: `🐺 **L'ÉPREUVE DU LOUP COMMENCE !**\n\nLe Loup est @${loupJid.split('@')[0]}.\n\n🏃 Les joueurs peuvent courir.\n🎯 Le Loup peut tirer.`,
     mentions: [loupJid]
   });
-});
+}); 
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION
 // ──────────────────────────────
