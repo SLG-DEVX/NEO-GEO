@@ -53,7 +53,7 @@ ovlcmd({
 - Le modérateur désigne le Loup en ajoutant "(Loup)" au joueur dans la liste.
 
 ⚽ Voulez-vous lancer l’épreuve ?
-✅ \`Oui\` @${auteur_Message.split('@')[0]}  
+✅ \`Oui\`   
 ❌ \`Non\`
 
 *⚽BLUE🔷LOCK*`;
