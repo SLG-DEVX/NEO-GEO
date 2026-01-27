@@ -46,7 +46,7 @@ ovlcmd({
 Dans cette épreuve l'objectif est de toucher un autre joueur avec le ballon avant la fin du temps imparti 20 mins❗⌛.
 
 ⚽ Voulez-vous lancer l’épreuve ?
-✅ \`Oui\` @${auteur_Message.split('@')[0]}  
+✅ \`Oui\`   
 ❌ \`Non\`
 
 *⚽BLUE🔷LOCK*`;
