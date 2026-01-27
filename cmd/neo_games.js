@@ -348,21 +348,21 @@ ovlcmd({
       // -------------------------
       //   DEMANDE DE NIVEAU
       // -------------------------
-      const demanderNiveau = async (tentative = 1) => {
-        if (tentative > 3) throw new Error("MaxAttempts");
-        try {
-          const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
-          const texte = rep.message?.extendedTextMessage?.text || rep.message?.conversation || "";
-          const r = texte.toLowerCase();
-          if (["legend", "legends"].includes(r)) return "legend";
-          if (r === "ultra") return "ultra";
-          if (r === "sparking") return "sparking";
-          await repondre("Choix invalide. Réponds par *legend*, *ultra* ou *sparking*.");
-          return await demanderNiveau(tentative + 1);
-        } catch {
-          throw new Error("Timeout");
-        }
-      };
+const demanderNiveau = async (tentative = 1) => {
+  if (tentative > 3) throw new Error("MaxAttempts");
+  try {
+    const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
+    const texte = rep.message?.extendedTextMessage?.text || rep.message?.conversation || "";
+    const r = texte.toLowerCase();
+    if (["legend", "legends"].includes(r)) return "legend";
+    if (r === "ultra") return "ultra";
+    if (r === "sparking") return "sparking";
+    await repondre("Choix invalide. Réponds par *legend*, *ultra* ou *sparking*.");
+    return await demanderNiveau(tentative + 1);
+  } catch (e) {
+    throw new Error("Timeout");
+  }
+};
 
       const niveau = await demanderNiveau();
 
