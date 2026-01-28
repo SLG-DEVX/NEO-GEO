@@ -167,7 +167,7 @@ epreuve.rappelTimer = setTimeout(async () => {
     text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺`
   });
 }, 3 * 60 * 1000);
-
+});
 // ──────────────────────────────
 // TIR DU LOUP + PAVÉS DES PARTICIPANTS
 // ──────────────────────────────
