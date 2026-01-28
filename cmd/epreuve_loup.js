@@ -96,18 +96,33 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
-  const lignes = texte.replace(/[\u2066-\u2069]/g, '').split('\n');
-  let loupJid = null;
+  const cleanTexte = texte.replace(/[\u2066-\u2069]/g, ''); // supprime caractères invisibles
+  const lignes = cleanTexte.split('\n');
 
-  for (const ligne of lignes) {
+  let loupJid = null;
+  epreuve.participants = [];      // réinitialise pour éviter doublons
+  epreuve.positions = new Map();
+
+  for (let ligne of lignes) {
+    ligne = ligne.replace(/[\u2066-\u2069]/g, '').trim(); // nettoyage ligne par ligne
+    if (!ligne) continue;
+
+    // Exemple accepté :
+    // 1-@Damian : 15 (Loup)
     const m = ligne.match(/@(\S+).*?:\s*(\d+)/i);
     if (!m) continue;
-    const tag = m[1];
+
+    const tag = m[1].replace(/[\u2066-\u2069]/g, '').trim(); // pseudo propre
     const niveau = parseInt(m[2], 10);
-    const isLoup = /loup/i.test(ligne);
+
+    const isLoup = /\(loup\)/i.test(ligne);
 
     let jid;
-    try { jid = await getJid(tag + "@lid", ms_org, ovl); } catch { continue; }
+    try {
+      jid = await getJid(tag + "@lid", ms_org, ovl);
+    } catch {
+      continue; // ignore si impossible de résoudre le jid
+    }
 
     epreuve.participants.push({ jid, tag, niveau, isLoup });
     epreuve.positions.set(jid, Math.floor(Math.random() * 4) + 1);
