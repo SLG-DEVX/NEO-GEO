@@ -27,7 +27,7 @@ function renderFicheParticipants(epreuve) {
 }
 
 // ──────────────────────────────
-// LANCEMENT DE L'ÉPREUVE +exercice4
+// LANCEMENT DE L'ÉPREUVE 
 // ──────────────────────────────
 ovlcmd({
   nom_cmd: 'exercice4',
@@ -73,9 +73,8 @@ Le modérateur doit envoyer ensuite la liste des participants avec leurs niveaux
         positions: new Map(),
         orientationLoup: 1,
         tirEnCours: null,
-        tour: 1,
+        tour: 0,
         actif: true,
-        debut: true,
         tempsRestant: 15 * 60 * 1000,
         timer: null,
         rappelTimer: null
@@ -90,24 +89,22 @@ Le modérateur doit envoyer ensuite la liste des participants avec leurs niveaux
 });
 
 // ──────────────────────────────
-// LECTURE LISTE DES PARTICIPANTS
+// LECTURE DE LA LISTE DES PARTICIPANTS
 // ──────────────────────────────
 ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, getJid, repondre }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
-  const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '');
-  const lignes = cleanTexte.split('\n');
-
+  const lignes = texte.replace(/[\u2066-\u2069]/g, '').split('\n');
   let loupJid = null;
+
   for (const ligne of lignes) {
     const m = ligne.match(/@(\S+).*?:\s*(\d+)/i);
     if (!m) continue;
-
     const tag = m[1];
     const niveau = parseInt(m[2], 10);
-    const isLoup = /\(loup\)/i.test(ligne);
+    const isLoup = /loup/i.test(ligne);
 
     let jid;
     try { jid = await getJid(tag + "@lid", ms_org, ovl); } catch { continue; }
@@ -123,29 +120,63 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
 
   epreuve.loupJid = loupJid;
 
-  // Lancement automatique + timer global 15 min
+  // Lancement automatique de l'épreuve
+  lancerEpreuve(chatId, ovl, epreuve);
+});
+
+// ──────────────────────────────
+// FONCTION DE LANCEMENT D’ÉPREUVE
+// ──────────────────────────────
+async function lancerEpreuve(chatId, ovl, epreuve) {
+  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+
+  // Message de début avec GIF
+  await ovl.sendMessage(chatId, {
+    video: { url: 'https://files.catbox.moe/z64kuq.mp4' },
+    gifPlayback: true,
+    caption: `⚽ Début de l'exercice ! Le joueur @${loup.tag} est le Loup ! ⚠️\nVeuillez toucher un joueur avant la fin du temps ⌛.`,
+    mentions: [loup.jid]
+  });
+
+  // Timer global 15 minutes
   epreuve.timer = setTimeout(async () => {
     await ovl.sendMessage(chatId, {
       image: { url: 'https://files.catbox.moe/9xehjs.png' },
-      caption: `🏁 *FIN DE L'ÉPREUVE*\n❌ @${epreuve.participants.find(p => p.jid === epreuve.loupJid).tag} est le dernier Loup, il est éliminé !`,
-      mentions: [epreuve.loupJid]
+      caption: `🏁 *FIN DE L'ÉPREUVE*\n❌ @${loup.tag} est le dernier Loup, il est éliminé !`,
+      mentions: [loup.jid]
     });
     epreuvesLoup.delete(chatId);
   }, epreuve.tempsRestant);
 
-  // GIF et message de début
-  const fiche = renderFicheParticipants(epreuve);
-  await ovl.sendMessage(chatId, {
-    video: { url: 'https://files.catbox.moe/z64kuq.mp4' },
-    gifPlayback: true,
-    caption: `🐺⚽ **ÉPREUVE DU LOUP LANCÉE !**\n\n` +
-             `🐺 Loup initial : @${epreuve.participants.find(p => p.jid === loupJid).tag}\n\n` +
-             `➡️ **Tour 1 commence**`,
-    mentions: [loupJid]
-  });
-  await ovl.sendMessage(chatId, { text: fiche.text, mentions: fiche.mentions });
-});
+  // Start premier tour
+  startTour(chatId, ovl);
+}
 
+// ──────────────────────────────
+// FONCTION POUR DÉMARRER UN TOUR
+// ──────────────────────────────
+function startTour(chatId, ovl) {
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve || !epreuve.actif) return;
+
+  epreuve.tour++;
+  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+
+  ovl.sendMessage(chatId, {
+    text: `💬:
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
+⚽ 
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
+                 *⚽BLUE🔷LOCK🥅*`,
+    mentions: [loup.jid]
+  });
+
+  // Timer 3 minutes pour le tour
+  if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
+  epreuve.rappelTimer = setTimeout(() => {
+    startTour(chatId, ovl); // Tour suivant automatiquement
+  }, 3 * 60 * 1000);
+}
 
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION
@@ -186,7 +217,7 @@ ovlcmd({
   if (t.includes("gauche")) dir="gauche";
   if (t.includes("droite")) dir="droite";
   if (!dir || getRoueDirection(currentPos,targetPos,dir)!==targetPos) {
-    epreuve.loup = jid;
+    epreuve.loupJid = jid;
     return ovl.sendMessage(chatId,{caption:`❌ **MOUVEMENT INTERDIT**\n@${jid.split('@')[0]} devient le Loup 🐺`,mentions:[jid]});
   }
 
@@ -203,7 +234,7 @@ ovlcmd({
 }, async(ms_org,ovl,{texte})=>{
   const chatId=ms_org.key?.remoteJid||ms_org;
   const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve?.loup)return;
+  if(!epreuve?.loupJid)return;
 
   const t=texte.toLowerCase();
   let newOri=epreuve.orientationLoup;
@@ -225,7 +256,7 @@ ovlcmd({
 }, async(ms_org,ovl,{texte,getJid})=>{
   const chatId=ms_org.key?.remoteJid||ms_org;
   const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve?.loup||epreuve.tirEnCours)return;
+  if(!epreuve?.loupJid||epreuve.tirEnCours)return;
 
   const t=texte.toLowerCase();
   const m=t.match(/@(\S+).*?(tête|torse|abdomen|jambe gauche|jambe droite)/);
@@ -239,30 +270,44 @@ ovlcmd({
 
   if(pivot!==0) return ovl.sendMessage(chatId,{caption:"❌ Tir refusé : le Loup ne regarde pas la bonne direction."});
 
-  const lvlLoup = epreuve.participants.get(epreuve.loup);
-  const lvlCible = epreuve.participants.get(cibleJid);
+  // Calcul chance selon niveaux
+  const lvlLoup = epreuve.participants.find(p=>p.jid===epreuve.loupJid)?.niveau || 0;
+  const lvlCible = epreuve.participants.find(p=>p.jid===cibleJid)?.niveau || 0;
   let chance = 50;
-  const ecart = Math.abs(lvlLoup-lvlCible);
-  if(lvlLoup < lvlCible) chance = ecart<=5?40:30;
-  else if(lvlLoup===lvlCible) chance = 50;
-  else if(lvlLoup>lvlCible) chance = ecart<=5?60:70;
+  const ecart = Math.abs(lvlLoup - lvlCible);
+
+  if(lvlLoup < lvlCible) chance = ecart <= 5 ? 40 : 30;
+  else if(lvlLoup === lvlCible) chance = 50;
+  else if(lvlLoup > lvlCible) chance = ecart <= 5 ? 60 : 70;
 
   const hit = Math.random()*100 <= chance;
 
   epreuve.tirEnCours={cible:cibleJid,zone,timer:setTimeout(async()=>{
     if(hit){
-      await ovl.sendMessage(chatId,{video:{url:'https://files.catbox.moe/eckrvo.mp4'},gifPlayback:true,caption:`✅ **TOUCHÉ !**\n@${cibleJid.split('@')[0]} devient le nouveau Loup 🐺.`,mentions:[cibleJid]});
-      epreuve.loup=cibleJid;
+      await ovl.sendMessage(chatId,{
+        video:{url:'https://files.catbox.moe/eckrvo.mp4'}, 
+        gifPlayback:true,
+        caption:`✅ **TOUCHÉ !**\n@${cibleJid.split('@')[0]} devient le nouveau Loup 🐺.`,
+        mentions:[cibleJid]
+      });
+      epreuve.loupJid=cibleJid;
     } else {
       const gifsRate = ['https://files.catbox.moe/obqo0d.mp4','https://files.catbox.moe/m00580.mp4'];
-      await ovl.sendMessage(chatId,{video:{url:gifsRate[Math.floor(Math.random()*gifsRate.length)]},gifPlayback:true,caption:`❌ **RATÉ !**\nLe tir n'a pas touché sa cible. Le Loup reste @${epreuve.loup.split('@')[0]}.`,mentions:[epreuve.loup]});
+      await ovl.sendMessage(chatId,{
+        video:{url:gifsRate[Math.floor(Math.random()*gifsRate.length)]},
+        gifPlayback:true,
+        caption:`❌ **RATÉ !**\nLe tir n'a pas touché sa cible. Le Loup reste @${epreuve.participants.find(p=>p.jid===epreuve.loupJid).tag}.`,
+        mentions:[epreuve.loupJid]
+      });
     }
     epreuve.tirEnCours=null;
   },3*60*1000)};
 
-  await ovl.sendMessage(chatId,{caption:`🎯 @${cibleJid.split('@')[0]}, esquive dans 3 minutes.\nZone : ${zone.replace("_"," ")}`,mentions:[cibleJid]});
+  await ovl.sendMessage(chatId,{
+    caption:`🎯 @${cibleJid.split('@')[0]}, esquive dans 3 minutes.\nZone : ${zone.replace("_"," ")}`,
+    mentions:[cibleJid]
+  });
 });
-
 // ──────────────────────────────
 // ESQUIVE RP
 // ──────────────────────────────
@@ -280,10 +325,7 @@ ovlcmd({
   const t=texte.toLowerCase();
   let valide=false;
   if(!t.includes("vmax")) valide=false;
-
-  // doit mentionner qu'il voit le ballon
   if(!/(fixe|regarde|rivés)/i.test(t)) valide=false;
-
   if(zone==="tête") valide=t.includes("baisse");
   if(zone==="torse"||zone==="abdomen") valide=t.includes("bond")||t.includes("décalage");
   if(zone==="jambe_gauche") valide=t.includes("plie la jambe gauche")||t.includes("jambes pliées");
@@ -291,7 +333,7 @@ ovlcmd({
 
   if(!valide){
     await ovl.sendMessage(chatId,{caption:`❌ **TOUCHÉ !**`,mentions:[cible]});
-    epreuve.loup=cible;
+    epreuve.loupJid=cible;
     epreuve.tirEnCours=null;
     return;
   }
@@ -301,7 +343,7 @@ ovlcmd({
 });
 
 // ──────────────────────────────
-// COMMANDES MANUELLES : SETLOUP, PAUSE, RESUME, STOP
+// COMMANDES MANUELLES
 // ──────────────────────────────
 ovlcmd({ nom_cmd:'setloup', isfunc:true }, async(ms_org,ovl,{texte,getJid})=>{
   const chatId=ms_org.key?.remoteJid||ms_org;
@@ -311,31 +353,23 @@ ovlcmd({ nom_cmd:'setloup', isfunc:true }, async(ms_org,ovl,{texte,getJid})=>{
   if(!m) return;
   let jid;
   try{jid=await getJid(m[1]+"@lid",ms_org,ovl);}catch{return;}
-  epreuve.loup=jid;
+  epreuve.loupJid=jid;
   await ovl.sendMessage(chatId,{caption:`✅ @${jid.split('@')[0]} devient le Loup 🐺`,mentions:[jid]});
 });
 
-ovlcmd({ nom_cmd:'pauseloup', desc:"Pause", react:'⏸️' }, async(ms_org,ovl,{commande})=>{
+ovlcmd({ nom_cmd:'pauseloup', desc:"Pause", react:'⏸️' }, async(ms_org,ovl)=>{
   const chatId=ms_org.key?.remoteJid||ms_org;
   const epreuve=epreuvesLoup.get(chatId);
   if(!epreuve) return;
   clearTimeout(epreuve.timer);
+  clearTimeout(epreuve.rappelTimer);
   await ovl.sendMessage(chatId,{text:"⏸️ *ÉPREUVE PAUSÉE*"});
 });
 
-ovlcmd({ nom_cmd:'resumeloup', desc:"Resume", react:'▶️' }, async(ms_org,ovl,{commande})=>{
+ovlcmd({ nom_cmd:'resumeloup', desc:"Resume", react:'▶️' }, async(ms_org,ovl)=>{
   const chatId=ms_org.key?.remoteJid||ms_org;
   const epreuve=epreuvesLoup.get(chatId);
   if(!epreuve) return;
   startTour(chatId, ovl);
   await ovl.sendMessage(chatId,{text:"▶️ *ÉPREUVE REPRISE*"});
-});
-
-ovlcmd({ nom_cmd:'stoploup', desc:"Stop", react:'🛑' }, async(ms_org,ovl,{commande})=>{
-  const chatId=ms_org.key?.remoteJid||ms_org;
-  const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve) return;
-  clearTimeout(epreuve.timer);
-  epreuvesLoup.delete(chatId);
-  await ovl.sendMessage(chatId,{caption:`🛑 *ÉPREUVE DU LOUP ARRÊTÉE*`,mentions:epreuve.loup?[epreuve.loup]:[]});
 });
