@@ -144,25 +144,29 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
 
   // Envoi du GIF et message de début avec **mention propre**
   const fiche = renderFicheParticipants(epreuve);
+const mentionId = loupJid.split('@')[0];
+
 await ovl.sendMessage(chatId, {
   video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
   gifPlayback: true,
   caption:
 `⚽ Début de l'exercice !
-Le joueur est le Loup 🐺⚠️
-Veuillez toucher un joueur avant la fin du temps ⌛`,
+Le joueur @${mentionId} est le Loup 🐺⚠️
+Veuillez toucher un joueur avant la fin du temps ⌛,3:00 mins`,
   mentions: [loupJid]
 });
-  // Démarre le timer de 3 minutes pour que le Loup envoie son pavé
-  if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
-  epreuve.rappelTimer = setTimeout(async () => {
-    // Si le Loup n'a pas tiré, il reste le loup
-    await ovl.sendMessage(chatId, {
-      text: `⏳ Le temps pour que le Loup tire est écoulé ! Il reste le Loup pour le prochain tour.`
-    });
-  }, 3 * 60 * 1000);
-});
 
+// ⏳ DÉMARRAGE IMMÉDIAT DU TIMER DE 3 MINUTES
+if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
+
+epreuve.rappelTimer = setTimeout(async () => {
+  // Sécurité : si le Loup a déjà tiré, on ne fait rien
+  if (!epreuve || epreuve.tirEnCours) return;
+
+  await ovl.sendMessage(chatId, {
+    text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺`
+  });
+}, 3 * 60 * 1000);
 // ──────────────────────────────
 // TIR DU LOUP (PAVÉ OBLIGATOIRE)
 // ──────────────────────────────
