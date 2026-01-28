@@ -11,9 +11,9 @@ function renderFicheParticipants(epreuve) {
 *👤Participants:*`;
 
   let i = 1;
-  for (const [jid, niveau] of epreuve.participants.entries()) {
-    const isLoup = epreuve.loup === jid ? " (Loup)" : "";
-    txt += `\n${i}- @${jid.split('@')[0]}: ${niveau}${isLoup}`;
+  for (const p of epreuve.participants) {
+    const isLoup = epreuve.loupJid === p.jid ? " (Loup)" : "";
+    txt += `\n${i}- @${p.tag}: ${p.niveau}${isLoup}`;
     i++;
   }
 
@@ -22,13 +22,13 @@ function renderFicheParticipants(epreuve) {
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
                       ⚽BLUE🔷LOCK`;
 
-  return { text: txt, mentions: [...epreuve.participants.keys()] };
+  const mentions = epreuve.participants.map(p => p.jid);
+  return { text: txt, mentions };
+}
 
-
-
-// ============================
+// ──────────────────────────────
 // LANCEMENT DE L'ÉPREUVE +exercice4
-// ============================
+// ──────────────────────────────
 ovlcmd({
   nom_cmd: 'exercice4',
   classe: 'BLUELOCK⚽',
@@ -47,7 +47,7 @@ ovlcmd({
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 
 *⚽RÈGLES:*
-Dans cette épreuve l'objectif est de toucher un autre joueur avec le ballon⚽ avant la fin du temps imparti 20 mins❗
+Objectif : toucher un autre joueur avec le ballon⚽ avant la fin du temps imparti 15 mins❗
 Le modérateur doit envoyer ensuite la liste des participants avec leurs niveaux et ajouter (Loup) au joueur qui commence.
 
 ⚽ Voulez-vous lancer l’épreuve ?
@@ -89,9 +89,9 @@ Le modérateur doit envoyer ensuite la liste des participants avec leurs niveaux
   }
 });
 
-// ============================
+// ──────────────────────────────
 // LECTURE LISTE DES PARTICIPANTS
-// ============================
+// ──────────────────────────────
 ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, getJid, repondre }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
@@ -123,7 +123,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
 
   epreuve.loupJid = loupJid;
 
-  // Lancement immédiat
+  // Lancement automatique + timer global 15 min
   epreuve.timer = setTimeout(async () => {
     await ovl.sendMessage(chatId, {
       image: { url: 'https://files.catbox.moe/9xehjs.png' },
@@ -134,15 +134,18 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   }, epreuve.tempsRestant);
 
   // GIF et message de début
+  const fiche = renderFicheParticipants(epreuve);
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/z64kuq.mp4' },
     gifPlayback: true,
     caption: `🐺⚽ **ÉPREUVE DU LOUP LANCÉE !**\n\n` +
              `🐺 Loup initial : @${epreuve.participants.find(p => p.jid === loupJid).tag}\n\n` +
-             ,
+             `➡️ **Tour 1 commence**`,
     mentions: [loupJid]
   });
+  await ovl.sendMessage(chatId, { text: fiche.text, mentions: fiche.mentions });
 });
+
 
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION
