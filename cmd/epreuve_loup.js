@@ -412,3 +412,7 @@ ovlcmd({ nom_cmd:'resumeloup', desc:"Resume", react:'▶️' }, async(ms_org,ovl
   startTour(chatId, ovl);
   await ovl.sendMessage(chatId,{text:"▶️ *ÉPREUVE REPRISE*"});
 });
+  // ──────────────────────────────
+// EXPORT DU MODULE
+// ──────────────────────────────
+module.exports = epreuvesLoup;
