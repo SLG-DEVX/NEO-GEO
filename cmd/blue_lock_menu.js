@@ -80,7 +80,7 @@ ovlcmd(
   {
     nom_cmd: 'pave⚽',
     classe: 'Bluelock⚽',
-    react: '📩',
+    react: '⚽',
     desc: "Affiche le message d'annonce de lancement Blue Lock"
   },
   async (ms_org, ovl, { repondre }) => {
@@ -89,6 +89,6 @@ ovlcmd(
 ⚽ 
 
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
-                  *BLUE🔷LOCK*    `);
+                 *⚽BLUE🔷LOCK🥅*    `);
   }
 );
