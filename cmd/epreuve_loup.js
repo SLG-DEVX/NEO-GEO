@@ -130,6 +130,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   if (!loupJid) return repondre("❌ Aucun joueur avec (Loup) détecté.", ms_org);
 
   epreuve.loupJid = loupJid;
+  epreuve.debut = false;
 
   // Timer global 15 minutes
   epreuve.timer = setTimeout(async () => {
@@ -143,13 +144,15 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
 
   // Envoi du GIF et message de début avec **mention propre**
   const fiche = renderFicheParticipants(epreuve);
-  await ovl.sendMessage(chatId, {
-    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-    gifPlayback: true,
-    caption: `⚽ Début de l'exercice ! Le joueur @${loupTag} est le Loup ! ⚠️\nVeuillez toucher un joueur avant la fin du temps ⌛`,
-    mentions: [loupJid]
-  });
-
+await ovl.sendMessage(chatId, {
+  video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+  gifPlayback: true,
+  caption:
+`⚽ Début de l'exercice !
+Le joueur est le Loup 🐺⚠️
+Veuillez toucher un joueur avant la fin du temps ⌛`,
+  mentions: [loupJid]
+});
   // Démarre le timer de 3 minutes pour que le Loup envoie son pavé
   if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
   epreuve.rappelTimer = setTimeout(async () => {
