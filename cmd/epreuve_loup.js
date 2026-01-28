@@ -176,7 +176,10 @@ ovlcmd({
 }, async (ms_org, ovl, { texte, getJid }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve || epreuve.tirEnCours) return;
+if (epreuve.rappelTimer) {
+  clearTimeout(epreuve.rappelTimer);
+  epreuve.rappelTimer = null;
+}
 
   if (!/💬:\s*[\s\S]*?⚽/i.test(texte)) return;
 
