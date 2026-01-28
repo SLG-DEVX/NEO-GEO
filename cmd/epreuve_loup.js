@@ -80,7 +80,8 @@ Le modérateur doit ensuite envoyer la liste des participants avec leurs niveaux
         actif: true,
         debut: true,
         tempsRestant: 15 * 60 * 1000,
-        timer: null
+        timer: null,
+        rappelTimer: null
       });
 
       await repondre("✅📋 Envoie maintenant la **liste des participants** avec les niveaux.\nAjoute `(Loup)` au joueur qui commence.");
@@ -99,7 +100,6 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
-  // Nettoyage des caractères invisibles
   const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '');
   const lignes = cleanTexte.split('\n');
 
@@ -107,7 +107,6 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   let loupTag = null;
 
   for (const ligne of lignes) {
-    // Match : @Tag : niveau (optionnel (Loup))
     const m = ligne.match(/@(\S+).*?:\s*(\d+)/i);
     if (!m) continue;
 
@@ -123,7 +122,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
 
     if (isLoup) {
       loupJid = jid;
-      loupTag = tag; // On garde le tag pour la mention propre
+      loupTag = tag;
     }
   }
 
@@ -145,18 +144,21 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   // Envoi du GIF et message de début avec **mention propre**
   const fiche = renderFicheParticipants(epreuve);
   await ovl.sendMessage(chatId, {
-    video: { url: 'https://files.catbox.moe/eckrvo.mp4' }, // GIF de touché demandé
+    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
     gifPlayback: true,
     caption: `⚽ Début de l'exercice ! Le joueur @${loupTag} est le Loup ! ⚠️\nVeuillez toucher un joueur avant la fin du temps ⌛`,
     mentions: [loupJid]
   });
 
-  // Timer 3 minutes pour le tour
+  // Démarre le timer de 3 minutes pour que le Loup envoie son pavé
   if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
-  epreuve.rappelTimer = setTimeout(() => {
-    startTour(chatId, ovl); // Tour suivant automatiquement
+  epreuve.rappelTimer = setTimeout(async () => {
+    // Si le Loup n'a pas tiré, il reste le loup
+    await ovl.sendMessage(chatId, {
+      text: `⏳ Le temps pour que le Loup tire est écoulé ! Il reste le Loup pour le prochain tour.`
+    });
   }, 3 * 60 * 1000);
-}
+});
 
 // ──────────────────────────────
 // TIR DU LOUP (PAVÉ OBLIGATOIRE)
@@ -169,7 +171,6 @@ ovlcmd({
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve || epreuve.tirEnCours) return;
 
-  // Vérifie pavé
   if (!/💬:\s*[\s\S]*?⚽/i.test(texte)) return;
 
   const t = texte.toLowerCase();
@@ -177,12 +178,9 @@ ovlcmd({
   if (!m) return;
 
   let cibleJid;
-  try { cibleJid = await getJid(m[1] + "@lid", ms_org, ovl); }
-  catch { return; }
+  try { cibleJid = await getJid(m[1] + "@lid", ms_org, ovl); } catch { return; }
 
   const zone = m[2].replace(" ", "_");
-
-  // Calcul chances
   const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
   const cible = epreuve.participants.find(p => p.jid === cibleJid);
   if (!loup || !cible) return;
@@ -199,7 +197,6 @@ ovlcmd({
     zone,
     hit,
     timer: setTimeout(async () => {
-      // Pas de pavé = RATÉ
       await ovl.sendMessage(chatId, {
         video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
         gifPlayback: true,
@@ -208,14 +205,13 @@ ovlcmd({
       });
       epreuve.tirEnCours = null;
     }, 3 * 60 * 1000)
-  });
+  };
 
   await ovl.sendMessage(chatId, {
     caption: `⏳ Pavé de la cible attendu (3 min)\n🎯 Zone visée : ${zone.replace("_", " ")}`,
     mentions: [cibleJid]
   });
 });
-
 
 // ──────────────────────────────
 // ESQUIVE (DÉCIDE TOUCHÉ / RATÉ)
@@ -236,13 +232,11 @@ ovlcmd({
   const t = texte.toLowerCase();
   let valide = false;
 
-  // Validation RP selon zone
   if (zone === "tête") valide = t.includes("baisse");
   if (zone === "torse" || zone === "abdomen") valide = t.includes("décalage") || t.includes("bond");
   if (zone === "jambe_gauche") valide = t.includes("plie la jambe gauche") || t.includes("saut");
   if (zone === "jambe_droite") valide = t.includes("plie la jambe droite") || t.includes("saut");
 
-  // Décision finale
   if (hit && !valide) {
     // TOUCHÉ
     epreuve.loupJid = cible;
@@ -253,7 +247,7 @@ ovlcmd({
       mentions: [cible]
     });
   } else {
-    // RATÉ (même si bonne esquive)
+    // RATÉ
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
       gifPlayback: true,
@@ -264,9 +258,9 @@ ovlcmd({
 
   epreuve.tirEnCours = null;
 });
-      
+
 // ──────────────────────────────
-// POSITIONS ET ORIENTATION
+// POSITIONS ET ORIENTATION (SILENCIEUX)
 // ──────────────────────────────
 function getRoueDirection(current, target, side) {
   const roue = {1:{gauche:4,droite:3},2:{gauche:3,droite:4},3:{gauche:1,droite:2},4:{gauche:2,droite:1}};
@@ -278,13 +272,7 @@ function getPivotLoup(currentPos, targetPos) {
   return map[currentPos][targetPos];
 }
 
-// ──────────────────────────────
-// COURSE D’UNE CIBLE
-// ──────────────────────────────
-ovlcmd({
-  nom_cmd: 'course',
-  isfunc: true
-}, async (ms_org, ovl, { texte, getJid }) => {
+ovlcmd({ nom_cmd: 'course', isfunc: true }, async (ms_org, ovl, { texte, getJid }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve?.positions) return;
@@ -305,34 +293,24 @@ ovlcmd({
   if (t.includes("droite")) dir="droite";
   if (!dir || getRoueDirection(currentPos,targetPos,dir)!==targetPos) {
     epreuve.loupJid = jid;
-    return ovl.sendMessage(chatId,{caption:`❌ **MOUVEMENT INTERDIT**\n@${jid.split('@')[0]} devient le Loup 🐺`,mentions:[jid]});
+  } else {
+    epreuve.positions.set(jid,targetPos);
   }
-
-  epreuve.positions.set(jid,targetPos);
-  await ovl.sendMessage(chatId,{caption:`🏃 @${jid.split('@')[0]} se déplace vers la position ${targetPos}`,mentions:[jid]});
 });
 
-// ──────────────────────────────
-// ROTATION DU LOUP
-// ──────────────────────────────
-ovlcmd({
-  nom_cmd:'rotation',
-  isfunc:true
-}, async(ms_org,ovl,{texte})=>{
+ovlcmd({ nom_cmd:'rotation', isfunc:true }, async(ms_org,ovl,{texte})=>{
   const chatId=ms_org.key?.remoteJid||ms_org;
   const epreuve=epreuvesLoup.get(chatId);
   if(!epreuve?.loupJid)return;
 
   const t=texte.toLowerCase();
   let newOri=epreuve.orientationLoup;
-
   if(t.includes("90")&&t.includes("droite")) newOri=(newOri%4)+1;
   if(t.includes("90")&&t.includes("gauche")) newOri=((newOri+2)%4)+1;
   if(t.includes("180")) newOri=((newOri+1)%4)+1;
-
   epreuve.orientationLoup=newOri;
-  await ovl.sendMessage(chatId,{caption:`🧭 Le Loup regarde maintenant la position ${newOri}`});
 });
+
 
 // ──────────────────────────────
 // COMMANDES MANUELLES
