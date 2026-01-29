@@ -244,9 +244,7 @@ if (texteClean.includes('@' + tagClean)) {
   cible = p;
   break;
 }
-    }
   }
-
   if (!cibleJid || !cible) {
     const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
     if (!loup) return;
