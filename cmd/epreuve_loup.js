@@ -171,7 +171,6 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
     });
   }, 3 * 60 * 1000);
 });
-
 // ──────────────────────────────
 // TIR DU LOUP + PAVÉS DES PARTICIPANTS
 // ──────────────────────────────
@@ -191,9 +190,8 @@ ovlcmd({
   const t = cleanTexte.toLowerCase();
 
   // ──────────────────────────────
-  // VALIDATION DU TIR (NOUVELLE LOGIQUE)
+  // Validation du message
   // ──────────────────────────────
-
   const hasAction =
     t.includes("tir direct") ||
     t.includes("je fais un tir direct") ||
@@ -205,30 +203,26 @@ ovlcmd({
 
   const hasVisant = t.includes("visant");
 
-  const zoneMatch = t.match(
-    /(tête|torse|abdomen|jambe gauche|jambe droite)/i
-  );
-
+  const zoneMatch = t.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
   const cibleMatch = t.match(/@([^\s]+)/);
 
   // ❌ Tir invalide
   if (!hasAction || !hasPointe || !hasVisant || !zoneMatch || !cibleMatch) {
-  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-  if (!loup) return;
+    const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+    if (!loup) return;
 
-  await ovl.sendMessage(chatId, {
-    video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
-    gifPlayback: true,
-    caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
-    mentions: [loup.jid]
-  });
-  return;
-}
+    await ovl.sendMessage(chatId, {
+      video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
+      gifPlayback: true,
+      caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+      mentions: [loup.jid]
+    });
+    return;
+  }
 
   // ──────────────────────────────
-  // CIBLE & ZONE
+  // Cible & zone validées
   // ──────────────────────────────
-
   let cibleJid;
   try {
     cibleJid = await getJid(cibleMatch[1] + "@lid", ms_org, ovl);
@@ -238,14 +232,13 @@ ovlcmd({
 
   const zone = zoneMatch[1].replace(/\s+/g, "_");
 
-  // ──────────────────────────────
-  // LOGIQUE EXISTANTE (INCHANGÉE)
-  // ──────────────────────────────
-
   const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
   const cible = epreuve.participants.find(p => p.jid === cibleJid);
   if (!loup || !cible) return;
 
+  // ──────────────────────────────
+  // Calcul chance de réussite
+  // ──────────────────────────────
   let chance = 50;
   const diff = loup.niveau - cible.niveau;
   if (diff >= 5) chance = 70;
@@ -253,6 +246,7 @@ ovlcmd({
 
   const hit = Math.random() * 100 <= chance;
 
+  // ❌ Tir raté par chance
   if (!hit) {
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
@@ -263,6 +257,7 @@ ovlcmd({
     return;
   }
 
+  // ✅ Tir réussi → démarre phase pavés
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
     gifPlayback: true,
@@ -280,6 +275,7 @@ ovlcmd({
     .filter(p => p.jid !== loup.jid)
     .map(p => p.jid);
 
+  // Timer silencieux 3 minutes pour pavés
   if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
   epreuve.rappelTimer = setTimeout(async () => {
     const nonRépondu = participantsCibles.find(
@@ -301,7 +297,6 @@ ovlcmd({
     epreuve.rappelTimer = null;
   }, 3 * 60 * 1000);
 });
-
 // ──────────────────────────────
 // PAVÉ DES PARTICIPANTS (ESQUIVE)
 // ──────────────────────────────
@@ -315,7 +310,7 @@ ovlcmd({
 
   const { zone, hit, pavés } = epreuve.tirEnCours;
 
-  // Seul les participants autres que le Loup peuvent envoyer leur pavé
+  // Seuls les participants autres que le Loup peuvent envoyer leur pavé
   if (ms_org.sender === epreuve.loupJid) return;
 
   const t = texte.toLowerCase();
@@ -341,17 +336,21 @@ ovlcmd({
   // Enregistre le pavé envoyé
   pavés.set(ms_org.sender, true);
 
+  // Trouve le participant
   const participant = epreuve.participants.find(p => p.jid === ms_org.sender);
+  if (!participant) return;
 
+  // ──────────────────────────────
+  // TOUCHÉ → devient le nouveau Loup
+  // ──────────────────────────────
   if (hit && !valide) {
-    // TOUCHÉ → ce participant devient le nouveau Loup
     epreuve.loupJid = ms_org.sender;
 
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
       gifPlayback: true,
       caption: `✅ TOUCHÉ !\n@${participant.tag} devient le nouveau Loup 🐺`,
-      mentions: [participant.jid]
+      mentions: [participant.jid] // Mention correcte même si le tag contient des espaces ou accents
     });
 
     // Stop timer
@@ -364,8 +363,13 @@ ovlcmd({
     return;
   }
 
-  // Si tous les participants ont répondu, stop timer et fin du tour
-  const participantsCibles = epreuve.participants.filter(p => p.jid !== epreuve.loupJid).map(p => p.jid);
+  // ──────────────────────────────
+  // Vérifie si tous les participants ont répondu
+  // ──────────────────────────────
+  const participantsCibles = epreuve.participants
+    .filter(p => p.jid !== epreuve.loupJid)
+    .map(p => p.jid);
+
   const tousRépondu = participantsCibles.every(jid => pavés.has(jid));
 
   if (tousRépondu && epreuve.rappelTimer) {
