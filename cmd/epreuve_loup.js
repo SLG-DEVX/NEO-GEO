@@ -183,7 +183,6 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 // TIR DU LOUP + PAVÉS DES PARTICIPANTS
 // ──────────────────────────────
 ovlcmd({
-  nom_cmd: 'tir_loup',
   isfunc: true
 }, async (ms_org, ovl, { texte, getJid }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
