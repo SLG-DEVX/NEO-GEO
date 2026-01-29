@@ -165,8 +165,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
   if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
 
   epreuve.rappelTimer = setTimeout(async () => {
-    if (!epreuve || epreuve.tirEnCours) return;
-
+    if (!epreuve || epreuve.tirEnCours || epreuve.phase === "PAVES") return;
     await ovl.sendMessage(chatId, {
       text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺`
     });
@@ -187,13 +186,14 @@ ovlcmd({
   // Seul le Loup peut tirer
   if (ms_org.sender !== epreuve.loupJid) return;
 
+  const cleanTexte = texte.replace(/[\u2066-\u2069\u200e]/g, '');
+const t = cleanTexte.toLowerCase();
   // Vérifie que le message contient bien le pavé du tir
-  if (!/💬:\s*[\s\S]*?⚽/i.test(texte)) return;
+  if (!t.includes("je tir") || !t.includes("⚽")) return;
 
   const t = texte.toLowerCase();
-  const m = t.match(/@(.+?)\s.*?(tête|torse|abdomen|jambe gauche|jambe droite)/i);
-  if (!m) return;
-
+  const m = t.match(/@([^\s]+).*?(tête|torse|abdomen|jambe gauche|jambe droite)/i);
+ if (!m) return;
   // Récupère le JID de la cible
   let cibleJid;
   try { cibleJid = await getJid(m[1] + "@lid", ms_org, ovl); } catch { return; }
