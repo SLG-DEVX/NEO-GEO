@@ -177,7 +177,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 ovlcmd({
   nom_cmd: 'tir',
   isfunc: true
-}, async (ms_org, ovl, { texte, getJid }) => {
+}, async (ms_org, ovl, { texte }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve || epreuve.tirEnCours) return;
@@ -204,10 +204,22 @@ ovlcmd({
   const hasVisant = t.includes("visant");
 
   const zoneMatch = t.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
-  const cibleMatch = t.match(/@([^\s]+)/);
+
+  // ──────────────────────────────
+  // Identifier le joueur ciblé exactement comme dans liste_loup
+  // ──────────────────────────────
+  let cibleJid;
+  let cible;
+  for (const p of epreuve.participants) {
+    if (cleanTexte.includes('@' + p.tag)) {
+      cibleJid = p.jid;
+      cible = p;
+      break;
+    }
+  }
 
   // ❌ Tir invalide
-  if (!hasAction || !hasPointe || !hasVisant || !zoneMatch || !cibleMatch) {
+  if (!hasAction || !hasPointe || !hasVisant || !zoneMatch || !cibleJid) {
     const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
     if (!loup) return;
 
@@ -220,20 +232,9 @@ ovlcmd({
     return;
   }
 
-  // ──────────────────────────────
-  // Cible & zone validées
-  // ──────────────────────────────
-  let cibleJid;
-  try {
-    cibleJid = await getJid(cibleMatch[1] + "@lid", ms_org, ovl);
-  } catch {
-    return;
-  }
-
   const zone = zoneMatch[1].replace(/\s+/g, "_");
 
   const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-  const cible = epreuve.participants.find(p => p.jid === cibleJid);
   if (!loup || !cible) return;
 
   // ──────────────────────────────
@@ -297,6 +298,8 @@ ovlcmd({
     epreuve.rappelTimer = null;
   }, 3 * 60 * 1000);
 });
+  
+
 // ──────────────────────────────
 // PAVÉ DES PARTICIPANTS (ESQUIVE)
 // ──────────────────────────────
