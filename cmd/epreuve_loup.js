@@ -175,7 +175,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 // TIR DU LOUP + PAVÉS DES PARTICIPANTS
 // ──────────────────────────────
 ovlcmd({
-  nom_cmd: 'tir',
+  nom_cmd: 'tir_loup',
   isfunc: true
 }, async (ms_org, ovl, { texte, getJid }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
@@ -186,7 +186,10 @@ ovlcmd({
   if (ms_org.sender !== epreuve.loupJid) return;
 
   // Nettoyage complet du texte WhatsApp
-  const cleanTexte = texte.normalize("NFKC").replace(/[\u200B-\u200D\u2060-\u206F]/g, '').toLowerCase();
+  const cleanTexte = texte
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
+    .toLowerCase();
 
   // ──────────────────────────────
   // Validation du message
@@ -223,10 +226,14 @@ ovlcmd({
   // ──────────────────────────────
   let cibleJid = null;
   let cible = null;
+
   for (const p of epreuve.participants) {
-    // Nettoyage du tag
-    const tagClean = p.tag.normalize("NFKC").replace(/\s+/g, '').toLowerCase();
-    if (cleanTexte.replace(/\s+/g,'').includes('@' + tagClean)) {
+    const tagClean = p.tag
+      .normalize("NFKC")
+      .replace(/\s+/g, '')
+      .toLowerCase();
+
+    if (cleanTexte.replace(/\s+/g, '').includes('@' + tagClean)) {
       cibleJid = p.jid;
       cible = p;
       break;
@@ -256,6 +263,7 @@ ovlcmd({
   // ──────────────────────────────
   let chance = 50;
   const diff = loup.niveau - cible.niveau;
+
   if (diff >= 5) chance = 70;
   else if (diff <= -5) chance = 30;
 
@@ -293,13 +301,14 @@ ovlcmd({
   // Timer silencieux 3 minutes pour pavés
   if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
   epreuve.rappelTimer = setTimeout(async () => {
-    const nonRépondu = participantsCibles.find(
+    const nonRepondu = participantsCibles.find(
       jid => !epreuve.tirEnCours.pavés.has(jid)
     );
 
-    if (nonRépondu) {
-      epreuve.loupJid = nonRépondu;
-      const nouveauLoup = epreuve.participants.find(p => p.jid === nonRépondu);
+    if (nonRepondu) {
+      epreuve.loupJid = nonRepondu;
+      const nouveauLoup = epreuve.participants.find(p => p.jid === nonRepondu);
+
       await ovl.sendMessage(chatId, {
         video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
         gifPlayback: true,
@@ -312,7 +321,6 @@ ovlcmd({
     epreuve.rappelTimer = null;
   }, 3 * 60 * 1000);
 });
-  
 
 // ──────────────────────────────
 // PAVÉ DES PARTICIPANTS (ESQUIVE)
