@@ -186,25 +186,66 @@ ovlcmd({
   // Seul le Loup peut tirer
   if (ms_org.sender !== epreuve.loupJid) return;
 
+  // Nettoyage du texte WhatsApp
   const cleanTexte = texte.replace(/[\u2066-\u2069\u200e]/g, '');
-const t = cleanTexte.toLowerCase();
-  // Vérifie que le message contient bien le pavé du tir
-  if (!t.includes("je tir") || !t.includes("⚽")) return;
+  const t = cleanTexte.toLowerCase();
 
-  const t = texte.toLowerCase();
-  const m = t.match(/@([^\s]+).*?(tête|torse|abdomen|jambe gauche|jambe droite)/i);
- if (!m) return;
-  // Récupère le JID de la cible
+  // ──────────────────────────────
+  // VALIDATION DU TIR (NOUVELLE LOGIQUE)
+  // ──────────────────────────────
+
+  const hasAction =
+    t.includes("tir direct") ||
+    t.includes("je fais un tir direct") ||
+    t.includes("fait un tir direct");
+
+  const hasPointe =
+    t.includes("pointe de pied droit") ||
+    t.includes("pointe de pied gauche");
+
+  const hasVisant = t.includes("visant");
+
+  const zoneMatch = t.match(
+    /(tête|torse|abdomen|jambe gauche|jambe droite)/i
+  );
+
+  const cibleMatch = t.match(/@([^\s]+)/);
+
+  // ❌ Tir invalide
+  if (!hasAction || !hasPointe || !hasVisant || !zoneMatch || !cibleMatch) {
+  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+  if (!loup) return;
+
+  await ovl.sendMessage(chatId, {
+    video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
+    gifPlayback: true,
+    caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+    mentions: [loup.jid]
+  });
+  return;
+}
+
+  // ──────────────────────────────
+  // CIBLE & ZONE
+  // ──────────────────────────────
+
   let cibleJid;
-  try { cibleJid = await getJid(m[1] + "@lid", ms_org, ovl); } catch { return; }
+  try {
+    cibleJid = await getJid(cibleMatch[1] + "@lid", ms_org, ovl);
+  } catch {
+    return;
+  }
 
-  const zone = m[2].replace(" ", "_");
+  const zone = zoneMatch[1].replace(/\s+/g, "_");
+
+  // ──────────────────────────────
+  // LOGIQUE EXISTANTE (INCHANGÉE)
+  // ──────────────────────────────
 
   const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
   const cible = epreuve.participants.find(p => p.jid === cibleJid);
   if (!loup || !cible) return;
 
-  // Calcul chance de réussite
   let chance = 50;
   const diff = loup.niveau - cible.niveau;
   if (diff >= 5) chance = 70;
@@ -213,7 +254,6 @@ const t = cleanTexte.toLowerCase();
   const hit = Math.random() * 100 <= chance;
 
   if (!hit) {
-    // Tir raté → Loup reste
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
       gifPlayback: true,
@@ -223,28 +263,29 @@ const t = cleanTexte.toLowerCase();
     return;
   }
 
-  // Tir réussi
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
     gifPlayback: true,
     caption: `✅⚽ Tir du Loup validé 🐺`
   });
 
-  // Initialise tir en cours pour gérer les pavés
   epreuve.tirEnCours = {
     cible: cibleJid,
     zone,
     hit,
-    pavés: new Map() // jid => true si pavé envoyé
+    pavés: new Map()
   };
 
-  // Liste des participants à surveiller (tous sauf le Loup)
-  const participantsCibles = epreuve.participants.filter(p => p.jid !== loup.jid).map(p => p.jid);
+  const participantsCibles = epreuve.participants
+    .filter(p => p.jid !== loup.jid)
+    .map(p => p.jid);
 
-  // Timer silencieux 3 minutes pour pavés
   if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
   epreuve.rappelTimer = setTimeout(async () => {
-    const nonRépondu = participantsCibles.find(jid => !epreuve.tirEnCours.pavés.has(jid));
+    const nonRépondu = participantsCibles.find(
+      jid => !epreuve.tirEnCours.pavés.has(jid)
+    );
+
     if (nonRépondu) {
       epreuve.loupJid = nonRépondu;
       const nouveauLoup = epreuve.participants.find(p => p.jid === nonRépondu);
@@ -255,6 +296,7 @@ const t = cleanTexte.toLowerCase();
         mentions: [nouveauLoup.jid]
       });
     }
+
     epreuve.tirEnCours = null;
     epreuve.rappelTimer = null;
   }, 3 * 60 * 1000);
