@@ -26,6 +26,14 @@ function renderFicheParticipants(epreuve) {
   return { text: txt, mentions };
 }
 
+function cleanStr(str) {
+  return str
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200F\u2060-\u206F]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
 // ──────────────────────────────
 // LANCEMENT DE L'ÉPREUVE 
 // ──────────────────────────────
@@ -228,15 +236,14 @@ ovlcmd({
   let cible = null;
 
   for (const p of epreuve.participants) {
-    const tagClean = p.tag
-      .normalize("NFKC")
-      .replace(/\s+/g, '')
-      .toLowerCase();
+    const texteClean = cleanStr(cleanTexte);
+const tagClean = cleanStr(p.tag);
 
-    if (cleanTexte.replace(/\s+/g, '').includes('@' + tagClean)) {
-      cibleJid = p.jid;
-      cible = p;
-      break;
+if (texteClean.includes('@' + tagClean)) {
+  cibleJid = p.jid;
+  cible = p;
+  break;
+}
     }
   }
 
