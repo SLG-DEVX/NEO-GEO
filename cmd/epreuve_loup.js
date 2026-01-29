@@ -191,7 +191,7 @@ ovlcmd({
   if (!epreuve || epreuve.tirEnCours) return;
 
   // Seul le Loup peut tirer
-  if (ms_org.sender !== epreuve.loupJid) return;
+if (ms_org.sender.split('@')[0] !== epreuve.loupJid.split('@')[0]) return;
 
   // Nettoyage complet du texte WhatsApp
   const cleanTexte = texte
