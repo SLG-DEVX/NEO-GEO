@@ -98,7 +98,9 @@ Le modérateur doit ensuite envoyer la liste des participants avec leurs niveaux
 ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, getJid, repondre }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve) return;
+
+  // 🔒 écouter uniquement pendant la phase liste
+  if (!epreuve || !epreuve.debut) return;
 
   const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '');
   const lignes = cleanTexte.split('\n');
@@ -117,7 +119,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
     let jid;
     try { jid = await getJid(tag + "@lid", ms_org, ovl); } catch { continue; }
 
-    epreuve.participants.push({ jid, tag, niveau, isLoup });
+    epreuve.participants.push({ jid, tag, niveau });
     epreuve.positions.set(jid, Math.floor(Math.random() * 4) + 1);
 
     if (isLoup) {
@@ -126,13 +128,17 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
     }
   }
 
-  if (epreuve.participants.length < 2) return repondre("❌ Il faut au moins 2 participants.", ms_org);
-  if (!loupJid) return repondre("❌ Aucun joueur avec (Loup) détecté.", ms_org);
+  if (epreuve.participants.length < 2)
+    return repondre("❌ Il faut au moins 2 participants.");
 
+  if (!loupJid)
+    return repondre("❌ Aucun joueur avec (Loup) détecté.");
+
+  // 🔒 verrouillage définitif
   epreuve.loupJid = loupJid;
   epreuve.debut = false;
 
-  // Timer global 15 minutes
+  // ⏱️ TIMER GLOBAL 15 MIN
   epreuve.timer = setTimeout(async () => {
     await ovl.sendMessage(chatId, {
       image: { url: 'https://files.catbox.moe/9xehjs.png' },
@@ -142,32 +148,31 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
     epreuvesLoup.delete(chatId);
   }, epreuve.tempsRestant);
 
-  // Envoi du GIF et message de début avec **mention propre**
-  const fiche = renderFicheParticipants(epreuve);
-const mentionId = loupJid.split('@')[0];
-
-await ovl.sendMessage(chatId, {
-  video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-  gifPlayback: true,
-  caption:
-`⚽ Début de l'exercice !
-Le joueur @${mentionId} est le Loup 🐺⚠️
-Veuillez toucher un joueur avant la fin du temps ⌛,3:00 mins`,
-  mentions: [loupJid]
-});
-
-// ⏳ DÉMARRAGE IMMÉDIAT DU TIMER DE 3 MINUTES
-if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
-
-epreuve.rappelTimer = setTimeout(async () => {
-  // Sécurité : si le Loup a déjà tiré, on ne fait rien
-  if (!epreuve || epreuve.tirEnCours) return;
+  // 🎬 MESSAGE DE DÉBUT
+  const mentionId = loupJid.split('@')[0];
 
   await ovl.sendMessage(chatId, {
-    text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺`
+    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+    gifPlayback: true,
+    caption:
+`⚽ Début de l'exercice !
+Le joueur @${mentionId} est le Loup 🐺⚠️
+Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
+    mentions: [loupJid]
   });
-}, 3 * 60 * 1000);
+
+  // ⏳ TIMER 3 MIN AVANT TIR
+  if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
+
+  epreuve.rappelTimer = setTimeout(async () => {
+    if (!epreuve || epreuve.tirEnCours) return;
+
+    await ovl.sendMessage(chatId, {
+      text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺`
+    });
+  }, 3 * 60 * 1000);
 });
+
 // ──────────────────────────────
 // TIR DU LOUP + PAVÉS DES PARTICIPANTS
 // ──────────────────────────────
