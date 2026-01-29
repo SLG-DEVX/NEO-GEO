@@ -177,7 +177,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 ovlcmd({
   nom_cmd: 'tir',
   isfunc: true
-}, async (ms_org, ovl, { texte }) => {
+}, async (ms_org, ovl, { texte, getJid }) => {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve || epreuve.tirEnCours) return;
@@ -185,41 +185,55 @@ ovlcmd({
   // Seul le Loup peut tirer
   if (ms_org.sender !== epreuve.loupJid) return;
 
-  // Nettoyage du texte WhatsApp
-  const cleanTexte = texte.replace(/[\u2066-\u2069\u200e]/g, '');
-  const t = cleanTexte.toLowerCase();
+  // Nettoyage complet du texte WhatsApp
+  const cleanTexte = texte.normalize("NFKC").replace(/[\u200B-\u200D\u2060-\u206F]/g, '').toLowerCase();
 
   // ──────────────────────────────
   // Validation du message
   // ──────────────────────────────
   const hasAction =
-    t.includes("tir direct") ||
-    t.includes("je fais un tir direct") ||
-    t.includes("fait un tir direct");
+    cleanTexte.includes("tir direct") ||
+    cleanTexte.includes("je fais un tir direct") ||
+    cleanTexte.includes("fait un tir direct");
 
   const hasPointe =
-    t.includes("pointe de pied droit") ||
-    t.includes("pointe de pied gauche");
+    cleanTexte.includes("pointe de pied droit") ||
+    cleanTexte.includes("pointe de pied gauche");
 
-  const hasVisant = t.includes("visant");
+  const hasVisant = cleanTexte.includes("visant");
 
-  const zoneMatch = t.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
+  const zoneMatch = cleanTexte.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
+
+  // ❌ Tir invalide rapide
+  if (!hasAction || !hasPointe || !hasVisant || !zoneMatch) {
+    const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+    if (!loup) return;
+
+    await ovl.sendMessage(chatId, {
+      video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
+      gifPlayback: true,
+      caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+      mentions: [loup.jid]
+    });
+    return;
+  }
 
   // ──────────────────────────────
-  // Identifier le joueur ciblé exactement comme dans liste_loup
+  // Identifier la cible exactement comme liste_loup
   // ──────────────────────────────
-  let cibleJid;
-  let cible;
+  let cibleJid = null;
+  let cible = null;
   for (const p of epreuve.participants) {
-    if (cleanTexte.includes('@' + p.tag)) {
+    // Nettoyage du tag
+    const tagClean = p.tag.normalize("NFKC").replace(/\s+/g, '').toLowerCase();
+    if (cleanTexte.replace(/\s+/g,'').includes('@' + tagClean)) {
       cibleJid = p.jid;
       cible = p;
       break;
     }
   }
 
-  // ❌ Tir invalide
-  if (!hasAction || !hasPointe || !hasVisant || !zoneMatch || !cibleJid) {
+  if (!cibleJid || !cible) {
     const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
     if (!loup) return;
 
@@ -235,7 +249,7 @@ ovlcmd({
   const zone = zoneMatch[1].replace(/\s+/g, "_");
 
   const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-  if (!loup || !cible) return;
+  if (!loup) return;
 
   // ──────────────────────────────
   // Calcul chance de réussite
