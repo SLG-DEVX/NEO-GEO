@@ -58,7 +58,7 @@ Le modérateur doit ensuite envoyer la liste des participants avec leurs niveaux
 *⚽BLUE🔷LOCK*`;
 
     await ovl.sendMessage(chatId, {
-      image: { url: 'https://files.catbox.moe/k87s8y.png' },
+      image: { url: 'https://files.catbox.moe/zui2we.jpg' },
       caption: texteDebut
     });
 
