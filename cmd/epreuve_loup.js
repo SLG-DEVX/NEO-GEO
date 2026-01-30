@@ -180,6 +180,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
   }, 3 * 60 * 1000);
 });
 
+
 // ──────────────────────────────
 // FONCTION TIR DU LOUP + PAVÉS
 // ──────────────────────────────
@@ -188,18 +189,21 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
+  const senderId = ms_org.sender.split('@')[0];
+  const loupId = epreuve.loupJid.split('@')[0];
+
   // ────────────────
   // 1️⃣ Tir du Loup
   // ────────────────
   if (!epreuve.tirEnCours) {
-    // Seul le Loup peut tirer
-    if (ms_org.sender.split('@')[0] !== epreuve.loupJid.split('@')[0]) return;
+    if (senderId !== loupId) return; // Seul le Loup peut tirer
 
-    // Nettoyage du texte
     const cleanTexte = texte
       .normalize("NFKC")
       .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
       .toLowerCase();
+
+    console.log("[DEBUG] Tir reçu :", cleanTexte); // 🔹 debug
 
     const hasAction =
       cleanTexte.includes("tir direct") ||
@@ -220,7 +224,7 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       await ovl.sendMessage(chatId, {
         video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
         gifPlayback: true,
-        caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
         mentions: [loup.jid]
       });
       return;
@@ -231,7 +235,6 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
     for (const p of epreuve.participants) {
       const texteClean = cleanStr(cleanTexte);
       const tagClean = cleanStr(p.tag);
-
       if (texteClean.includes('@' + tagClean)) {
         cible = p;
         break;
@@ -245,14 +248,13 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       await ovl.sendMessage(chatId, {
         video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
         gifPlayback: true,
-        caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
         mentions: [loup.jid]
       });
       return;
     }
 
     const zone = zoneMatch[1].replace(/\s+/g, "_");
-
     const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
     if (!loup) return;
 
@@ -268,7 +270,7 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       await ovl.sendMessage(chatId, {
         video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
         gifPlayback: true,
-        caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
         mentions: [loup.jid]
       });
       return;
@@ -278,7 +280,7 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
       gifPlayback: true,
-      caption: `✅⚽ Tir du Loup validé 🐺`
+      text: `✅⚽ Tir du Loup validé 🐺`
     });
 
     epreuve.tirEnCours = {
@@ -297,7 +299,6 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
 
     epreuve.rappelTimer = setTimeout(async () => {
       const nonRepondu = participantsCibles.find(jid => !epreuve.tirEnCours.pavés.has(jid));
-
       if (nonRepondu) {
         epreuve.loupJid = nonRepondu;
         const nouveauLoup = epreuve.participants.find(p => p.jid === nonRepondu);
@@ -305,7 +306,7 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
         await ovl.sendMessage(chatId, {
           video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
           gifPlayback: true,
-          caption: `⏱️ Temps écoulé !\n@${nouveauLoup.tag} devient le nouveau Loup 🐺`,
+          text: `⏱️ Temps écoulé !\n@${nouveauLoup.tag} devient le nouveau Loup 🐺`,
           mentions: [nouveauLoup.jid]
         });
       }
@@ -314,50 +315,38 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       epreuve.rappelTimer = null;
     }, 3 * 60 * 1000);
 
-    return; // Tir traité, sortie
+    return; // Tir traité
   }
 
   // ────────────────
-  // 2️⃣ Pavés / Esquives des participants
+  // 2️⃣ Pavés / Esquives
   // ────────────────
   if (epreuve.tirEnCours) {
     const { zone, hit, pavés } = epreuve.tirEnCours;
-
-    // Seul les participants ciblés peuvent envoyer leur pavé
     if (ms_org.sender === epreuve.loupJid) return;
 
     const t = texte.toLowerCase();
-
     let valide = false;
+
     switch (zone) {
-      case "tête":
-        valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite");
-        break;
+      case "tête": valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite"); break;
       case "torse":
-      case "abdomen":
-        valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive");
-        break;
-      case "jambe_gauche":
-        valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive");
-        break;
-      case "jambe_droite":
-        valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive");
-        break;
+      case "abdomen": valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive"); break;
+      case "jambe_gauche": valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive"); break;
+      case "jambe_droite": valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive"); break;
     }
 
     pavés.set(ms_org.sender, true);
-
     const participant = epreuve.participants.find(p => p.jid === ms_org.sender);
     if (!participant) return;
 
-    // Touché → devient le nouveau Loup
     if (hit && !valide) {
       epreuve.loupJid = ms_org.sender;
 
       await ovl.sendMessage(chatId, {
         video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
         gifPlayback: true,
-        caption: `✅ TOUCHÉ !\n@${participant.tag} devient le nouveau Loup 🐺`,
+        text: `✅ TOUCHÉ !\n@${participant.tag} devient le nouveau Loup 🐺`,
         mentions: [participant.jid]
       });
 
@@ -370,7 +359,6 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       return;
     }
 
-    // Tous ont répondu → fin pavés
     const participantsCibles = epreuve.participants
       .filter(p => p.jid !== epreuve.loupJid)
       .map(p => p.jid);
@@ -384,7 +372,8 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
     }
   }
 }
-  
+   
+
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION (SILENCIEUX)
 // ──────────────────────────────
