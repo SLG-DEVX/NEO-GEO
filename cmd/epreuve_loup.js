@@ -180,7 +180,6 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
   }, 3 * 60 * 1000);
 });
 
-
 // ──────────────────────────────
 // FONCTION TIR DU LOUP + PAVÉS
 // ──────────────────────────────
@@ -189,21 +188,18 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
-  const senderId = ms_org.sender.split('@')[0];
-  const loupId = epreuve.loupJid.split('@')[0];
-
   // ────────────────
   // 1️⃣ Tir du Loup
   // ────────────────
   if (!epreuve.tirEnCours) {
-    if (senderId !== loupId) return; // Seul le Loup peut tirer
+    // Seul le Loup peut tirer
+    if (ms_org.sender.split('@')[0] !== epreuve.loupJid.split('@')[0]) return;
 
+    // Nettoyage du texte
     const cleanTexte = texte
       .normalize("NFKC")
-      .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
+      .replace(/[\u200B-\u200D\u2060-\u206F]/g, '') // supprime invisibles
       .toLowerCase();
-
-    console.log("[DEBUG] Tir reçu :", cleanTexte); // 🔹 debug
 
     const hasAction =
       cleanTexte.includes("tir direct") ||
@@ -230,12 +226,17 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       return;
     }
 
-    // Identifier la cible
+    // Identifier la cible correctement, même avec espaces ou caractères invisibles
     let cible = null;
+    const texteNormalise = cleanStr(cleanTexte);
+
     for (const p of epreuve.participants) {
-      const texteClean = cleanStr(cleanTexte);
-      const tagClean = cleanStr(p.tag);
-      if (texteClean.includes('@' + tagClean)) {
+      const tagNormalise = cleanStr(p.tag);
+
+      // regex flexible pour gérer @Nom, espaces, accents et invisibles
+      const regex = new RegExp(`@.*?${tagNormalise.replace(/\s+/g,'\\s*')}.*?`, 'iu');
+
+      if (regex.test(texteNormalise)) {
         cible = p;
         break;
       }
@@ -290,7 +291,6 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       pavés: new Map()
     };
 
-    // Timer pavés
     const participantsCibles = epreuve.participants
       .filter(p => p.jid !== loup.jid)
       .map(p => p.jid);
@@ -315,31 +315,42 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       epreuve.rappelTimer = null;
     }, 3 * 60 * 1000);
 
-    return; // Tir traité
+    return; // Tir traité, sortie
   }
 
   // ────────────────
-  // 2️⃣ Pavés / Esquives
+  // 2️⃣ Pavés / Esquives des participants
   // ────────────────
   if (epreuve.tirEnCours) {
     const { zone, hit, pavés } = epreuve.tirEnCours;
+
     if (ms_org.sender === epreuve.loupJid) return;
 
     const t = texte.toLowerCase();
-    let valide = false;
 
+    let valide = false;
     switch (zone) {
-      case "tête": valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite"); break;
+      case "tête":
+        valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite");
+        break;
       case "torse":
-      case "abdomen": valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive"); break;
-      case "jambe_gauche": valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive"); break;
-      case "jambe_droite": valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive"); break;
+      case "abdomen":
+        valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive");
+        break;
+      case "jambe_gauche":
+        valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive");
+        break;
+      case "jambe_droite":
+        valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive");
+        break;
     }
 
     pavés.set(ms_org.sender, true);
+
     const participant = epreuve.participants.find(p => p.jid === ms_org.sender);
     if (!participant) return;
 
+    // Touché → devient le nouveau Loup
     if (hit && !valide) {
       epreuve.loupJid = ms_org.sender;
 
@@ -359,6 +370,7 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       return;
     }
 
+    // Tous ont répondu → fin pavés
     const participantsCibles = epreuve.participants
       .filter(p => p.jid !== epreuve.loupJid)
       .map(p => p.jid);
@@ -372,7 +384,6 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
     }
   }
 }
-   
 
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION (SILENCIEUX)
@@ -439,7 +450,7 @@ ovlcmd({ nom_cmd:'setloup', isfunc:true }, async(ms_org,ovl,{texte,getJid})=>{
   let jid;
   try{jid=await getJid(m[1]+"@lid",ms_org,ovl);}catch{return;}
   epreuve.loupJid=jid;
-  await ovl.sendMessage(chatId,{caption:`✅ @${jid.split('@')[0]} devient le Loup 🐺`,mentions:[jid]});
+  await ovl.sendMessage(chatId,{text:`✅ @${jid.split('@')[0]} devient le Loup 🐺`,mentions:[jid]});
 });
 
 ovlcmd({ nom_cmd:'pauseloup', desc:"Pause", react:'⏸️' }, async(ms_org,ovl)=>{
