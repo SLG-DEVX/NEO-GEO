@@ -302,69 +302,76 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
   }
 
   // ────────────────
-  // 2️⃣ Pavé de la cible
-  // ────────────────
-  if (epreuve.tirEnCours) {
-    const { zone, hit, pavés, cible } = epreuve.tirEnCours;
+// 2️⃣ Pavé de la cible (COMPLET & CORRIGÉ)
+// ────────────────
+if (epreuve.tirEnCours) {
+  const { zone, hit, pavés, cible } = epreuve.tirEnCours;
 
-    if (ms_org.sender !== cible) return; // Seule la cible peut esquiver
+  // Seule la cible peut répondre
+  if (ms_org.sender !== cible) return;
 
-    const participant = epreuve.participants.find(p => p.jid === ms_org.sender);
-    if (!participant) return;
+  const participant = epreuve.participants.find(p => p.jid === ms_org.sender);
+  if (!participant) return;
 
-    const t = texte.toLowerCase();
-    let valide = false;
+  const t = texte.toLowerCase();
+  let valide = false;
 
-    switch (zone) {
-      case "tête":
-        valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite");
-        break;
-      case "torse":
-      case "abdomen":
-        valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive");
-        break;
-      case "jambe_gauche":
-        valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive");
-        break;
-      case "jambe_droite":
-        valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive");
-        break;
-    }
+  switch (zone) {
+    case "tête":
+      valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite");
+      break;
+    case "torse":
+    case "abdomen":
+      valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive");
+      break;
+    case "jambe_gauche":
+      valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive");
+      break;
+    case "jambe_droite":
+      valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive");
+      break;
+  }
 
-    pavés.set(cible, valide);
+  // ❗ Ignore tout message qui n’est PAS une tentative d’esquive
+  if (!valide) return;
 
-    // Si la cible rate → devient le Loup
-    if (hit && !valide) {
-      epreuve.loupJid = cible;
+  // Pavé tenté
+  pavés.set(cible, true);
 
-      if (epreuve.rappelTimer) {
-        clearTimeout(epreuve.rappelTimer);
-        epreuve.rappelTimer = null;
-      }
+  // Nettoyage du timer
+  if (epreuve.rappelTimer) {
+    clearTimeout(epreuve.rappelTimer);
+    epreuve.rappelTimer = null;
+  }
 
-      epreuve.tirEnCours = null;
+  // 🧠 Récupération du Loup actuel
+  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+  if (!loup) return;
 
-      await ovl.sendMessage(chatId, {
-        video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-        gifPlayback: true,
-        text: `✅ TOUCHÉ !\n@${participant.tag} devient le nouveau Loup 🐺`,
-        mentions: [participant.jid]
-      });
-    } else {
-      // Si elle esquive correctement
-      if (epreuve.rappelTimer) {
-        clearTimeout(epreuve.rappelTimer);
-        epreuve.rappelTimer = null;
-      }
-      epreuve.tirEnCours = null;
+  // ❌ Échec de l’esquive → la cible devient le Loup
+  if (hit) {
+    epreuve.loupJid = cible;
+    epreuve.tirEnCours = null;
 
-      await ovl.sendMessage(chatId, {
-        video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-        gifPlayback: true, 
-        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`, 
-        mentions: [participant.jid]
-      });
-    }
+    await ovl.sendMessage(chatId, {
+      video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+      gifPlayback: true,
+      text: `✅ TOUCHÉ !\n@${participant.tag} devient le nouveau Loup 🐺`,
+      mentions: [participant.jid]
+    });
+    return;
+  }
+
+  // ✅ Esquive réussie → le Loup reste
+  epreuve.tirEnCours = null;
+
+  await ovl.sendMessage(chatId, {
+    video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
+    gifPlayback: true,
+    text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+    mentions: [loup.jid]
+  });
+}
   }
 }    
     
