@@ -193,186 +193,119 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
     .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
     .toLowerCase();
 
-  // ────────────────
-  // 1️⃣ Tir du Loup
-  // ────────────────
+  // ─────────────────────
+  // 1️⃣ TIR DU LOUP
+  // ─────────────────────
   if (!epreuve.tirEnCours) {
-    // Seul le Loup peut tirer
-    if (ms_org.sender.split('@')[0] !== epreuve.loupJid.split('@')[0]) return;
+    if (ms_org.sender !== epreuve.loupJid) return;
 
-    const hasAction = cleanTexte.includes("tir direct") || cleanTexte.includes("je fais un tir direct") || cleanTexte.includes("fait un tir direct");
-    const hasPointe = cleanTexte.includes("pointe de pied droit") || cleanTexte.includes("pointe de pied gauche");
-    const hasVisant = cleanTexte.includes("visant");
+    const ok =
+      cleanTexte.includes("tir direct") &&
+      cleanTexte.includes("pointe de pied") &&
+      cleanTexte.includes("visant");
+
     const zoneMatch = cleanTexte.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
-
-    if (!hasAction || !hasPointe || !hasVisant || !zoneMatch) {
-      const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-      if (!loup) return;
-
-      await ovl.sendMessage(chatId, {
-        video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
-        gifPlayback: true,
-        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
-        mentions: [loup.jid]
+    if (!ok || !zoneMatch) {
+      return ovl.sendMessage(chatId, {
+        text: "❌ RATÉ ! Tir mal formulé.",
+        mentions: [epreuve.loupJid]
       });
-      return;
     }
 
-    // Identifier la cible
+    // cible
     let cible = null;
     for (const p of epreuve.participants) {
-      const tagClean = cleanStr(p.tag);
-      if (cleanStr(cleanTexte).includes('@' + tagClean)) {
+      if (cleanTexte.includes("@" + cleanStr(p.tag))) {
         cible = p;
         break;
       }
     }
+    if (!cible || cible.jid === epreuve.loupJid) return;
 
-    if (!cible) {
-      const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-      if (!loup) return;
-
-      await ovl.sendMessage(chatId, {
-        video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
-        gifPlayback: true,
-        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
-        mentions: [loup.jid]
-      });
-      return;
-    }
-
-    const zone = zoneMatch[1].replace(/\s+/g, "_");
-    const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-    if (!loup) return;
-
-    // Calcul chance de réussite
-    let chance = 50;
-    const diff = loup.niveau - cible.niveau;
-    if (diff >= 5) chance = 70;
-    else if (diff <= -5) chance = 30;
-
-    const hit = Math.random() * 100 <= chance;
-
-    if (!hit) {
-      await ovl.sendMessage(chatId, {
-        video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
-        gifPlayback: true,
-        text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
-        mentions: [loup.jid]
-      });
-      return;
-    }
-
-    // Tir réussi → démarre la phase pavé pour la cible uniquement
+    // 👉 DÉCLENCHEMENT PHASE PAVÉ (PAS DE RÉSULTAT ICI)
     epreuve.tirEnCours = {
-      zone,
-      hit,
-      pavés: new Map(),
-      cible: cible.jid
+      zone: zoneMatch[1],
+      cible: cible.jid,
+      pavés: new Set()
     };
 
     await ovl.sendMessage(chatId, {
-      video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-      gifPlayback: true,
-      text: `✅⚽ Tir du Loup validé 🐺\n@${cible.tag}, esquive le tir !`,
+      text: `⚽ Tir validé !\n@${cible.tag}, esquive le tir !`,
       mentions: [cible.jid]
     });
 
-    // Timer 3 minutes pour la cible
-    if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
+    // ⏱️ 3 minutes pour l’esquive
     epreuve.rappelTimer = setTimeout(async () => {
-      // Si la cible n'a pas répondu à temps → devient le Loup
-      const ciblePave = epreuve.tirEnCours.pavés.get(cible.jid);
-      if (!ciblePave) {
-        epreuve.loupJid = cible.jid;
-
-        await ovl.sendMessage(chatId, {
-          video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-          gifPlayback: true,
-          text: `⏱️ Temps écoulé !\n@${cible.tag} devient le nouveau Loup 🐺`,
-          mentions: [cible.jid]
-        });
-      }
-
+      epreuve.loupJid = cible.jid;
       epreuve.tirEnCours = null;
-      epreuve.rappelTimer = null;
+
+      await ovl.sendMessage(chatId, {
+        text: `⏱️ Aucun pavé !\n@${cible.tag} devient le Loup 🐺`,
+        mentions: [cible.jid]
+      });
     }, 3 * 60 * 1000);
 
     return;
   }
 
-  // ────────────────
-// 2️⃣ Pavé de la cible (COMPLET & CORRIGÉ)
-// ────────────────
-if (epreuve.tirEnCours) {
-  const { zone, hit, pavés, cible } = epreuve.tirEnCours;
+  // ─────────────────────
+  // 2️⃣ PAVÉ DE LA CIBLE
+  // ─────────────────────
+  const tir = epreuve.tirEnCours;
+  if (ms_org.sender !== tir.cible) return;
 
-  // Seule la cible peut répondre
-  if (ms_org.sender !== cible) return;
+  const t = cleanTexte;
+  let esquiveValide = false;
 
-  const participant = epreuve.participants.find(p => p.jid === ms_org.sender);
-  if (!participant) return;
-
-  const t = texte.toLowerCase();
-  let valide = false;
-
-  switch (zone) {
+  switch (tir.zone) {
     case "tête":
-      valide = t.includes("baisse") || t.includes("esquive") || t.includes("évite");
+      esquiveValide = t.includes("baisse") || t.includes("accroupi");
       break;
     case "torse":
     case "abdomen":
-      valide = t.includes("décalage") || t.includes("bond") || t.includes("esquive");
+      esquiveValide = t.includes("décale") || t.includes("bond");
       break;
-    case "jambe_gauche":
-      valide = t.includes("plie la jambe gauche") || t.includes("bond") || t.includes("esquive");
-      break;
-    case "jambe_droite":
-      valide = t.includes("plie la jambe droite") || t.includes("bond") || t.includes("esquive");
+    case "jambe gauche":
+    case "jambe droite":
+      esquiveValide = t.includes("plie") || t.includes("bond");
       break;
   }
 
-  // ❗ Ignore tout message qui n’est PAS une tentative d’esquive
-  if (!valide) return;
+  if (!esquiveValide) return;
 
-  // Pavé tenté
-  pavés.set(cible, true);
-
-  // Nettoyage du timer
-  if (epreuve.rappelTimer) {
-    clearTimeout(epreuve.rappelTimer);
-    epreuve.rappelTimer = null;
-  }
-
-  // 🧠 Récupération du Loup actuel
-  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
-  if (!loup) return;
-
-  // ❌ Échec de l’esquive → la cible devient le Loup
-  if (hit) {
-    epreuve.loupJid = cible;
-    epreuve.tirEnCours = null;
-
-    await ovl.sendMessage(chatId, {
-      video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-      gifPlayback: true,
-      text: `✅ TOUCHÉ !\n@${participant.tag} devient le nouveau Loup 🐺`,
-      mentions: [participant.jid]
-    });
-    return;
-  }
-
-  // ✅ Esquive réussie → le Loup reste
+  clearTimeout(epreuve.rappelTimer);
   epreuve.tirEnCours = null;
 
+  // 🎯 CALCUL FINAL ICI SEULEMENT
+  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+  const cible = epreuve.participants.find(p => p.jid === ms_org.sender);
+
+  let chance = 50;
+  const diff = loup.niveau - cible.niveau;
+  if (diff >= 5) chance = 70;
+  if (diff <= -5) chance = 30;
+
+  const touche = Math.random() * 100 < chance;
+
+  if (touche) {
+  epreuve.loupJid = cible.jid;
+
+  await ovl.sendMessage(chatId, {
+    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+    gifPlayback: true,
+    caption: `✅ TOUCHÉ !\n@${cible.tag} devient le Loup 🐺`,
+    mentions: [cible.jid]
+  });
+
+} else {
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
     gifPlayback: true,
-    text: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
+    caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
     mentions: [loup.jid]
   });
 }
-}    
+} 
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION (SILENCIEUX)
 // ──────────────────────────────
