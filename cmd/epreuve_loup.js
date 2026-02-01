@@ -107,11 +107,8 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
 
-  // 🔒 écouter uniquement pendant la phase liste
-  if (!epreuve || !epreuve.debut) return;
-
-  // ⛔ BLOQUER liste_loup PENDANT TIR / ESQUIVE
-  if (epreuve?.tirEnCours) return;
+  if (!epreuve || !epreuve.debut) return;      // écouter uniquement pendant la phase liste
+  if (epreuve?.tirEnCours) return;            // bloquer pendant tir / esquive
 
   const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '');
   const lignes = cleanTexte.split('\n');
@@ -171,17 +168,8 @@ Le joueur @${mentionId} est le Loup 🐺⚠️
 Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
     mentions: [loupJid]
   });
-
-  // ⏳ TIMER 3 MIN AVANT TIR
-  if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
-
-  epreuve.rappelTimer = setTimeout(async () => {
-    if (!epreuve || epreuve.tirEnCours || epreuve.phase === "PAVES") return;
-    await ovl.sendMessage(chatId, {
-      text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺`
-    });
-  }, 3 * 60 * 1000);
 });
+
 // ──────────────────────────────
 // 🎯 ROUTEUR TIR / ESQUIVE
 // ──────────────────────────────
@@ -200,7 +188,6 @@ ovlcmd({ nom_cmd: 'loup_action', isfunc: true }, async (ms_org, ovl, { texte }) 
     return esquive_cible(ms_org, ovl, texte);
   }
 });
-
 // ──────────────────────────────
 // ⚽ TIR DU LOUP (VALIDATION SEULEMENT)
 // ──────────────────────────────
@@ -209,18 +196,14 @@ async function tir_du_loup(ms_org, ovl, texte) {
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
-  // ❌ Un tir est déjà en cours
-  if (epreuve.tirEnCours) return;
-
-  // ❌ Seul le Loup peut tirer
-  if (ms_org.sender !== epreuve.loupJid) return;
+  if (epreuve.tirEnCours) return;           // Un tir est déjà en cours
+  if (ms_org.sender !== epreuve.loupJid) return;  // Seul le Loup peut tirer
 
   const t = texte
     .normalize("NFKC")
     .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
     .toLowerCase();
 
-  // Vérification syntaxe tir
   const tirOk =
     t.includes("tir direct") &&
     t.includes("pointe de pied") &&
@@ -244,22 +227,16 @@ async function tir_du_loup(ms_org, ovl, texte) {
       break;
     }
   }
-
   if (!cible || cible.jid === epreuve.loupJid) return;
 
-  // ⛔ STOP TOUS LES TIMERS AVANT ESQUIVE
-if (epreuve.rappelTimer) {
-  clearTimeout(epreuve.rappelTimer);
-  epreuve.rappelTimer = null;
-}
-
-// 🔒 OUVERTURE PHASE ESQUIVE
-epreuve.tirEnCours = {
-  zone: zoneMatch[1],
-  cible: cible.jid,
-  auteur: epreuve.loupJid,
-  phase: "ATTENTE_ESQUIVE"
-};
+  // 🔒 OUVERTURE PHASE ESQUIVE
+  epreuve.tirEnCours = {
+    zone: zoneMatch[1],
+    cible: cible.jid,
+    auteur: epreuve.loupJid,
+    phase: "ATTENTE_ESQUIVE",
+    timeoutId: null
+  };
 
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
@@ -268,8 +245,9 @@ epreuve.tirEnCours = {
     mentions: [cible.jid]
   });
 
-  // ⏱️ 3 minutes pour esquiver
-  epreuve.rappelTimer = setTimeout(async () => {
+  // ⏱️ Timer pour forcer le Loup si la cible ne répond pas
+  epreuve.tirEnCours.timeoutId = setTimeout(async () => {
+    if (!epreuve.tirEnCours || epreuve.tirEnCours.phase !== "ATTENTE_ESQUIVE") return;
     epreuve.loupJid = cible.jid;
     epreuve.tirEnCours = null;
 
@@ -280,7 +258,6 @@ epreuve.tirEnCours = {
   }, 3 * 60 * 1000);
 }
 
-
 // ──────────────────────────────
 // 🛡️ ESQUIVE DE LA CIBLE (RÉSOLUTION)
 // ──────────────────────────────
@@ -290,41 +267,28 @@ async function esquive_cible(ms_org, ovl, texte) {
   if (!epreuve?.tirEnCours) return;
 
   const tir = epreuve.tirEnCours;
-
-  // 🔒 Phase obligatoire
   if (tir.phase !== "ATTENTE_ESQUIVE") return;
-
-  // 🔒 Seule la cible peut répondre
   if (ms_org.sender !== tir.cible) return;
 
   const t = texte.toLowerCase();
   let esquiveValide = false;
-
   switch (tir.zone) {
-    case "tête":
-      esquiveValide = t.includes("baisse") || t.includes("accroupi");
-      break;
+    case "tête": esquiveValide = t.includes("baisse") || t.includes("accroupi"); break;
     case "torse":
-    case "abdomen":
-      esquiveValide = t.includes("décale") || t.includes("bond");
-      break;
+    case "abdomen": esquiveValide = t.includes("décale") || t.includes("bond"); break;
     case "jambe gauche":
-    case "jambe droite":
-      esquiveValide = t.includes("plie") || t.includes("bond");
-      break;
+    case "jambe droite": esquiveValide = t.includes("plie") || t.includes("bond"); break;
   }
-
-  // ❌ Ignore tout message qui n'est pas une vraie esquive
   if (!esquiveValide) return;
 
-  // ⛔ Stop timer
-  clearTimeout(epreuve.rappelTimer);
+  // ⛔ Stop timer après esquive
+  clearTimeout(tir.timeoutId);
   epreuve.tirEnCours = null;
 
-  const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
+  const loup = epreuve.participants.find(p => p.jid === tir.auteur);
   const cible = epreuve.participants.find(p => p.jid === ms_org.sender);
 
-  // 🎯 CALCUL FINAL
+  // 🎯 Calcul final
   let chance = 50;
   const diff = loup.niveau - cible.niveau;
   if (diff >= 5) chance = 70;
@@ -334,7 +298,6 @@ async function esquive_cible(ms_org, ovl, texte) {
 
   if (touche) {
     epreuve.loupJid = cible.jid;
-
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
       gifPlayback: true,
@@ -350,6 +313,11 @@ async function esquive_cible(ms_org, ovl, texte) {
     });
   }
 }
+
+
+
+
+
 
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION (SILENCIEUX)
