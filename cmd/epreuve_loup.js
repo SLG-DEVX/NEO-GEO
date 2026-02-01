@@ -179,82 +179,97 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
     });
   }, 3 * 60 * 1000);
 });
-
 // ──────────────────────────────
-// FONCTION TIR DU LOUP + PAVÉS
+// ⚽ TIR DU LOUP (VALIDATION SEULEMENT)
 // ──────────────────────────────
-async function tir_et_esquive(ms_org, ovl, texte, getJid) {
+async function tir_du_loup(ms_org, ovl, texte) {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
-  const cleanTexte = texte
+  // ❌ Un tir est déjà en cours
+  if (epreuve.tirEnCours) return;
+
+  // ❌ Seul le Loup peut tirer
+  if (ms_org.sender !== epreuve.loupJid) return;
+
+  const t = texte
     .normalize("NFKC")
     .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
     .toLowerCase();
 
-  // ─────────────────────
-  // 1️⃣ TIR DU LOUP
-  // ─────────────────────
-  if (!epreuve.tirEnCours) {
-    if (ms_org.sender !== epreuve.loupJid) return;
+  // Vérification syntaxe tir
+  const tirOk =
+    t.includes("tir direct") &&
+    t.includes("pointe de pied") &&
+    t.includes("visant");
 
-    const ok =
-      cleanTexte.includes("tir direct") &&
-      cleanTexte.includes("pointe de pied") &&
-      cleanTexte.includes("visant");
-
-    const zoneMatch = cleanTexte.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
-    if (!ok || !zoneMatch) {
-      return ovl.sendMessage(chatId, {
-        text: "❌ RATÉ ! Tir mal formulé.",
-        mentions: [epreuve.loupJid]
-      });
-    }
-
-    // cible
-    let cible = null;
-    for (const p of epreuve.participants) {
-      if (cleanTexte.includes("@" + cleanStr(p.tag))) {
-        cible = p;
-        break;
-      }
-    }
-    if (!cible || cible.jid === epreuve.loupJid) return;
-
-    // 👉 DÉCLENCHEMENT PHASE PAVÉ (PAS DE RÉSULTAT ICI)
-    epreuve.tirEnCours = {
-      zone: zoneMatch[1],
-      cible: cible.jid,
-      pavés: new Set()
-    };
-
-    await ovl.sendMessage(chatId, {
-      text: `⚽ Tir validé !\n@${cible.tag}, esquive le tir !`,
-      mentions: [cible.jid]
+  const zoneMatch = t.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
+  if (!tirOk || !zoneMatch) {
+    return ovl.sendMessage(chatId, {
+      video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
+      gifPlayback: true,
+      caption: `❌ RATÉ ! Tir mal formulé.`,
+      mentions: [epreuve.loupJid]
     });
-
-    // ⏱️ 3 minutes pour l’esquive
-    epreuve.rappelTimer = setTimeout(async () => {
-      epreuve.loupJid = cible.jid;
-      epreuve.tirEnCours = null;
-
-      await ovl.sendMessage(chatId, {
-        text: `⏱️ Aucun pavé !\n@${cible.tag} devient le Loup 🐺`,
-        mentions: [cible.jid]
-      });
-    }, 3 * 60 * 1000);
-
-    return;
   }
 
-  // ─────────────────────
-  // 2️⃣ PAVÉ DE LA CIBLE
-  // ─────────────────────
+  // Recherche cible
+  let cible = null;
+  for (const p of epreuve.participants) {
+    if (t.includes("@" + p.tag.toLowerCase())) {
+      cible = p;
+      break;
+    }
+  }
+
+  if (!cible || cible.jid === epreuve.loupJid) return;
+
+  // 🔒 OUVERTURE PHASE ESQUIVE
+  epreuve.tirEnCours = {
+    zone: zoneMatch[1],
+    cible: cible.jid,
+    auteur: epreuve.loupJid,
+    phase: "ATTENTE_ESQUIVE"
+  };
+
+  await ovl.sendMessage(chatId, {
+    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+    gifPlayback: true,
+    caption: `⚽ Tir validé !\n@${cible.tag}, esquive le tir !`,
+    mentions: [cible.jid]
+  });
+
+  // ⏱️ 3 minutes pour esquiver
+  epreuve.rappelTimer = setTimeout(async () => {
+    epreuve.loupJid = cible.jid;
+    epreuve.tirEnCours = null;
+
+    await ovl.sendMessage(chatId, {
+      caption: `⏱️ Aucun pavé !\n@${cible.tag} devient le Loup 🐺`,
+      mentions: [cible.jid]
+    });
+  }, 3 * 60 * 1000);
+}
+
+
+// ──────────────────────────────
+// 🛡️ ESQUIVE DE LA CIBLE (RÉSOLUTION)
+// ──────────────────────────────
+async function esquive_cible(ms_org, ovl, texte) {
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve?.tirEnCours) return;
+
   const tir = epreuve.tirEnCours;
+
+  // 🔒 Phase obligatoire
+  if (tir.phase !== "ATTENTE_ESQUIVE") return;
+
+  // 🔒 Seule la cible peut répondre
   if (ms_org.sender !== tir.cible) return;
 
-  const t = cleanTexte;
+  const t = texte.toLowerCase();
   let esquiveValide = false;
 
   switch (tir.zone) {
@@ -271,15 +286,17 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
       break;
   }
 
+  // ❌ Ignore tout message qui n'est pas une vraie esquive
   if (!esquiveValide) return;
 
+  // ⛔ Stop timer
   clearTimeout(epreuve.rappelTimer);
   epreuve.tirEnCours = null;
 
-  // 🎯 CALCUL FINAL ICI SEULEMENT
   const loup = epreuve.participants.find(p => p.jid === epreuve.loupJid);
   const cible = epreuve.participants.find(p => p.jid === ms_org.sender);
 
+  // 🎯 CALCUL FINAL
   let chance = 50;
   const diff = loup.niveau - cible.niveau;
   if (diff >= 5) chance = 70;
@@ -288,24 +305,24 @@ async function tir_et_esquive(ms_org, ovl, texte, getJid) {
   const touche = Math.random() * 100 < chance;
 
   if (touche) {
-  epreuve.loupJid = cible.jid;
+    epreuve.loupJid = cible.jid;
 
-  await ovl.sendMessage(chatId, {
-    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-    gifPlayback: true,
-    caption: `✅ TOUCHÉ !\n@${cible.tag} devient le Loup 🐺`,
-    mentions: [cible.jid]
-  });
-
-} else {
-  await ovl.sendMessage(chatId, {
-    video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
-    gifPlayback: true,
-    caption: `❌ RATÉ !\n@${loup.tag} reste le Loup 🐺`,
-    mentions: [loup.jid]
-  });
+    await ovl.sendMessage(chatId, {
+      video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+      gifPlayback: true,
+      caption: `✅ TOUCHÉ !\n@${cible.tag} devient le Loup 🐺`,
+      mentions: [cible.jid]
+    });
+  } else {
+    await ovl.sendMessage(chatId, {
+      video: { url: 'https://files.catbox.moe/obqo0d.mp4' },
+      gifPlayback: true,
+      caption: `❌ ESQUIVE RÉUSSIE !\n@${loup.tag} reste le Loup 🐺`,
+      mentions: [loup.jid]
+    });
+  }
 }
-} 
+
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION (SILENCIEUX)
 // ──────────────────────────────
