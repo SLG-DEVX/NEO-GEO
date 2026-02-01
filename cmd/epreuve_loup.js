@@ -180,6 +180,25 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
   }, 3 * 60 * 1000);
 });
 // ──────────────────────────────
+// 🎯 ROUTEUR TIR / ESQUIVE
+// ──────────────────────────────
+ovlcmd({ nom_cmd: 'loup_action', isfunc: true }, async (ms_org, ovl, { texte }) => {
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve || !epreuve.actif) return;
+
+  // 🟢 AUCUN TIR EN COURS → ON ÉCOUTE LE TIR
+  if (!epreuve.tirEnCours) {
+    return tir_du_loup(ms_org, ovl, texte);
+  }
+
+  // 🔵 TIR EN COURS → ON ÉCOUTE L’ESQUIVE
+  if (epreuve.tirEnCours?.phase === "ATTENTE_ESQUIVE") {
+    return esquive_cible(ms_org, ovl, texte);
+  }
+});
+
+// ──────────────────────────────
 // ⚽ TIR DU LOUP (VALIDATION SEULEMENT)
 // ──────────────────────────────
 async function tir_du_loup(ms_org, ovl, texte) {
