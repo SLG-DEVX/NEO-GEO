@@ -372,8 +372,6 @@ if (epreuve.tirEnCours) {
     mentions: [loup.jid]
   });
 }
-  }
-}    
     
 // ──────────────────────────────
 // POSITIONS ET ORIENTATION (SILENCIEUX)
