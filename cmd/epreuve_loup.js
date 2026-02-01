@@ -244,13 +244,19 @@ async function tir_du_loup(ms_org, ovl, texte) {
 
   if (!cible || cible.jid === epreuve.loupJid) return;
 
-  // 🔒 OUVERTURE PHASE ESQUIVE
-  epreuve.tirEnCours = {
-    zone: zoneMatch[1],
-    cible: cible.jid,
-    auteur: epreuve.loupJid,
-    phase: "ATTENTE_ESQUIVE"
-  };
+  // ⛔ STOP TOUS LES TIMERS AVANT ESQUIVE
+if (epreuve.rappelTimer) {
+  clearTimeout(epreuve.rappelTimer);
+  epreuve.rappelTimer = null;
+}
+
+// 🔒 OUVERTURE PHASE ESQUIVE
+epreuve.tirEnCours = {
+  zone: zoneMatch[1],
+  cible: cible.jid,
+  auteur: epreuve.loupJid,
+  phase: "ATTENTE_ESQUIVE"
+};
 
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
