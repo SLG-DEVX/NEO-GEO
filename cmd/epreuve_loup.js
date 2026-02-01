@@ -110,6 +110,9 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   // 🔒 écouter uniquement pendant la phase liste
   if (!epreuve || !epreuve.debut) return;
 
+  // ⛔ BLOQUER liste_loup PENDANT TIR / ESQUIVE
+  if (epreuve?.tirEnCours) return;
+
   const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '');
   const lignes = cleanTexte.split('\n');
 
