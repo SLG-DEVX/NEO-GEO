@@ -180,27 +180,62 @@ ovlcmd({ nom_cmd: 'loup_action', isfunc: true }, async (ms_org, ovl, { texte }) 
 async function tir_du_loup(ms_org, ovl, texte) {
   const chatId = ms_org.key?.remoteJid || ms_org;
   const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve || epreuve.tirEnCours) return;
+  if (!epreuve?.actif || epreuve.tirEnCours) return;
   if (ms_org.sender !== epreuve.loupJid) return;
 
-  const t = texte.normalize("NFKC").replace(/[\u200B-\u200D\u2060-\u206F]/g, '').toLowerCase();
-  const tirOk = t.includes("tir direct") && t.includes("pointe de pied") && t.includes("visant");
-  const zoneMatch = t.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
-  if (!tirOk || !zoneMatch) return ovl.sendMessage(chatId, { video: { url: 'https://files.catbox.moe/obqo0d.mp4' }, gifPlayback: true, caption: `❌ RATÉ ! Tir mal formulé.`, mentions: [epreuve.loupJid] });
+  const t = texte
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\u2060-\u206F]/g, '')
+    .toLowerCase();
 
-  let cible = epreuve.participants.find(p => t.includes("@" + p.tag.toLowerCase()));
+  const tirOk =
+    t.includes("tir direct") &&
+    t.includes("pointe de pied") &&
+    t.includes("visant");
+
+  const zoneMatch = t.match(/(tête|torse|abdomen|jambe gauche|jambe droite)/i);
+  if (!tirOk || !zoneMatch) return;
+
+  const cible = epreuve.participants.find(p =>
+    t.includes("@" + p.tag.toLowerCase())
+  );
   if (!cible || cible.jid === epreuve.loupJid) return;
 
-  if (epreuve.rappelTimer) { clearTimeout(epreuve.rappelTimer); epreuve.rappelTimer = null; }
+  // 🔒 VERROU GLOBAL
+  epreuve.actif = false;
 
-  epreuve.tirEnCours = { zone: zoneMatch[1], cible: cible.jid, auteur: epreuve.loupJid, phase: "ATTENTE_ESQUIVE" };
+  // 🧹 Nettoyage ancien timer
+  if (epreuve.rappelTimer) {
+    clearTimeout(epreuve.rappelTimer);
+    epreuve.rappelTimer = null;
+  }
 
-  await ovl.sendMessage(chatId, { video: { url: 'https://files.catbox.moe/eckrvo.mp4' }, gifPlayback: true, caption: `⚽ Tir validé !\n@${cible.tag}, esquive le tir !`, mentions: [cible.jid] });
+  // 🎯 Tir en cours
+  epreuve.tirEnCours = {
+    zone: zoneMatch[1],
+    cible: cible.jid,
+    auteur: epreuve.loupJid,
+    phase: "ATTENTE_ESQUIVE"
+  };
 
+  await ovl.sendMessage(chatId, {
+    caption: `⚽ Tir validé !\n@${cible.tag}, esquive le tir !`,
+    mentions: [cible.jid]
+  });
+
+  // ⏱️ TIMER ESQUIVE (3 MIN)
   epreuve.rappelTimer = setTimeout(async () => {
+    // Si toujours pas d'esquive
+    if (!epreuve.tirEnCours) return;
+
     epreuve.loupJid = cible.jid;
     epreuve.tirEnCours = null;
-    await ovl.sendMessage(chatId, { caption: `⏱️ Temps écoulé ! Aucun pavé reçu.\n@${cible.tag} devient le Loup 🐺`, mentions: [cible.jid] });
+    epreuve.actif = true;
+
+    await ovl.sendMessage(chatId, {
+      caption: `⏱️ Temps écoulé !\n@${cible.tag} n’a pas esquivé et devient le Loup 🐺`,
+      mentions: [cible.jid]
+    });
   }, 3 * 60 * 1000);
 }
 
@@ -218,12 +253,19 @@ async function esquive_cible(ms_org, ovl, texte) {
 
   const t = texte.toLowerCase();
   let esquiveValide = false;
+
   switch (tir.zone) {
-    case "tête": esquiveValide = t.includes("baisse") || t.includes("accroupi"); break;
+    case "tête":
+      esquiveValide = t.includes("baisse") || t.includes("accroupi");
+      break;
     case "torse":
-    case "abdomen": esquiveValide = t.includes("décale") || t.includes("bond"); break;
+    case "abdomen":
+      esquiveValide = t.includes("décale") || t.includes("bond");
+      break;
     case "jambe gauche":
-    case "jambe droite": esquiveValide = t.includes("plie") || t.includes("bond"); break;
+    case "jambe droite":
+      esquiveValide = t.includes("plie") || t.includes("bond");
+      break;
   }
   if (!esquiveValide) return;
 
@@ -239,13 +281,22 @@ async function esquive_cible(ms_org, ovl, texte) {
   if (diff <= -5) chance = 30;
 
   const touche = Math.random() * 100 < chance;
+
   if (touche) {
     epreuve.loupJid = cible.jid;
-    await ovl.sendMessage(chatId, { video: { url: 'https://files.catbox.moe/eckrvo.mp4' }, gifPlayback: true, caption: `✅ TOUCHÉ !\n@${cible.tag} devient le Loup 🐺`, mentions: [cible.jid] });
+    await ovl.sendMessage(chatId, {
+      caption: `✅ TOUCHÉ !\n@${cible.tag} devient le Loup 🐺`,
+      mentions: [cible.jid]
+    });
   } else {
-    await ovl.sendMessage(chatId, { video: { url: 'https://files.catbox.moe/obqo0d.mp4' }, gifPlayback: true, caption: `❌ ESQUIVE RÉUSSIE !\n@${loup.tag} reste le Loup 🐺`, mentions: [loup.jid] });
+    await ovl.sendMessage(chatId, {
+      caption: `❌ ESQUIVE RÉUSSIE !\n@${loup.tag} reste le Loup 🐺`,
+      mentions: [loup.jid]
+    });
   }
 
+  // 🔓 DÉVERROUILLAGE GLOBAL
+  epreuve.actif = true;
   epreuve.tirEnCours = null;
 }
 
@@ -267,6 +318,9 @@ ovlcmd({ nom_cmd: 'course', isfunc: true }, async (ms_org, ovl, { texte, getJid 
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve?.positions) return;
 
+  // 🔒 BLOQUAGE PENDANT TIR / ESQUIVE
+  if (epreuve.tirEnCours) return;
+
   const t = texte.toLowerCase();
   if (!t.includes("je cours") || !t.includes("vmax")) return;
 
@@ -275,30 +329,41 @@ ovlcmd({ nom_cmd: 'course', isfunc: true }, async (ms_org, ovl, { texte, getJid 
 
   const m = t.match(/point\s*(\d)/);
   if (!m) return;
+
   const targetPos = parseInt(m[1]);
   const currentPos = epreuve.positions.get(jid) || 1;
 
   let dir = null;
-  if (t.includes("gauche")) dir="gauche";
-  if (t.includes("droite")) dir="droite";
-  if (!dir || getRoueDirection(currentPos,targetPos,dir)!==targetPos) {
+  if (t.includes("gauche")) dir = "gauche";
+  if (t.includes("droite")) dir = "droite";
+
+  if (!dir || getRoueDirection(currentPos, targetPos, dir) !== targetPos) {
     epreuve.loupJid = jid;
+    await ovl.sendMessage(chatId, {
+      text: `❌ Mauvaise trajectoire ! @${jid.split('@')[0]} devient le Loup 🐺`,
+      mentions: [jid]
+    });
   } else {
-    epreuve.positions.set(jid,targetPos);
+    epreuve.positions.set(jid, targetPos);
   }
 });
 
-ovlcmd({ nom_cmd:'rotation', isfunc:true }, async(ms_org,ovl,{texte})=>{
-  const chatId=ms_org.key?.remoteJid||ms_org;
-  const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve?.loupJid)return;
+ovlcmd({ nom_cmd:'rotation', isfunc:true }, async(ms_org, ovl, { texte })=>{
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve?.loupJid) return;
 
-  const t=texte.toLowerCase();
-  let newOri=epreuve.orientationLoup;
-  if(t.includes("90")&&t.includes("droite")) newOri=(newOri%4)+1;
-  if(t.includes("90")&&t.includes("gauche")) newOri=((newOri+2)%4)+1;
-  if(t.includes("180")) newOri=((newOri+1)%4)+1;
-  epreuve.orientationLoup=newOri;
+  // 🔒 BLOQUAGE PENDANT TIR / ESQUIVE
+  if (epreuve.tirEnCours) return;
+
+  const t = texte.toLowerCase();
+  let newOri = epreuve.orientationLoup;
+
+  if (t.includes("90") && t.includes("droite")) newOri = (newOri % 4) + 1;
+  if (t.includes("90") && t.includes("gauche")) newOri = ((newOri + 2) % 4) + 1;
+  if (t.includes("180")) newOri = ((newOri + 1) % 4) + 1;
+
+  epreuve.orientationLoup = newOri;
 });
 
 // ──────────────────────────────
