@@ -369,16 +369,42 @@ ovlcmd({ nom_cmd:'rotation', isfunc:true }, async(ms_org, ovl, { texte })=>{
 // ──────────────────────────────
 // COMMANDES MANUELLES
 // ──────────────────────────────
-ovlcmd({ nom_cmd:'setloup', isfunc:true }, async(ms_org,ovl,{texte,getJid})=>{
-  const chatId=ms_org.key?.remoteJid||ms_org;
-  const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve || epreuve.tirEnCours) return;
-  const m=texte.match(/@(\S+)/);
-  if(!m) return;
+ovlcmd({
+  nom_cmd: 'setloup',
+  classe: 'BLUELOCK⚽',
+  desc: 'Définir manuellement le Loup',
+  react: '🐺'
+}, async (ms_org, ovl, { texte, getJid, repondre }) => {
+
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve) return;
+
+  // 🔒 Interdit pendant un tir
+  if (!epreuve.actif || epreuve.tirEnCours) {
+    return repondre("⛔ Impossible pendant un tir ou une esquive.");
+  }
+
+  const m = texte.match(/@(\S+)/);
+  if (!m) return repondre("❌ Utilisation : +setloup @tag");
+
   let jid;
-  try{jid=await getJid(m[1]+"@lid",ms_org,ovl);}catch{return;}
-  epreuve.loupJid=jid;
-  await ovl.sendMessage(chatId,{text:`✅ @${jid.split('@')[0]} devient le Loup 🐺`,mentions:[jid]});
+  try {
+    jid = await getJid(m[1] + "@lid", ms_org, ovl);
+  } catch {
+    return repondre("❌ Joueur introuvable.");
+  }
+
+  if (!epreuve.participants.find(p => p.jid === jid)) {
+    return repondre("❌ Ce joueur ne participe pas à l’épreuve.");
+  }
+
+  epreuve.loupJid = jid;
+
+  await ovl.sendMessage(chatId, {
+    text: `🐺 Loup défini manuellement : @${jid.split('@')[0]}`,
+    mentions: [jid]
+  });
 });
 
 ovlcmd({ nom_cmd:'pauseloup', desc:"Pause", react:'⏸️' }, async(ms_org,ovl)=>{
