@@ -166,38 +166,41 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 });
 
 // ──────────────────────────────
-// 🎯 ROUTEUR TIR / ESQUIVE OPTIMISÉ
+// 🎧 LISTENER GLOBAL (CATCH-ALL)
+// CAPTE TOUS LES MESSAGES NORMAUX
 // ──────────────────────────────
-ovlcmd({ nom_cmd: 'loup_action', isfunc: true }, async (ms_org, ovl, { texte }) => {
-  const chatId = ms_org.key?.remoteJid;
-  const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve) return;
+ovl.ev.on("messages.upsert", async ({ messages }) => {
+  try {
+    const ms = messages?.[0];
+    if (!ms || !ms.message || ms.key.fromMe) return;
 
-  // Nettoyage du texte pour enlever tout caractère invisible
-  const cleanTxt = texte
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-    .trim();
+    const chatId = ms.key.remoteJid;
+    const epreuve = epreuvesLoup.get(chatId);
+    if (!epreuve) return;
 
-  // Si aucun tir en cours, on lance le tir du loup
-  if (!epreuve.tirEnCours) {
-    await tir_du_loup(ms_org, ovl, cleanTxt);
-  } else {
-    // Sinon, on est en phase d'esquive
-    await esquive_cible(ms_org, ovl, cleanTxt);
+    const texte =
+      ms.message.conversation ||
+      ms.message.extendedTextMessage?.text;
+
+    if (!texte) return;
+
+    // Nettoyage minimal (Unicode + isolats WhatsApp)
+    const cleanTxt = texte
+      .normalize("NFKC")
+      .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+      .trim();
+
+    // ROUTAGE AUTOMATIQUE
+    if (!epreuve.tirEnCours) {
+      await tir_du_loup(ms, ovl, cleanTxt);
+    } else {
+      await esquive_cible(ms, ovl, cleanTxt);
+    }
+  } catch (err) {
+    console.error("Listener Loup erreur :", err);
   }
 });
 
-// Helpers de tir
-function normalizeJid(jid = '') {
-  // retire éventuel suffixe de device 
-  return jid.toString().split(':')[0].toLowerCase();
-}
-
-function stripIsolates(s = '') {
-  // suppression les caractères invisibles
-  return s.replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '');
-}
 // ──────────────────────────────
 // ⚽ TIR DU LOUP 
 // ──────────────────────────────
