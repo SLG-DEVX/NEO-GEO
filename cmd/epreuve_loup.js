@@ -166,48 +166,63 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 });
 
 // ──────────────────────────────
-// 🎯 ROUTEUR TIR / ESQUIVE
+// 🎯 ROUTEUR TIR / ESQUIVE OPTIMISÉ
 // ──────────────────────────────
 ovlcmd({ nom_cmd: 'loup_action', isfunc: true }, async (ms_org, ovl, { texte }) => {
   const chatId = ms_org.key?.remoteJid;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve) return;
 
+  // Nettoyage du texte pour enlever tout caractère invisible
+  const cleanTxt = texte
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+    .trim();
+
+  // Si aucun tir en cours, on lance le tir du loup
   if (!epreuve.tirEnCours) {
-    await tir_du_loup(ms_org, ovl, texte);
+    await tir_du_loup(ms_org, ovl, cleanTxt);
   } else {
-    await esquive_cible(ms_org, ovl, texte);
+    // Sinon, on est en phase d'esquive
+    await esquive_cible(ms_org, ovl, cleanTxt);
   }
 });
 // ──────────────────────────────
 // ⚽ TIR DU LOUP 
 // ──────────────────────────────
-async function tir_du_loup(ms_org, ovl, texte) {
+async function tir_du_loup(ms_org, ovl, txt) {
   const chatId = ms_org.key.remoteJid;
   const epreuve = epreuvesLoup.get(chatId);
-
   if (!epreuve || epreuve.tirEnCours) return;
   if (ms_org.sender !== epreuve.loupJid) return;
 
-  const txt = cleanText(texte)
-  .replace(/▔|▱|\*|⚽|🥅|💬/g, ' ')
-  .replace(/\s+/g, ' ');
+  // Nettoyage supplémentaire pour enlever tous les caractères invisibles
+  const cleanTxt = txt
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+    .replace(/▔|▱|\*|⚽|🥅|💬/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
-  const regex =
-/je\s+fais\s+un\s+tir\s+direct\s+de\s+la\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\s+visant\s+la\s+(tête|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@([^\s]+)/i;
-  const m = txt.match(regex);
+  console.log("🧹 Texte nettoyé pour regex :", cleanTxt);
 
-if (!m) {
-  console.log("❌ TIR NON MATCHÉ :", txt);
-  return;
-}
+  // Regex tolérante : accepte "je fais un tir direct de la pointe de pied droit|droit|gauche visant la tête|torse|abdomen|jambe gauche|jambe droite de @tag"
+  const regex = /tir\s+direct\s+de\s+la\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\s+visant\s+la\s+(tête|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@?([^\s\W]+(?:\s[^\s\W]+)*)/i;
+  const m = cleanTxt.match(regex);
+
+  if (!m) {
+    console.log("❌ TIR NON MATCHÉ :", cleanTxt);
+    return;
+  }
 
   const zone = m[2];
-  const rawTag = m[3];
+  const rawTag = m[3].replace(/\u2066|\u2069/g, ''); // on supprime les éventuels caractères invisibles autour
 
   const cible = epreuve.participants.find(
     p => cleanTag(p.tag) === cleanTag(rawTag)
   );
+
   if (!cible || cible.jid === epreuve.loupJid) return;
 
   epreuve.tirEnCours = {
@@ -228,7 +243,6 @@ if (!m) {
 
   epreuve.timerPaves = setTimeout(() => verdict_final(chatId, ovl), 3 * 60 * 1000);
 }
-
 // ──────────────────────────────
 // 🛡️ESQUIVE DE LA CIBLE
 // ──────────────────────────────
