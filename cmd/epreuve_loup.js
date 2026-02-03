@@ -187,63 +187,101 @@ ovlcmd({ nom_cmd: 'loup_action', isfunc: true }, async (ms_org, ovl, { texte }) 
     await esquive_cible(ms_org, ovl, cleanTxt);
   }
 });
+
+// Helpers de tir
+function normalizeJid(jid = '') {
+  // retire éventuel suffixe de device 
+  return jid.toString().split(':')[0].toLowerCase();
+}
+
+function stripIsolates(s = '') {
+  // suppression les caractères invisibles
+  return s.replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '');
+}
 // ──────────────────────────────
 // ⚽ TIR DU LOUP 
 // ──────────────────────────────
 async function tir_du_loup(ms_org, ovl, txt) {
-  const chatId = ms_org.key.remoteJid;
-  const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve || epreuve.tirEnCours) return;
-  if (ms_org.sender !== epreuve.loupJid) return;
+  try {
+    const chatId = ms_org.key?.remoteJid || ms_org.remoteJid || ms_org;
+    const epreuve = epreuvesLoup.get(chatId);
+    if (!epreuve || epreuve.tirEnCours) return;
 
-  // Nettoyage supplémentaire pour enlever tous les caractères invisibles
-  const cleanTxt = txt
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-    .replace(/▔|▱|\*|⚽|🥅|💬/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+    // Vérifier l'auteur : on normalise les JID pour éviter les mismatches
+    const senderJid = normalizeJid(ms_org.sender || ms_org.key?.participant || '');
+    const loupJidNorm = normalizeJid(epreuve.loupJid || '');
+    console.log("DEBUG senderJid:", senderJid, "loupJidNorm:", loupJidNorm);
+    if (!senderJid || senderJid !== loupJidNorm) {
+      console.log("DEBUG : message non envoyé par le loup -> return");
+      return;
+    }
 
-  console.log("🧹 Texte nettoyé pour regex :", cleanTxt);
+    // Nettoyage robuste du texte
+    let cleanTxt = String(txt || '')
+      .normalize("NFKC");
+    cleanTxt = stripIsolates(cleanTxt);
+    cleanTxt = cleanTxt.replace(/▔|▱|\*|⚽|🥅|💬|`/g, ' ');
+    cleanTxt = cleanTxt.replace(/\s+/g, ' ').trim().toLowerCase();
 
-  // Regex tolérante : accepte "je fais un tir direct de la pointe de pied droit|droit|gauche visant la tête|torse|abdomen|jambe gauche|jambe droite de @tag"
-  const regex = /tir\s+direct\s+de\s+la\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\s+visant\s+la\s+(tête|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@?([^\s\W]+(?:\s[^\s\W]+)*)/i;
-  const m = cleanTxt.match(regex);
+    console.log("🧹 Texte nettoyé pour regex :", cleanTxt);
 
-  if (!m) {
-    console.log("❌ TIR NON MATCHÉ :", cleanTxt);
-    return;
-  }
+    // Regex plus permissif : accepte petites variantes et accents
+    // capture : pied (gauche|droit)  + zone (tête/torse/abdomen/jambe gauche/jambe droite) + tag
+    const regex = /tir(?:\s+direct)?(?:\s+de)?(?:\s+la)?\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\b.*?visant\s+la\s+(t[eé]te|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@?(.{1,60})$/i;
+    const m = cleanTxt.match(regex);
 
-  const zone = m[2];
-  const rawTag = m[3].replace(/\u2066|\u2069/g, ''); // on supprime les éventuels caractères invisibles autour
+    if (!m) {
+      console.log("❌ TIR NON MATCHÉ (regex) :", cleanTxt);
+      return;
+    }
 
-  const cible = epreuve.participants.find(
-    p => cleanTag(p.tag) === cleanTag(rawTag)
-  );
+    const zone = m[2].toLowerCase();
+    let rawTag = m[3].trim();
+    rawTag = stripIsolates(rawTag); // retire isolats éventuels autour du tag
+    // Supprime ponctuation terminale éventuelle
+    rawTag = rawTag.replace(/^[^a-z0-9@]+|[^a-z0-9]+$/ig, '').trim();
 
-  if (!cible || cible.jid === epreuve.loupJid) return;
+    console.log("DEBUG zone:", zone, "rawTag:", rawTag);
 
-  epreuve.tirEnCours = {
-    auteur: epreuve.loupJid,
-    cible: cible.jid,
-    zone,
-    phase: "ATTENTE_ESQUIVE",
-    pavés: new Set()
-  };
+    // Recherche la cible dans la liste des participants (en normalisant les tags)
+    const cible = epreuve.participants.find(
+      p => cleanTag(p.tag) === cleanTag(rawTag)
+    );
 
-  await ovl.sendMessage(chatId, {
-    caption:
+    if (!cible) {
+      console.log("❌ Cible introuvable pour tag :", rawTag);
+      return;
+    }
+    if (cible.jid === epreuve.loupJid) {
+      console.log("❌ Le loup ne peut pas se tirer dessus.");
+      return;
+    }
+
+    epreuve.tirEnCours = {
+      auteur: epreuve.loupJid,
+      cible: cible.jid,
+      zone,
+      phase: "ATTENTE_ESQUIVE",
+      pavés: new Set()
+    };
+
+    await ovl.sendMessage(chatId, {
+      caption:
 `⚽ TIR VALIDÉ !
 ⏱️ 3 minutes pour les pavés
 🛡️ @${cible.tag} doit envoyer un pavé d’esquive`,
-    mentions: epreuve.participants.map(p => p.jid)
-  });
+      mentions: epreuve.participants.map(p => p.jid)
+    });
 
-  epreuve.timerPaves = setTimeout(() => verdict_final(chatId, ovl), 3 * 60 * 1000);
+    // timer pavés (si tu utilises timer ailleurs, garde le même nom)
+    if (epreuve.timerPaves) clearTimeout(epreuve.timerPaves);
+    epreuve.timerPaves = setTimeout(() => verdict_final(chatId, ovl), 3 * 60 * 1000);
+  } catch (err) {
+    console.error("tir_du_loup erreur:", err);
+  }
 }
-// ──────────────────────────────
+
+//──────────────────────────────
 // 🛡️ESQUIVE DE LA CIBLE
 // ──────────────────────────────
 async function esquive_cible(ms_org, ovl, texte) {
