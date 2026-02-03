@@ -189,13 +189,18 @@ async function tir_du_loup(ms_org, ovl, texte) {
   if (!epreuve || epreuve.tirEnCours) return;
   if (ms_org.sender !== epreuve.loupJid) return;
 
-  const txt = cleanText(texte);
+  const txt = cleanText(texte)
+  .replace(/▔|▱|\*|⚽|🥅|💬/g, ' ')
+  .replace(/\s+/g, ' ');
 
   const regex =
-  /tir\s+direct.*pointe\s+de\s+pied\s+(gauche|droit|droite).*visant\s+la?\s+(tête|torse|abdomen|jambe gauche|jambe droite).*@(.+?)(?:\s|$)/i;
-
+/je\s+fais\s+un\s+tir\s+direct\s+de\s+la\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\s+visant\s+la\s+(tête|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@([^\s]+)/i;
   const m = txt.match(regex);
-  if (!m) return;
+
+if (!m) {
+  console.log("❌ TIR NON MATCHÉ :", txt);
+  return;
+}
 
   const zone = m[2];
   const rawTag = m[3];
