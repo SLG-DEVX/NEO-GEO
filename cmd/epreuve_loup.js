@@ -21,8 +21,8 @@ function renderFicheParticipants(epreuve) {
      
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
                       ⚽BLUE🔷LOCK`;
-  
-const epreuvesLoup = new Map();
+  return txt;
+}  
 
 function cleanText(str) {
   return str
