@@ -227,7 +227,7 @@ async function tir_du_loup(ms_org, ovl, txt) {
 
     // Regex plus permissif : accepte petites variantes et accents
     // capture : pied (gauche|droit)  + zone (tête/torse/abdomen/jambe gauche/jambe droite) + tag
-    const regex = /tir(?:\s+direct)?(?:\s+de)?(?:\s+la)?\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\b.*?visant\s+la\s+(t[eé]te|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@?(.{1,60})$/i;
+    const regex = /tir(?:\s+direct)?(?:\s+de)?(?:\s+la)?\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\b[\s\S]*?visant\s+la\s+(t[eé]te|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@?([a-z0-9\s._-]+)/i;
     const m = cleanTxt.match(regex);
 
     if (!m) {
