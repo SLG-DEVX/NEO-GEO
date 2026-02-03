@@ -58,7 +58,6 @@ ovlcmd({
 
     await ovl.sendMessage(chatId, { video: { url: 'https://files.catbox.moe/z64kuq.mp4' }, gifPlayback: true });
 
-    // ─── TEXTE D'ACCUEIL EXACT ───
     const texteDebut = `🔷 *ÉPREUVE DU LOUP*🐺❌⚽
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 
@@ -117,7 +116,6 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   const lignes = cleanTexte.split('\n');
 
   let loupJid = null;
-  let loupTag = null;
 
   for (const ligne of lignes) {
     const m = ligne.match(/@(\S+).*?:\s*(\d+)/i);
@@ -133,10 +131,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
     epreuve.participants.push({ jid, tag, niveau });
     epreuve.positions.set(jid, Math.floor(Math.random() * 4) + 1);
 
-    if (isLoup) {
-      loupJid = jid;
-      loupTag = tag;
-    }
+    if (isLoup) loupJid = jid;
   }
 
   if (epreuve.participants.length < 2) return repondre("❌ Il faut au moins 2 participants.");
@@ -159,7 +154,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 });
 
 // ──────────────────────────────
-// 🎧 LISTENER GLOBAL
+// 🎧 LISTENER GLOBAL (DEBUG)
 // ──────────────────────────────
 function initLoupListener(ovl) {
   ovl.ev.on("messages.upsert", async ({ messages }) => {
@@ -171,16 +166,10 @@ function initLoupListener(ovl) {
       const epreuve = epreuvesLoup.get(chatId);
       if (!epreuve) return;
 
-      const texte =
-        ms.message.conversation ||
-        ms.message.extendedTextMessage?.text;
-      if (!texte) return;
-
-      // si tir en cours, on gère l’esquive
       if (!epreuve.tirEnCours) {
-        await tir_du_loup(ms, ovl);
+        await tir_du_loup(ms, ovl, true);
       } else {
-        await esquive_cible(ms, ovl);
+        await esquive_cible(ms, ovl, true);
       }
     } catch (err) {
       console.error("Listener Loup erreur :", err);
@@ -189,9 +178,9 @@ function initLoupListener(ovl) {
 }
 
 // ──────────────────────────────
-// ⚽ TIR DU LOUP (comme liste_loup)
+// ⚽ TIR DU LOUP (DEBUG COMPLET)
 // ──────────────────────────────
-async function tir_du_loup(ms_org, ovl) {
+async function tir_du_loup(ms_org, ovl, debug = false) {
   const chatId = ms_org.key.remoteJid;
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve || epreuve.tirEnCours) return;
@@ -199,24 +188,32 @@ async function tir_du_loup(ms_org, ovl) {
   const senderJid = normalizeJid(ms_org.sender || ms_org.key?.participant || '');
   if (senderJid !== normalizeJid(epreuve.loupJid)) return;
 
-  // Récupération du texte en brut
   let texte = ms_org.message.conversation || ms_org.message.extendedTextMessage?.text;
   if (!texte) return;
 
-  const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '').toLowerCase();
+  const cleanTexte = stripIsolates(texte).toLowerCase();
+  if (debug) await ovl.sendMessage(chatId, { text: `🧪 DEBUG TEXTE BRUT :\n${cleanTexte}` });
 
-  // extraction de la zone
   const zoneMatch = cleanTexte.match(/t[eé]te|torse|abdomen|jambe\s+gauche|jambe\s+droite/);
-  if (!zoneMatch) return;
+  if (!zoneMatch) {
+    if (debug) await ovl.sendMessage(chatId, { text: "🛑 DEBUG : Aucune zone détectée" });
+    return;
+  }
 
-  // extraction du tag du joueur ciblé
   const tagMatch = cleanTexte.match(/@([a-z0-9\s._-]+)/i);
-  if (!tagMatch) return;
+  if (!tagMatch) {
+    if (debug) await ovl.sendMessage(chatId, { text: "🛑 DEBUG : Aucun tag détecté" });
+    return;
+  }
 
-  const rawTag = cleanTag(tagMatch[1]);
+  const rawTag = tagMatch[1].trim();
+  if (debug) await ovl.sendMessage(chatId, { text: `🧪 DEBUG : Tag détecté = ${rawTag}` });
 
-  const cible = epreuve.participants.find(p => cleanTag(p.tag) === rawTag);
-  if (!cible || cible.jid === epreuve.loupJid) return;
+  const cible = epreuve.participants.find(p => cleanTag(p.tag) === cleanTag(rawTag));
+  if (!cible || cible.jid === epreuve.loupJid) {
+    if (debug) await ovl.sendMessage(chatId, { text: "🛑 DEBUG : Cible introuvable ou = loup" });
+    return;
+  }
 
   epreuve.tirEnCours = {
     auteur: epreuve.loupJid,
@@ -224,6 +221,8 @@ async function tir_du_loup(ms_org, ovl) {
     zone: zoneMatch[0],
     pavés: new Set()
   };
+
+  if (debug) await ovl.sendMessage(chatId, { text: `🧪 DEBUG : Tir validé sur ${cible.tag} zone ${zoneMatch[0]}` });
 
   await ovl.sendMessage(chatId, {
     caption:
@@ -233,13 +232,13 @@ async function tir_du_loup(ms_org, ovl) {
     mentions: epreuve.participants.map(p => p.jid)
   });
 
-  epreuve.timerPaves = setTimeout(() => verdict_final(chatId, ovl), 3 * 60 * 1000);
+  epreuve.timerPaves = setTimeout(() => verdict_final(chatId, ovl, debug), 3 * 60 * 1000);
 }
 
 // ──────────────────────────────
-// 🛡️ ESQUIVE
+// 🛡️ ESQUIVE (DEBUG)
 // ──────────────────────────────
-async function esquive_cible(ms_org, ovl) {
+async function esquive_cible(ms_org, ovl, debug = false) {
   const chatId = ms_org.key.remoteJid;
   const epreuve = epreuvesLoup.get(chatId);
   const tir = epreuve?.tirEnCours;
@@ -261,18 +260,23 @@ async function esquive_cible(ms_org, ovl) {
     default: valide = t.includes("plie") || t.includes("bond"); break;
   }
 
-  if (!valide) return;
+  if (!valide) {
+    if (debug) await ovl.sendMessage(chatId, { text: `🛑 DEBUG : Pavé non valide pour la zone ${tir.zone}` });
+    return;
+  }
 
   tir.pavés.add(tir.cible);
   clearTimeout(epreuve.timerPaves);
 
-  await verdict_final(chatId, ovl);
+  if (debug) await ovl.sendMessage(chatId, { text: "🧪 DEBUG : Pavé validé, verdict final" });
+
+  await verdict_final(chatId, ovl, debug);
 }
 
 // ──────────────────────────────
-// ⚽🛡️ VERDICT FINAL
+// ⚽🛡️ VERDICT FINAL (DEBUG)
 // ──────────────────────────────
-async function verdict_final(chatId, ovl) {
+async function verdict_final(chatId, ovl, debug = false) {
   const epreuve = epreuvesLoup.get(chatId);
   const tir = epreuve?.tirEnCours;
   if (!tir) return;
@@ -287,6 +291,8 @@ async function verdict_final(chatId, ovl) {
 
   const esquive = tir.pavés.has(tir.cible);
   const touche = esquive ? Math.random() * 100 < chance : true;
+
+  if (debug) await ovl.sendMessage(chatId, { text: `🧪 DEBUG : chance ${chance}%, esquive ${esquive}, touche ${touche}` });
 
   if (touche) {
     epreuve.loupJid = cible.jid;
