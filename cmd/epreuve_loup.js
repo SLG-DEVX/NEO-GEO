@@ -182,26 +182,38 @@ function initLoupListener(ovl) {
 
       // Détection automatique du tir du Loup
       if (senderJid === epreuve.loupJid) {
-        const clean = cleanText(texte);
-        const zoneMatch = clean.match(/t[eé]te|torse|abdomen|jambe gauche|jambe droite/);
-        const tagMatch = clean.match(/@(\S+)/);
-        if (!zoneMatch || !tagMatch) return;
+  const clean = cleanText(texte);
 
-        const rawTag = cleanTag(tagMatch[1]);
-        const cible = epreuve.participants.find(p => cleanTag(p.tag) === rawTag);
-        if (!cible || cible.jid === epreuve.loupJid) return;
+  // Zone
+  const zoneMatch = clean.match(/t[eé]te|torse|abdomen|jambe gauche|jambe droite/);
+  if (!zoneMatch) return;
 
-        epreuve.tirEnCours = { auteur: epreuve.loupJid, cible: cible.jid, zone: zoneMatch[0] };
+  // Mentions (LA CLÉ)
+  const mentions =
+    ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-        await ovl.sendMessage(chatId, {
-          caption: `⚽ TIR VALIDÉ !\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
-          mentions: epreuve.participants.map(p => p.jid)
-        });
+  if (!mentions.length) return;
 
-        epreuve.timerPaves = setTimeout(async () => {
-          await verdictFinal(chatId, ovl);
-        }, 3*60*1000);
-      }
+  const cibleJid = normalizeJid(mentions[0]);
+
+  const cible = epreuve.participants.find(p => p.jid === cibleJid);
+  if (!cible || cible.jid === epreuve.loupJid) return;
+
+  epreuve.tirEnCours = {
+    auteur: epreuve.loupJid,
+    cible: cible.jid,
+    zone: zoneMatch[0]
+  };
+
+  await ovl.sendMessage(chatId, {
+    caption: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
+    mentions: epreuve.participants.map(p => p.jid)
+  });
+
+  epreuve.timerPaves = setTimeout(async () => {
+    await verdictFinal(chatId, ovl);
+  }, 3 * 60 * 1000);
+}
 
     } catch (err) {
       console.error("Listener Loup erreur :", err);
