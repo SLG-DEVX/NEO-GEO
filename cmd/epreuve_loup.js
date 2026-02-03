@@ -22,7 +22,7 @@ function renderFicheParticipants(epreuve) {
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
                       ⚽BLUE🔷LOCK`;
   return txt;
-}  
+}
 
 function cleanText(str) {
   return str
@@ -36,6 +36,13 @@ function cleanTag(str) {
   return cleanText(str).replace(/\s+/g, '');
 }
 
+function stripIsolates(str) {
+  return str.replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '');
+}
+
+function normalizeJid(jid) {
+  return jid ? jid.split(':')[0].trim() : '';
+}
 
 // ──────────────────────────────
 // LANCEMENT DE L'ÉPREUVE 
@@ -102,7 +109,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   const epreuve = epreuvesLoup.get(chatId);
 
   if (!epreuve || !epreuve.debut) return;
-  if (epreuve.tirEnCours) return; // ne pas modifier pendant tir/esquive
+  if (epreuve.tirEnCours) return;
 
   const cleanTexte = texte.replace(/[\u2066-\u2069]/g, '');
   const lignes = cleanTexte.split('\n');
@@ -136,16 +143,6 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   epreuve.loupJid = loupJid;
   epreuve.debut = false;
 
-  // Timer global
-  epreuve.timer = setTimeout(async () => {
-    await ovl.sendMessage(chatId, {
-      image: { url: 'https://files.catbox.moe/9xehjs.png' },
-      caption: `🏁 *FIN DE L'ÉPREUVE*\n❌ @${loupTag} est le dernier Loup, il est éliminé !`,
-      mentions: [loupJid]
-    });
-    epreuvesLoup.delete(chatId);
-  }, epreuve.tempsRestant);
-
   const mentionId = loupJid.split('@')[0];
 
   await ovl.sendMessage(chatId, {
@@ -157,114 +154,76 @@ Le joueur @${mentionId} est le Loup 🐺⚠️
 Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
     mentions: [loupJid]
   });
-
-  if (epreuve.rappelTimer) clearTimeout(epreuve.rappelTimer);
-  epreuve.rappelTimer = setTimeout(async () => {
-    if (!epreuve || epreuve.tirEnCours || epreuve.phase === "PAVES") return;
-    await ovl.sendMessage(chatId, { text: `⏳ Temps écoulé ! Le Loup n'a pas tiré.\nIl reste le Loup pour le prochain tour 🐺` });
-  }, 3 * 60 * 1000);
 });
 
 // ──────────────────────────────
-// 🎧 LISTENER GLOBAL (CATCH-ALL)
-// CAPTE TOUS LES MESSAGES NORMAUX
+// 🎧 LISTENER GLOBAL (CORRIGÉ)
 // ──────────────────────────────
-ovl.ev.on("messages.upsert", async ({ messages }) => {
-  try {
-    const ms = messages?.[0];
-    if (!ms || !ms.message || ms.key.fromMe) return;
+function initLoupListener(ovl) {
+  ovl.ev.on("messages.upsert", async ({ messages }) => {
+    try {
+      const ms = messages?.[0];
+      if (!ms || !ms.message || ms.key.fromMe) return;
 
-    const chatId = ms.key.remoteJid;
-    const epreuve = epreuvesLoup.get(chatId);
-    if (!epreuve) return;
+      const chatId = ms.key.remoteJid;
+      const epreuve = epreuvesLoup.get(chatId);
+      if (!epreuve) return;
 
-    const texte =
-      ms.message.conversation ||
-      ms.message.extendedTextMessage?.text;
+      const texte =
+        ms.message.conversation ||
+        ms.message.extendedTextMessage?.text;
 
-    if (!texte) return;
+      if (!texte) return;
 
-    // Nettoyage minimal (Unicode + isolats WhatsApp)
-    const cleanTxt = texte
-      .normalize("NFKC")
-      .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-      .trim();
+      const cleanTxt = texte
+        .normalize("NFKC")
+        .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+        .trim();
 
-    // ROUTAGE AUTOMATIQUE
-    if (!epreuve.tirEnCours) {
-      await tir_du_loup(ms, ovl, cleanTxt);
-    } else {
-      await esquive_cible(ms, ovl, cleanTxt);
+      if (!epreuve.tirEnCours) {
+        await tir_du_loup(ms, ovl, cleanTxt);
+      } else {
+        await esquive_cible(ms, ovl, cleanTxt);
+      }
+    } catch (err) {
+      console.error("Listener Loup erreur :", err);
     }
-  } catch (err) {
-    console.error("Listener Loup erreur :", err);
-  }
-});
+  });
+}
 
 // ──────────────────────────────
 // ⚽ TIR DU LOUP 
 // ──────────────────────────────
 async function tir_du_loup(ms_org, ovl, txt) {
   try {
-    const chatId = ms_org.key?.remoteJid || ms_org.remoteJid || ms_org;
+    const chatId = ms_org.key.remoteJid;
     const epreuve = epreuvesLoup.get(chatId);
     if (!epreuve || epreuve.tirEnCours) return;
 
-    // Vérifier l'auteur : on normalise les JID pour éviter les mismatches
     const senderJid = normalizeJid(ms_org.sender || ms_org.key?.participant || '');
     const loupJidNorm = normalizeJid(epreuve.loupJid || '');
-    console.log("DEBUG senderJid:", senderJid, "loupJidNorm:", loupJidNorm);
-    if (!senderJid || senderJid !== loupJidNorm) {
-      console.log("DEBUG : message non envoyé par le loup -> return");
-      return;
-    }
+    if (senderJid !== loupJidNorm) return;
 
-    // Nettoyage robuste du texte
-    let cleanTxt = String(txt || '')
-      .normalize("NFKC");
-    cleanTxt = stripIsolates(cleanTxt);
-    cleanTxt = cleanTxt.replace(/▔|▱|\*|⚽|🥅|💬|`/g, ' ');
-    cleanTxt = cleanTxt.replace(/\s+/g, ' ').trim().toLowerCase();
+    let cleanTxt = stripIsolates(txt)
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
 
-    console.log("🧹 Texte nettoyé pour regex :", cleanTxt);
-
-    // Regex plus permissif : accepte petites variantes et accents
-    // capture : pied (gauche|droit)  + zone (tête/torse/abdomen/jambe gauche/jambe droite) + tag
-    const regex = /tir(?:\s+direct)?(?:\s+de)?(?:\s+la)?\s+pointe\s+de\s+pied\s+(gauche|droit|droite)\b[\s\S]*?visant\s+la\s+(t[eé]te|torse|abdomen|jambe\s+gauche|jambe\s+droite)\s+de\s+@?([a-z0-9\s._-]+)/i;
+    const regex = /tir.*pointe.*pied.*visant.*(t[eé]te|torse|abdomen|jambe\s+gauche|jambe\s+droite).*@?([a-z0-9\s._-]+)/i;
     const m = cleanTxt.match(regex);
+    if (!m) return;
 
-    if (!m) {
-      console.log("❌ TIR NON MATCHÉ (regex) :", cleanTxt);
-      return;
-    }
+    const zone = m[1];
+    const rawTag = m[2].trim();
 
-    const zone = m[2].toLowerCase();
-    let rawTag = m[3].trim();
-    rawTag = stripIsolates(rawTag); // retire isolats éventuels autour du tag
-    // Supprime ponctuation terminale éventuelle
-    rawTag = rawTag.replace(/^[^a-z0-9@]+|[^a-z0-9]+$/ig, '').trim();
-
-    console.log("DEBUG zone:", zone, "rawTag:", rawTag);
-
-    // Recherche la cible dans la liste des participants (en normalisant les tags)
     const cible = epreuve.participants.find(
       p => cleanTag(p.tag) === cleanTag(rawTag)
     );
-
-    if (!cible) {
-      console.log("❌ Cible introuvable pour tag :", rawTag);
-      return;
-    }
-    if (cible.jid === epreuve.loupJid) {
-      console.log("❌ Le loup ne peut pas se tirer dessus.");
-      return;
-    }
+    if (!cible || cible.jid === epreuve.loupJid) return;
 
     epreuve.tirEnCours = {
       auteur: epreuve.loupJid,
       cible: cible.jid,
       zone,
-      phase: "ATTENTE_ESQUIVE",
       pavés: new Set()
     };
 
@@ -276,73 +235,37 @@ async function tir_du_loup(ms_org, ovl, txt) {
       mentions: epreuve.participants.map(p => p.jid)
     });
 
-    // timer pavés (si tu utilises timer ailleurs, garde le même nom)
-    if (epreuve.timerPaves) clearTimeout(epreuve.timerPaves);
     epreuve.timerPaves = setTimeout(() => verdict_final(chatId, ovl), 3 * 60 * 1000);
   } catch (err) {
-    console.error("tir_du_loup erreur:", err);
+    console.error(err);
   }
 }
 
-//──────────────────────────────
-// 🛡️ESQUIVE DE LA CIBLE
 // ──────────────────────────────
-async function esquive_cible(ms_org, ovl, texte) {
-  const chatId = ms_org.key.remoteJid;
-  const epreuve = epreuvesLoup.get(chatId);
-  const tir = epreuve?.tirEnCours;
-  if (!tir) return;
-
-  // Pavé d’un autre joueur
-  if (ms_org.sender !== tir.cible) {
-    tir.pavés.add(ms_org.sender);
-    return;
-  }
-
-  const t = cleanText(texte);
-  let valide = false;
-
-  switch (tir.zone) {
-    case "tête":
-      valide = t.includes("baisse") || t.includes("accroupi");
-      break;
-    case "torse":
-    case "abdomen":
-      valide = t.includes("décale") || t.includes("bond");
-      break;
-    default:
-      valide = t.includes("plie") || t.includes("bond");
-  }
-
-  if (!valide) return;
-
-  tir.pavés.add(tir.cible);
-  clearTimeout(epreuve.timerPaves);
-
-  await verdict_final(chatId, ovl);
-}
-
-// ──────────────────────────────
-// ⚽🛡️VERDICT FINAL DU TIR
+// ⚽🛡️ VERDICT FINAL DU TIR
 // ──────────────────────────────
 async function verdict_final(chatId, ovl) {
   const epreuve = epreuvesLoup.get(chatId);
-  const tir = epreuve.tirEnCours;
+  const tir = epreuve?.tirEnCours;
   if (!tir) return;
 
   const loup = epreuve.participants.find(p => p.jid === tir.auteur);
   const cible = epreuve.participants.find(p => p.jid === tir.cible);
 
+  // Chance de base
   let chance = 50;
   const diff = loup.niveau - cible.niveau;
   if (diff >= 5) chance = 70;
   if (diff <= -5) chance = 30;
 
-  const esquive = tir.pavés.has(tir.cible);
-  const touche = esquive ? Math.random() * 100 < chance : true;
+  const cibleAEsquive = tir.pavés.has(tir.cible);
+  const touche = cibleAEsquive
+    ? Math.random() * 100 < chance
+    : true; // pas d'esquive = touché auto
 
   if (touche) {
     epreuve.loupJid = cible.jid;
+
     await ovl.sendMessage(chatId, {
       caption: `✅ TOUCHÉ !\n@${cible.tag} devient le Loup 🐺`,
       mentions: [cible.jid]
@@ -358,130 +281,9 @@ async function verdict_final(chatId, ovl) {
 }
 
 // ──────────────────────────────
-// POSITIONS / ORIENTATION
+// EXPORT
 // ──────────────────────────────
-function getRoueDirection(current, target, side) {
-  const roue = {1:{gauche:4,droite:3},2:{gauche:3,droite:4},3:{gauche:1,droite:2},4:{gauche:2,droite:1}};
-  return roue[current][side];
-}
-
-function getPivotLoup(currentPos, targetPos) {
-  const map = {1:{1:0,2:180,3:90,4:-90},2:{1:180,2:0,3:-90,4:90},3:{1:-90,2:90,3:0,4:180},4:{1:90,2:-90,3:180,4:0}};
-  return map[currentPos][targetPos];
-}
-
-ovlcmd({ nom_cmd: 'course', isfunc: true }, async (ms_org, ovl, { texte, getJid }) => {
-  const chatId = ms_org.key?.remoteJid || ms_org;
-  const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve?.positions) return;
-
-  // 🔒 BLOQUAGE PENDANT TIR / ESQUIVE
-  if (epreuve.tirEnCours) return;
-
-  const t = texte.toLowerCase();
-  if (!t.includes("je cours") || !t.includes("vmax")) return;
-
-  let jid;
-  try { jid = await getJid(ms_org.sender, ms_org, ovl); } catch { return; }
-
-  const m = t.match(/point\s*(\d)/);
-  if (!m) return;
-
-  const targetPos = parseInt(m[1]);
-  const currentPos = epreuve.positions.get(jid) || 1;
-
-  let dir = null;
-  if (t.includes("gauche")) dir = "gauche";
-  if (t.includes("droite")) dir = "droite";
-
-  if (!dir || getRoueDirection(currentPos, targetPos, dir) !== targetPos) {
-    epreuve.loupJid = jid;
-    await ovl.sendMessage(chatId, {
-      text: `❌ Mauvaise trajectoire ! @${jid.split('@')[0]} devient le Loup 🐺`,
-      mentions: [jid]
-    });
-  } else {
-    epreuve.positions.set(jid, targetPos);
-  }
-});
-
-ovlcmd({ nom_cmd:'rotation', isfunc:true }, async(ms_org, ovl, { texte })=>{
-  const chatId = ms_org.key?.remoteJid || ms_org;
-  const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve?.loupJid) return;
-
-  // 🔒 BLOQUAGE PENDANT TIR / ESQUIVE
-  if (epreuve.tirEnCours) return;
-
-  const t = texte.toLowerCase();
-  let newOri = epreuve.orientationLoup;
-
-  if (t.includes("90") && t.includes("droite")) newOri = (newOri % 4) + 1;
-  if (t.includes("90") && t.includes("gauche")) newOri = ((newOri + 2) % 4) + 1;
-  if (t.includes("180")) newOri = ((newOri + 1) % 4) + 1;
-
-  epreuve.orientationLoup = newOri;
-});
-
-// ──────────────────────────────
-// COMMANDES MANUELLES
-// ──────────────────────────────
-ovlcmd({
-  nom_cmd: 'setloup',
-  classe: 'BLUELOCK⚽',
-  desc: 'Définir manuellement le Loup',
-  react: '🐺'
-}, async (ms_org, ovl, { texte, getJid, repondre }) => {
-
-  const chatId = ms_org.key?.remoteJid || ms_org;
-  const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve) return;
-
-  // 🔒 Interdit pendant un tir
-  if (!epreuve.actif || epreuve.tirEnCours) {
-    return repondre("⛔ Impossible pendant un tir ou une esquive.");
-  }
-
-  const m = texte.match(/@(\S+)/);
-  if (!m) return repondre("❌ Utilisation : +setloup @tag");
-
-  let jid;
-  try {
-    jid = await getJid(m[1] + "@lid", ms_org, ovl);
-  } catch {
-    return repondre("❌ Joueur introuvable.");
-  }
-
-  if (!epreuve.participants.find(p => p.jid === jid)) {
-    return repondre("❌ Ce joueur ne participe pas à l’épreuve.");
-  }
-
-  epreuve.loupJid = jid;
-
-  await ovl.sendMessage(chatId, {
-    text: `🐺 Loup défini manuellement : @${jid.split('@')[0]}`,
-    mentions: [jid]
-  });
-});
-
-ovlcmd({ nom_cmd:'pauseloup', desc:"Pause", react:'⏸️' }, async(ms_org,ovl)=>{
-  const chatId=ms_org.key?.remoteJid||ms_org;
-  const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve) return;
-  clearTimeout(epreuve.timer);
-  clearTimeout(epreuve.rappelTimer);
-  await ovl.sendMessage(chatId,{text:"⏸️ *ÉPREUVE PAUSÉE*"});
-});
-
-ovlcmd({ nom_cmd:'resumeloup', desc:"Resume", react:'▶️' }, async(ms_org,ovl)=>{
-  const chatId=ms_org.key?.remoteJid||ms_org;
-  const epreuve=epreuvesLoup.get(chatId);
-  if(!epreuve) return;
-  startTour(chatId, ovl);
-  await ovl.sendMessage(chatId,{text:"▶️ *ÉPREUVE REPRISE*"});
-});
-
-// ──────────────────────────────
-// EXPORT DU MODULE
-// ──────────────────────────────
-module.exports = epreuvesLoup;
+module.exports = {
+  epreuvesLoup,
+  initLoupListener
+};
