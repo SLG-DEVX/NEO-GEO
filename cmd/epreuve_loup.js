@@ -163,8 +163,14 @@ function initLoupListener(ovl) {
       ms.message.extendedTextMessage?.text;
     if (!texte) return;
 
-    const estPave = /💬:[\s\S]*?⚽BLUE🔷LOCK🥅\s*\*/i.test(texte);
+    const estPave =
+  texte.includes("💬:") &&
+  /⚽\s*blue🔷lock🥅/i.test(texte);
 
+if (!estPave) return;
+
+const texteAction = extraireTexteAction(texte);
+if (!texteAction) return;
     // ────────────────
     // TIR DU LOUP
     // ────────────────
@@ -172,9 +178,11 @@ function initLoupListener(ovl) {
       if (senderJid !== epreuve.loupJid) return;
       if (!estPave) return;
 
-      const zone = cleanText(texte)
-        .match(/tete|torse|abdomen|jambe gauche|jambe droite/)?.[0];
-      if (!zone) return;
+      const zone = texteAction.match(
+  /tete|torse|abdomen|jambe gauche|jambe droite/
+)?.[0];
+
+if (!zone) return;
 
       const mentions =
         ms.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
