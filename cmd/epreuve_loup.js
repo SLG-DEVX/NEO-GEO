@@ -163,15 +163,15 @@ function initLoupListener(ovl) {
 
     const estPave = /💬:[\s\S]*?⚽BLUE🔷LOCK🥅\*/i.test(texte);
 
-    // ──────────────────────────────
-    // 1️⃣ PARTIE 2 : TIR DU LOUP
-    // ──────────────────────────────
+    // ────────────────
+    // TIR DU LOUP
+    // ────────────────
     if (!epreuve.tirEnCours) {
       if (senderJid !== epreuve.loupJid) return;
       if (!estPave) return;
 
       const zone = cleanText(texte)
-        .match(/t[eé]te|torse|abdomen|jambe gauche|jambe droite/)?.[0];
+        .match(/tete|torse|abdomen|jambe gauche|jambe droite/)?.[0];
       if (!zone) return;
 
       const mentions =
@@ -184,7 +184,6 @@ function initLoupListener(ovl) {
       );
       if (!cible || cible.jid === epreuve.loupJid) return;
 
-      // ➜ Tir validé
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
         cible: cible.jid,
@@ -203,73 +202,70 @@ function initLoupListener(ovl) {
       );
       return;
     }
- // ──────────────────────────────
-// 2️⃣ PARTIE 2: ESQUIVE
-// ──────────────────────────────
-if (epreuve.tirEnCours) {
-  if (!estPave) return;
 
-  const texteClean = cleanText(texte);
-  const zone = epreuve.tirEnCours.zone;
+    // ────────────────
+    // ESQUIVE
+    // ────────────────
+    if (epreuve.tirEnCours) {
+      if (!estPave) return;
 
-  let esquiveValide = false;
+      const texteClean = cleanText(texte);
+      const zone = epreuve.tirEnCours.zone;
+      let esquiveValide = false;
 
-  switch (zone) {
-    case "tête":
-    case "tete":
-      esquiveValide =
-        texteClean.includes("baisse") ||
-        texteClean.includes("baisser") ||
-        texteClean.includes("accroupi") ||
-        texteClean.includes("accroupir");
-      break;
+      switch (zone) {
+        case "tete":
+          esquiveValide =
+            texteClean.includes("baisse") ||
+            texteClean.includes("baisser") ||
+            texteClean.includes("accroupi") ||
+            texteClean.includes("accroupir");
+          break;
 
-    case "torse":
-    case "abdomen":
-      esquiveValide =
-        texteClean.includes("décale") ||
-        texteClean.includes("decale") ||
-        texteClean.includes("décalage") ||
-        texteClean.includes("bond");
-      break;
+        case "torse":
+        case "abdomen":
+          esquiveValide =
+            texteClean.includes("decale") ||
+            texteClean.includes("decalage") ||
+            texteClean.includes("bond");
+          break;
 
-    case "jambe gauche":
-    case "jambe droite":
-      esquiveValide =
-        texteClean.includes("bond") ||
-        texteClean.includes("saute") ||
-        texteClean.includes("saut") ||
-        texteClean.includes("plie");
-      break;
-  }
+        case "jambe gauche":
+        case "jambe droite":
+          esquiveValide =
+            texteClean.includes("bond") ||
+            texteClean.includes("saute") ||
+            texteClean.includes("saut") ||
+            texteClean.includes("plie");
+          break;
+      }
 
-  // On stocke les pavés valides uniquement
-  if (esquiveValide) {
-    epreuve.tirEnCours.messages.push({
-      jid: senderJid,
-      texte: texteClean
-    });
-  }
+      if (esquiveValide) {
+        epreuve.tirEnCours.messages.push({
+          jid: senderJid,
+          texte: texteClean
+        });
+      }
 
-  // Dès que la cible envoie SON pavé valide → verdict
-  if (
-    senderJid === epreuve.tirEnCours.cible &&
-    esquiveValide
-  ) {
-    clearTimeout(epreuve.timerPaves);
-    await verdictFinal(chatId, ovl);
-  }
+      if (
+        senderJid === epreuve.tirEnCours.cible &&
+        esquiveValide
+      ) {
+        clearTimeout(epreuve.timerPaves);
+        await verdictFinal(chatId, ovl);
+      }
+    }
+  });
 }
 
-    // ──────────────────────────────
-// 3️⃣ PARTIE 3: VERDICT FINAL 
-// ──────────────────────────────    
+// ──────────────────────────────
+// VERDICT FINAL
+// ──────────────────────────────
 async function verdictFinal(chatId, ovl) {
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve?.tirEnCours) return;
 
   const { auteur, cible } = epreuve.tirEnCours;
-
   const loup = epreuve.participants.find(p => p.jid === auteur);
   const cibleP = epreuve.participants.find(p => p.jid === cible);
 
@@ -282,7 +278,6 @@ async function verdictFinal(chatId, ovl) {
 
   if (touche) {
     epreuve.loupJid = cible;
-
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
       gifPlayback: true,
@@ -303,10 +298,9 @@ async function verdictFinal(chatId, ovl) {
     });
   }
 
-  // RESET PROPRE
   epreuve.tirEnCours = null;
   epreuve.timerPaves = null;
-} 
+}
 
 // ──────────────────────────────
 // EXPORT
@@ -314,4 +308,4 @@ async function verdictFinal(chatId, ovl) {
 module.exports = {
   epreuvesLoup,
   initLoupListener
-};            
+};
