@@ -44,6 +44,19 @@ function renderFicheParticipants(epreuve) {
 }
 
 // ──────────────────────────────
+// EXTRACTION DU TEXY
+// ──────────────────────────────
+function extraireTexteAction(texte) {
+  const idx = texte.indexOf("⚽");
+  if (idx === -1) return null;
+
+  return cleanText(
+    texte
+      .slice(idx + 1)                 // après ⚽
+      .replace(/⚽\s*blue🔷lock🥅/gi, "") // enlève la signature
+  );
+}
+// ──────────────────────────────
 // LANCEMENT DE L'ÉPREUVE
 // ──────────────────────────────
 ovlcmd({
@@ -165,7 +178,7 @@ function initLoupListener(ovl) {
 
     const estPave =
   texte.includes("💬:") &&
-  /⚽\s*blue🔷lock🥅/i.test(texte);
+  /⚽[\s\S]*?blue🔷lock🥅/i.test(texte);
 
 if (!estPave) return;
 
@@ -200,11 +213,10 @@ if (!zone) return;
         zone,
         messages: []
       };
-
-      await ovl.sendMessage(chatId, {
-        caption: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
-        mentions: [cible.jid]
-      });
+await ovl.sendMessage(chatId, {
+  text: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
+  mentions: [cible.jid]
+});
 
       epreuve.timerPaves = setTimeout(
         () => verdictFinal(chatId, ovl),
