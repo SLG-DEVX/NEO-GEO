@@ -156,7 +156,7 @@ function initLoupListener(ovl) {
       const epreuve = epreuvesLoup.get(chatId);
       if (!epreuve || !epreuve.loupJid) return;
 
-      const senderJid = normalizeJid(ms.sender || ms.key?.participant);
+      const senderJid = normalizeJid(ms.key.participant);
       const texte = ms.message.conversation || ms.message.extendedTextMessage?.text;
       if (!texte) return;
 
@@ -187,39 +187,41 @@ function initLoupListener(ovl) {
   // Zone
   const zoneMatch = clean.match(/t[eé]te|torse|abdomen|jambe gauche|jambe droite/);
   if (!zoneMatch) return;
-
-  // Mentions (LA CLÉ)
-  const mentions =
-    ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-
-  if (!mentions.length) return;
-
-  const cibleJid = normalizeJid(mentions[0]);
-
-  const cible = epreuve.participants.find(p => p.jid === cibleJid);
-  if (!cible || cible.jid === epreuve.loupJid) return;
-
-  epreuve.tirEnCours = {
-    auteur: epreuve.loupJid,
-    cible: cible.jid,
-    zone: zoneMatch[0]
-  };
-
-  await ovl.sendMessage(chatId, {
-    caption: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
-    mentions: epreuve.participants.map(p => p.jid)
-  });
-
-  epreuve.timerPaves = setTimeout(async () => {
-    await verdictFinal(chatId, ovl);
-  }, 3 * 60 * 1000);
+        
+// Mentions (LA CLÉ – VERSION QUI MARCHE)
+function normalizeFullJid(jid) {
+  if (!jid) return null;
+  return jid.replace(':0', '').trim();
 }
 
-    } catch (err) {
-      console.error("Listener Loup erreur :", err);
-    }
-  });
-}
+const mentions =
+  ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+if (!mentions.length) return;
+
+const cibleJid = normalizeFullJid(mentions[0]);
+
+const cible = epreuve.participants.find(
+  p => normalizeFullJid(p.jid) === cibleJid
+);
+
+if (!cible || cible.jid === epreuve.loupJid) return;
+
+epreuve.tirEnCours = {
+  auteur: epreuve.loupJid,
+  cible: cible.jid,
+  zone: zoneMatch[0]
+};
+
+await ovl.sendMessage(chatId, {
+  caption: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
+  mentions: [cible.jid]
+});
+
+epreuve.timerPaves = setTimeout(async () => {
+  await verdictFinal(chatId, ovl);
+}, 3 * 60 * 1000);
+  
 
 // ──────────────────────────────
 // VERDICT FINAL
