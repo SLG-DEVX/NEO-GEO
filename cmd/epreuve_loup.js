@@ -44,7 +44,7 @@ function renderFicheParticipants(epreuve) {
 }
 
 // ──────────────────────────────
-// EXTRACTION DU TEXY
+// EXTRACTION DU TEXT
 // ──────────────────────────────
 function extraireTexteAction(texte) {
   const idx = texte.indexOf("⚽");
@@ -56,6 +56,20 @@ function extraireTexteAction(texte) {
       .replace(/⚽\s*blue🔷lock🥅/gi, "") // enlève la signature
   );
 }
+
+// ──────────────────────────────
+// EXTRACTION DU TEXT
+// ──────────────────────────────
+function extraireCibleDepuisTexte(texteAction, participants) {
+  for (const p of participants) {
+    const tagClean = cleanTag(p.tag);
+    if (texteAction.includes(tagClean)) {
+      return p;
+    }
+  }
+  return null;
+}
+
 // ──────────────────────────────
 // LANCEMENT DE L'ÉPREUVE
 // ──────────────────────────────
@@ -197,15 +211,13 @@ if (!texteAction) return;
 
 if (!zone) return;
 
-      const mentions =
-        ms.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
-      if (!mentions.length) return;
+      const cible = extraireCibleDepuisTexte(
+  texteAction,
+  epreuve.participants
+);
 
-      const cibleJid = normalizeJid(mentions[0]);
-      const cible = epreuve.participants.find(
-        p => normalizeJid(p.jid) === cibleJid
-      );
-      if (!cible || cible.jid === epreuve.loupJid) return;
+if (!cible) return;
+if (cible.jid === epreuve.loupJid) return;
 
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
