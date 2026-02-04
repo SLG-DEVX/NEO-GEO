@@ -161,7 +161,7 @@ function initLoupListener(ovl) {
       ms.message.extendedTextMessage?.text;
     if (!texte) return;
 
-    const estPave = /💬:[\s\S]*?⚽BLUE🔷LOCK🥅\*/i.test(texte);
+    const estPave = /💬:[\s\S]*?⚽BLUE🔷LOCK🥅\s*\*/i.test(texte);
 
     // ────────────────
     // TIR DU LOUP
