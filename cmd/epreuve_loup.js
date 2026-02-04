@@ -47,14 +47,10 @@ function renderFicheParticipants(epreuve) {
 // EXTRACTION DU TEXT
 // ──────────────────────────────
 function extraireTexteAction(texte) {
-  const idx = texte.indexOf("⚽");
-  if (idx === -1) return null;
+  const match = texte.match(/⚽([\s\S]*?)⚽\s*blue🔷lock🥅/i);
+  if (!match) return null;
 
-  return cleanText(
-    texte
-      .slice(idx + 1)                 // après ⚽
-      .replace(/⚽\s*blue🔷lock🥅/gi, "") // enlève la signature
-  );
+  return cleanText(match[1]);
 }
 
 // ──────────────────────────────
@@ -311,7 +307,7 @@ async function verdictFinal(chatId, ovl) {
   const touche = Math.random() * 100 < chance;
 
   if (touche) {
-    epreuve.loupJid = cible;
+    epreuve.loupJid = normalizeJid(cible);
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
       gifPlayback: true,
