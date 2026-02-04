@@ -154,7 +154,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   if (epreuve.participants.length < 2) return repondre("❌ Il faut au moins 2 participants.");
   if (!loupJid) return repondre("❌ Aucun joueur avec (Loup) détecté.");
 
-  epreuve.loupJid = loupJid;
+  epreuve.loupJid = normalizeJid(loupJid);
   epreuve.debut = false;
 
   const mentionId = loupJid.split('@')[0];
