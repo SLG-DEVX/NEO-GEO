@@ -148,116 +148,165 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 // ──────────────────────────────
 function initLoupListener(ovl) {
   ovl.ev.on("messages.upsert", async ({ messages }) => {
-    try {
-      const ms = messages?.[0];
-      if (!ms || !ms.message || ms.key.fromMe) return;
+    const ms = messages?.[0];
+    if (!ms || !ms.message || ms.key.fromMe) return;
 
-      const chatId = ms.key.remoteJid;
-      const epreuve = epreuvesLoup.get(chatId);
-      if (!epreuve || !epreuve.loupJid) return;
+    const chatId = ms.key.remoteJid;
+    const epreuve = epreuvesLoup.get(chatId);
+    if (!epreuve || !epreuve.loupJid) return;
 
-      const senderJid = normalizeJid(ms.key.participant);
-      const texte = ms.message.conversation || ms.message.extendedTextMessage?.text;
-      if (!texte) return;
+    const senderJid = normalizeJid(ms.key.participant);
+    const texte =
+      ms.message.conversation ||
+      ms.message.extendedTextMessage?.text;
+    if (!texte) return;
 
-      // Si tir en cours, gérer l'esquive
-      if (epreuve.tirEnCours) {
-        const cibleJid = epreuve.tirEnCours.cible;
-        if (senderJid === cibleJid) {
-          const t = cleanText(texte);
-          let valide = false;
-          switch (epreuve.tirEnCours.zone) {
-            case "tête": valide = t.includes("baisse") || t.includes("accroupi"); break;
-            case "torse":
-            case "abdomen": valide = t.includes("décale") || t.includes("bond"); break;
-            default: valide = t.includes("plie") || t.includes("bond"); break;
-          }
-          if (valide) {
-            clearTimeout(epreuve.timerPaves);
-            await verdictFinal(chatId, ovl);
-          }
-        }
-        return;
-      }
+    const estPave = /💬:[\s\S]*?⚽BLUE🔷LOCK🥅\*/i.test(texte);
 
-      // Détection automatique du tir du Loup
-      if (senderJid === epreuve.loupJid) {
-  const clean = cleanText(texte);
+    // ──────────────────────────────
+    // 1️⃣ PARTIE 2 : TIR DU LOUP
+    // ──────────────────────────────
+    if (!epreuve.tirEnCours) {
+      if (senderJid !== epreuve.loupJid) return;
+      if (!estPave) return;
 
-  // Zone
-  const zoneMatch = clean.match(/t[eé]te|torse|abdomen|jambe gauche|jambe droite/);
-  if (!zoneMatch) return;
-        
-// Mentions (LA CLÉ – VERSION QUI MARCHE)
-function normalizeFullJid(jid) {
-  if (!jid) return null;
-  return jid.replace(':0', '').trim();
+      const zone = cleanText(texte)
+        .match(/t[eé]te|torse|abdomen|jambe gauche|jambe droite/)?.[0];
+      if (!zone) return;
+
+      const mentions =
+        ms.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+      if (!mentions.length) return;
+
+      const cibleJid = normalizeJid(mentions[0]);
+      const cible = epreuve.participants.find(
+        p => normalizeJid(p.jid) === cibleJid
+      );
+      if (!cible || cible.jid === epreuve.loupJid) return;
+
+      // ➜ Tir validé
+      epreuve.tirEnCours = {
+        auteur: epreuve.loupJid,
+        cible: cible.jid,
+        zone,
+        messages: []
+      };
+
+      await ovl.sendMessage(chatId, {
+        caption: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
+        mentions: [cible.jid]
+      });
+
+      epreuve.timerPaves = setTimeout(
+        () => verdictFinal(chatId, ovl),
+        3 * 60 * 1000
+      );
+      return;
+    }
+ // ──────────────────────────────
+// 2️⃣ PARTIE 2: ESQUIVE
+// ──────────────────────────────
+if (epreuve.tirEnCours) {
+  if (!estPave) return;
+
+  const texteClean = cleanText(texte);
+  const zone = epreuve.tirEnCours.zone;
+
+  let esquiveValide = false;
+
+  switch (zone) {
+    case "tête":
+    case "tete":
+      esquiveValide =
+        texteClean.includes("baisse") ||
+        texteClean.includes("baisser") ||
+        texteClean.includes("accroupi") ||
+        texteClean.includes("accroupir");
+      break;
+
+    case "torse":
+    case "abdomen":
+      esquiveValide =
+        texteClean.includes("décale") ||
+        texteClean.includes("decale") ||
+        texteClean.includes("décalage") ||
+        texteClean.includes("bond");
+      break;
+
+    case "jambe gauche":
+    case "jambe droite":
+      esquiveValide =
+        texteClean.includes("bond") ||
+        texteClean.includes("saute") ||
+        texteClean.includes("saut") ||
+        texteClean.includes("plie");
+      break;
+  }
+
+  // On stocke les pavés valides uniquement
+  if (esquiveValide) {
+    epreuve.tirEnCours.messages.push({
+      jid: senderJid,
+      texte: texteClean
+    });
+  }
+
+  // Dès que la cible envoie SON pavé valide → verdict
+  if (
+    senderJid === epreuve.tirEnCours.cible &&
+    esquiveValide
+  ) {
+    clearTimeout(epreuve.timerPaves);
+    await verdictFinal(chatId, ovl);
+  }
 }
 
-const mentions =
-  ms.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-
-if (!mentions.length) return;
-
-const cibleJid = normalizeFullJid(mentions[0]);
-
-const cible = epreuve.participants.find(
-  p => normalizeFullJid(p.jid) === cibleJid
-);
-
-if (!cible || cible.jid === epreuve.loupJid) return;
-
-epreuve.tirEnCours = {
-  auteur: epreuve.loupJid,
-  cible: cible.jid,
-  zone: zoneMatch[0]
-};
-
-await ovl.sendMessage(chatId, {
-  caption: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
-  mentions: [cible.jid]
-});
-
-epreuve.timerPaves = setTimeout(async () => {
-  await verdictFinal(chatId, ovl);
-}, 3 * 60 * 1000);
-  
-
-// ──────────────────────────────
-// VERDICT FINAL
-// ──────────────────────────────
+    // ──────────────────────────────
+// 3️⃣ PARTIE 3: VERDICT FINAL 
+// ──────────────────────────────    
 async function verdictFinal(chatId, ovl) {
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve?.tirEnCours) return;
 
-  const loupJid = epreuve.tirEnCours.auteur;
-  const cibleJid = epreuve.tirEnCours.cible;
-  const loup = epreuve.participants.find(p => p.jid === loupJid);
-  const cible = epreuve.participants.find(p => p.jid === cibleJid);
+  const { auteur, cible } = epreuve.tirEnCours;
 
-  const chance = 50 + Math.max(Math.min(loup.niveau - cible.niveau, 20), -20);
-  const hit = Math.random()*100 < chance;
+  const loup = epreuve.participants.find(p => p.jid === auteur);
+  const cibleP = epreuve.participants.find(p => p.jid === cible);
 
-  if (hit) {
-    epreuve.loupJid = cibleJid;
+  const chance = 50 + Math.max(
+    Math.min(loup.niveau - cibleP.niveau, 20),
+    -20
+  );
+
+  const touche = Math.random() * 100 < chance;
+
+  if (touche) {
+    epreuve.loupJid = cible;
+
     await ovl.sendMessage(chatId, {
       video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
       gifPlayback: true,
-      caption: `✅ **TOUCHÉ !**\n@${cible.tag} devient le nouveau Loup 🐺.`,
-      mentions: [cibleJid]
+      caption: `✅ **TOUCHÉ !**\n@${cibleP.tag} devient le nouveau Loup 🐺.`,
+      mentions: [cible]
     });
   } else {
-    const gifsRate = ['https://files.catbox.moe/obqo0d.mp4','https://files.catbox.moe/m00580.mp4'];
+    const gifsRate = [
+      'https://files.catbox.moe/obqo0d.mp4',
+      'https://files.catbox.moe/m00580.mp4'
+    ];
+
     await ovl.sendMessage(chatId, {
-      video: { url: gifsRate[Math.floor(Math.random()*gifsRate.length)] },
+      video: { url: gifsRate[Math.floor(Math.random() * gifsRate.length)] },
       gifPlayback: true,
       caption: `❌ **RATÉ !**\nLe tir n'a pas touché sa cible. Le Loup reste @${loup.tag}.`,
-      mentions: [loupJid]
+      mentions: [auteur]
     });
   }
 
+  // RESET PROPRE
   epreuve.tirEnCours = null;
-}
+  epreuve.timerPaves = null;
+} 
 
 // ──────────────────────────────
 // EXPORT
@@ -265,4 +314,4 @@ async function verdictFinal(chatId, ovl) {
 module.exports = {
   epreuvesLoup,
   initLoupListener
-};
+};            
