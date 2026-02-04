@@ -155,7 +155,9 @@ function initLoupListener(ovl) {
     const epreuve = epreuvesLoup.get(chatId);
     if (!epreuve || !epreuve.loupJid) return;
 
-    const senderJid = normalizeJid(ms.key.participant);
+    const senderJid = normalizeJid(
+  ms.key.participant || ms.key.remoteJid
+);
     const texte =
       ms.message.conversation ||
       ms.message.extendedTextMessage?.text;
