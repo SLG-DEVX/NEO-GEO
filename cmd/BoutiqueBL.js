@@ -147,7 +147,7 @@ ovlcmd({
     ficheTeam.argent = Number(ficheTeam.argent) || 0;
 
     await ovl.sendMessage(ms_org, {
-      image: { url: 'https://files.catbox.moe/s5pyu9.jpg' },
+      image: { url: 'https://files.catbox.moe/xg9pjh.jpg' },
       caption: `╭───〔 *⚽BOUTIQUE BLUE LOCK🔷* 〕
 
 😃Bienvenue dans la boutique BLUE🔷LOCK ! 🛒🛍️🎁
