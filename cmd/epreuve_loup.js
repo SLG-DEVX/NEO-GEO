@@ -188,176 +188,78 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
   });
 });
 
+
 // ──────────────────────────────
-// LISTENER AUTOMATIQUE
+// TIR LOUP
 // ──────────────────────────────
-function initLoupListener(ovl) {
-  ovl.ev.on("messages.upsert", async ({ messages }) => {
-    const ms = messages?.[0];
-    if (!ms || !ms.message) return;
+// ==================================================
+// EXTRACTION DU TIR DU LOUP
+// ==================================================
+function extraireTirLoup(message, loupJid) {
+  if (!message || normalizeJid(message.sender) !== normalizeJid(loupJid)) return null;
 
-    const chatId = ms.key.remoteJid;
-    const epreuve = epreuvesLoup.get(chatId);
-    if (!epreuve || !epreuve.loupJid) return;
+  const texte = message.body || message.text || "";
+  if (!texte.includes("⚽")) return null;
 
-    const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
+  // On prend uniquement ce qu'il y a APRÈS ⚽
+  const tirTexte = texte.split("⚽")[1]?.trim();
+  if (!tirTexte) return null;
 
-    // Récupération du texte
-    const texte =
-      ms.message.conversation ||
-      ms.message.extendedTextMessage?.text ||
-      ms.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
-      ms.message.buttonsResponseMessage?.selectedButtonId;
+  const mentions = message.mentions || [];
+  if (!mentions.length) return null;
 
-    if (!texte) return;
+  return {
+    tirTexte,
+    cibleJid: normalizeJid(mentions[0])
+  };
+}
 
-    const texteClean = cleanText(texte);
-    console.log("🔹 TEXTE REÇU :", texteClean, "| de :", senderJid);
+// ==================================================
+// GESTION DU MESSAGE DE TIR
+// ==================================================
+async function gererMessageTir(message) {
+  if (!epreuve || epreuve.debut !== false) return;
+  if (epreuve.tir) return; // le loup a déjà tiré
 
-    // ────────────────
-    // 1️⃣ Pavé du Loup
-    // ────────────────
-    if (!epreuve.tirEnCours && jidBase(senderJid) === jidBase(epreuve.loupJid)) {
-      if (!texteClean.startsWith("⚽")) return;
+  const tir = extraireTirLoup(message, epreuve.loupJid);
+  if (!tir) return;
 
-      epreuve.tirEnCours = {
-        auteur: senderJid,
-        pavé: texte,
-        zone: null,
-        cible: null,
-        messages: [],
-        nextValidated: false,
-        timerPaves: null
-      };
+  const { tirTexte, cibleJid } = tir;
 
-      console.log("📝 Pavé du Loup enregistré :", epreuve.tirEnCours);
-      return;
-    }
+  // Vérifier que la cible est bien un participant
+  const estParticipant = epreuve.participants.some(
+    p => normalizeJid(p.jid) === cibleJid
+  );
+  if (!estParticipant) {
+    return repondre("❌ La cible n'est pas un participant de l'exercice.");
+  }
 
-    // ────────────────
-    // 2️⃣ NEXT⚽ pour valider tir
-    // ────────────────
-    if (epreuve.tirEnCours && !epreuve.tirEnCours.nextValidated) {
-      if (texteClean !== "next⚽") return;
+  // Sauvegarde du tir
+  epreuve.tir = {
+    texte: tirTexte,
+    cibleJid,
+    timestamp: Date.now()
+  };
 
-      const texteAction = extraireTexteAction(epreuve.tirEnCours.pavé);
-      const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
-      const nomMentionne = extraireNomMentionne(texteAction);
+  await ovl.sendMessage(chatId, {
+    text:
+`🎯 **TIR DU LOUP !**
+⚽ ${tirTexte}
 
-      if (!zone || !nomMentionne) {
-        await ovl.sendMessage(chatId, { text: "❌ Zone ou joueur non trouvé dans le pavé du Loup." });
-        epreuve.tirEnCours = null;
-        return;
-      }
-
-      const cible = trouverCibleDepuisListe(nomMentionne, epreuve.participants, epreuve.loupJid);
-      if (!cible) {
-        await ovl.sendMessage(chatId, { text: "❌ Ce joueur n’est pas dans la liste des participants." });
-        epreuve.tirEnCours = null;
-        return;
-      }
-
-      epreuve.tirEnCours.zone = zone;
-      epreuve.tirEnCours.cible = cible.jid;
-      epreuve.tirEnCours.nextValidated = true;
-
-      console.log("✅ Tir validé :", {
-        loup: epreuve.tirEnCours.auteur,
-        cible: epreuve.tirEnCours.cible,
-        zone
-      });
-
-      await ovl.sendMessage(chatId, {
-        text: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
-        mentions: [cible.jid]
-      });
-
-      // Timer pour pavé de la cible
-      epreuve.tirEnCours.timerPaves = setTimeout(async () => {
-        console.log("⏱️ Temps écoulé, analyse du pavé de la cible");
-        await analyseEsquive(chatId, ovl);
-      }, 3 * 60 * 1000);
-
-      return;
-    }
-
-    // ────────────────
-    // 3️⃣ Pavé d’esquive de la cible
-    // ────────────────
-    if (epreuve.tirEnCours && epreuve.tirEnCours.nextValidated) {
-      if (!texteClean.startsWith("⚽")) return;
-      if (senderJid !== epreuve.tirEnCours.cible) return;
-
-      epreuve.tirEnCours.messages.push({ jid: senderJid, texte: texteClean });
-
-      console.log("🛡️ Pavé de la cible reçu :", texteClean);
-
-      clearTimeout(epreuve.tirEnCours.timerPaves);
-      await analyseEsquive(chatId, ovl);
-    }
+🧤 @${jidBase(cibleJid)} tu es la cible !
+Tu as **3 minutes ⏱️** pour envoyer ton pavé de défense.`,
+    mentions: [cibleJid]
   });
-}
 
-// ────────────────
-// Fonction analyseEsquive
-// ────────────────
-async function analyseEsquive(chatId, ovl) {
-  const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve?.tirEnCours) return;
-
-  const { auteur, cible, zone, messages } = epreuve.tirEnCours;
-  const loup = epreuve.participants.find(p => p.jid === auteur);
-  const cibleP = epreuve.participants.find(p => p.jid === cible);
-
-  const pavéCible = messages.find(m => m.jid === cible)?.texte || "";
-  let esquiveValide = false;
-
-  switch (zone) {
-    case "tete":
-    case "tête":
-      esquiveValide = pavéCible.includes("baisse") || pavéCible.includes("accroupi");
-      break;
-    case "torse":
-    case "abdomen":
-      esquiveValide = pavéCible.includes("decale") || pavéCible.includes("bond");
-      break;
-    case "jambe gauche":
-    case "jambe droite":
-      esquiveValide = pavéCible.includes("bond") || pavéCible.includes("saute") || pavéCible.includes("plie");
-      break;
-  }
-
-  const chance = 50 + Math.max(Math.min(loup.niveau - cibleP.niveau, 20), -20);
-  const touche = !esquiveValide && Math.random() * 100 < chance;
-
-  if (touche) {
-    epreuve.loupJid = normalizeJid(cible);
-    await ovl.sendMessage(chatId, {
-      video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-      gifPlayback: true,
-      caption: `✅ **TOUCHÉ !**\n@${cibleP.tag} devient le nouveau Loup 🐺.`,
-      mentions: [cible]
-    });
-  } else {
-    const gifsRate = [
-      'https://files.catbox.moe/obqo0d.mp4',
-      'https://files.catbox.moe/m00580.mp4'
-    ];
-    await ovl.sendMessage(chatId, {
-      video: { url: gifsRate[Math.floor(Math.random() * gifsRate.length)] },
-      gifPlayback: true,
-      caption: `❌ **RATÉ !**\nLe tir n'a pas touché sa cible. Le Loup reste @${loup.tag}.`,
-      mentions: [auteur]
-    });
-  }
-
-  epreuve.tirEnCours = null;
-}
-
-// ──────────────────────────────
-// EXPORT
-// ──────────────────────────────
-module.exports = {
-  epreuvesLoup,
-  initLoupListener
-};
+  // Timer défense (3 minutes)
+  epreuve.timerDefense = setTimeout(() => {
+    if (!epreuve.defense) {
+      ovl.sendMessage(chatId, {
+        text:
+`⛔ **TEMPS ÉCOULÉ !**
+@${jidBase(cibleJid)} n'a pas défendu à temps.`,
+        mentions: [cibleJid]
+      });
+    }
+  }, 3 * 60 * 1000);
+    }
