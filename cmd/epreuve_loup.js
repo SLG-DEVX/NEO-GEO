@@ -188,78 +188,105 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
   });
 });
 
+// ──────────────────────────────
+// TIR DU LOUP
+// ──────────────────────────────
 
-// ──────────────────────────────
-// TIR LOUP
-// ──────────────────────────────
-// ==================================================
 // EXTRACTION DU TIR DU LOUP
-// ==================================================
 function extraireTirLoup(message, loupJid) {
-  if (!message || normalizeJid(message.sender) !== normalizeJid(loupJid)) return null;
+  try {
+    if (!message) return null;
+    if (normalizeJid(message.sender) !== normalizeJid(loupJid)) return null;
 
-  const texte = message.body || message.text || "";
-  if (!texte.includes("⚽")) return null;
+    const texte = message.body || message.text || "";
+    if (!texte.includes("⚽")) return null;
 
-  // On prend uniquement ce qu'il y a APRÈS ⚽
-  const tirTexte = texte.split("⚽")[1]?.trim();
-  if (!tirTexte) return null;
+    // On prend uniquement ce qu'il y a APRÈS ⚽
+    const tirTexte = texte.split("⚽")[1]?.trim();
+    if (!tirTexte) return null;
 
-  const mentions = message.mentions || [];
-  if (!mentions.length) return null;
+    const mentions = message.mentions || [];
+    if (!mentions.length) return null;
 
-  return {
-    tirTexte,
-    cibleJid: normalizeJid(mentions[0])
-  };
+    return {
+      tirTexte,
+      cibleJid: normalizeJid(mentions[0])
+    };
+  } catch (err) {
+    console.error("[LOUP][EXTRACTION TIR] ❌", err);
+    return null;
+  }
 }
 
-// ==================================================
 // GESTION DU MESSAGE DE TIR
-// ==================================================
-async function gererMessageTir(message) {
-  if (!epreuve || epreuve.debut !== false) return;
-  if (epreuve.tir) return; // le loup a déjà tiré
+async function gererMessageTir(message, ovl) {
+  try {
+    if (!message) return;
 
-  const tir = extraireTirLoup(message, epreuve.loupJid);
-  if (!tir) return;
+    const chatId = message.key?.remoteJid;
+    if (!chatId) return;
 
-  const { tirTexte, cibleJid } = tir;
+    const epreuve = epreuvesLoup.get(chatId);
+    if (!epreuve) return;
+    if (epreuve.debut !== false) return;
+    if (epreuve.tirEnCours) return; // sécurité anti double tir
 
-  // Vérifier que la cible est bien un participant
-  const estParticipant = epreuve.participants.some(
-    p => normalizeJid(p.jid) === cibleJid
-  );
-  if (!estParticipant) {
-    return repondre("❌ La cible n'est pas un participant de l'exercice.");
-  }
+    const tir = extraireTirLoup(message, epreuve.loupJid);
+    if (!tir) return;
 
-  // Sauvegarde du tir
-  epreuve.tir = {
-    texte: tirTexte,
-    cibleJid,
-    timestamp: Date.now()
-  };
+    const { tirTexte, cibleJid } = tir;
 
-  await ovl.sendMessage(chatId, {
-    text:
+    console.log("[LOUP][TIR] ⚽", {
+      loup: epreuve.loupJid,
+      cible: cibleJid,
+      texte: tirTexte
+    });
+
+    // Vérifier que la cible est bien un participant
+    const estParticipant = epreuve.participants.some(
+      p => normalizeJid(p.jid) === cibleJid
+    );
+
+    if (!estParticipant) {
+      console.warn("[LOUP][TIR] ❌ Cible non participante :", cibleJid);
+      return;
+    }
+
+    // Sauvegarde du tir
+    epreuve.tirEnCours = {
+      texte: tirTexte,
+      cibleJid,
+      timestamp: Date.now()
+    };
+
+    await ovl.sendMessage(chatId, {
+      text:
 `🎯 **TIR DU LOUP !**
 ⚽ ${tirTexte}
 
 🧤 @${jidBase(cibleJid)} tu es la cible !
 Tu as **3 minutes ⏱️** pour envoyer ton pavé de défense.`,
-    mentions: [cibleJid]
-  });
+      mentions: [cibleJid]
+    });
 
-  // Timer défense (3 minutes)
-  epreuve.timerDefense = setTimeout(() => {
-    if (!epreuve.defense) {
-      ovl.sendMessage(chatId, {
-        text:
+    // Timer défense (3 minutes)
+    epreuve.timerPaves = setTimeout(async () => {
+      try {
+        if (!epreuve.defense) {
+          console.log("[LOUP][DEFENSE] ⛔ Temps écoulé :", cibleJid);
+          await ovl.sendMessage(chatId, {
+            text:
 `⛔ **TEMPS ÉCOULÉ !**
 @${jidBase(cibleJid)} n'a pas défendu à temps.`,
-        mentions: [cibleJid]
-      });
-    }
-  }, 3 * 60 * 1000);
-    }
+            mentions: [cibleJid]
+          });
+        }
+      } catch (err) {
+        console.error("[LOUP][TIMER DEFENSE] ❌", err);
+      }
+    }, 3 * 60 * 1000);
+
+  } catch (err) {
+    console.error("[LOUP][GERER TIR] ❌ ERREUR GLOBALE", err);
+  }
+      } 
