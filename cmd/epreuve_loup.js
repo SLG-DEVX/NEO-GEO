@@ -191,27 +191,34 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 // ──────────────────────────────
 // TIR DU LOUP
 // ──────────────────────────────
-
-// EXTRACTION DU TIR DU LOUP
 function extraireTirLoup(message, loupJid) {
   try {
-    if (!message) return null;
-    if (normalizeJid(message.sender) !== normalizeJid(loupJid)) return null;
+    if (!message?.message) return null;
+    if (normalizeJid(message.key?.participant || message.key?.remoteJid) !== normalizeJid(loupJid)) return null;
 
-    const texte = message.body || message.text || "";
+    // 📌 Récupération TEXTE réel WhatsApp
+    const texte =
+      message.message.conversation ||
+      message.message.extendedTextMessage?.text ||
+      "";
+
     if (!texte.includes("⚽")) return null;
 
-    // On prend uniquement ce qu'il y a APRÈS ⚽
+    // ⚽ tout ce qu'il y a après
     const tirTexte = texte.split("⚽")[1]?.trim();
     if (!tirTexte) return null;
 
-    const mentions = message.mentions || [];
+    // 📌 Récupération mentions réelles
+    const mentions =
+      message.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
     if (!mentions.length) return null;
 
     return {
       tirTexte,
       cibleJid: normalizeJid(mentions[0])
     };
+
   } catch (err) {
     console.error("[LOUP][EXTRACTION TIR] ❌", err);
     return null;
@@ -221,6 +228,7 @@ function extraireTirLoup(message, loupJid) {
 // GESTION DU MESSAGE DE TIR
 async function gererMessageTir(message, ovl) {
   try {
+    console.log("[DEBUG][MESSAGE REÇU]", JSON.stringify(message.message, null, 2));
     if (!message) return;
 
     const chatId = message.key?.remoteJid;
