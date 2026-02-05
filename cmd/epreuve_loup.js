@@ -220,11 +220,20 @@ function initLoupListener(ovl) {
       if (jidBase(senderJid) !== jidBase(epreuve.loupJid)) return;
 
       const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
-      if (!zone) return;
+      if (!zone) {
+  await ovl.sendMessage(chatId, {
+    text: "❌ Zone invalide. Utilise : tête, torse, abdomen, jambe gauche ou jambe droite."
+  });
+  return;
+}
 
-      const nomMentionne = extraireNomMentionne(texteAction);
-      if (!nomMentionne) return;
-
+const nomMentionne = extraireNomMentionne(texteAction);
+if (!nomMentionne) {
+  await ovl.sendMessage(chatId, {
+    text: "❌ Aucun joueur mentionné. Mentionne un joueur avec @Nom."
+  });
+  return;
+}
       const cible = trouverCibleDepuisListe(
         nomMentionne,
         epreuve.participants,
