@@ -216,24 +216,52 @@ function initLoupListener(ovl) {
     // ────────────────
     // TIR DU LOUP
     // ────────────────
-    if (!epreuve.tirEnCours) {
-      if (jidBase(senderJid) !== jidBase(epreuve.loupJid)) return;
+if (!epreuve.tirEnCours) {
+  if (jidBase(senderJid) !== jidBase(epreuve.loupJid)) return;
 
-      const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
-      if (!zone) {
-  await ovl.sendMessage(chatId, {
-    text: "❌ Zone invalide. Utilise : tête, torse, abdomen, jambe gauche ou jambe droite."
-  });
-  return;
-}
+  // 🔍 DEBUG — TEXTE
+  console.log("📩 TEXTE BRUT =", texte);
 
-const nomMentionne = extraireNomMentionne(texteAction);
-if (!nomMentionne) {
-  await ovl.sendMessage(chatId, {
-    text: "❌ Aucun joueur mentionné. Mentionne un joueur avec @Nom."
-  });
-  return;
-}
+  const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
+
+  // 🔍 DEBUG — TEXTE ACTION
+  console.log("🎯 TEXTE ACTION =", texteAction);
+
+  if (!zone) {
+    await ovl.sendMessage(chatId, {
+      text: "❌ Zone invalide. Utilise : tête, torse, abdomen, jambe gauche ou jambe droite."
+    });
+    return;
+  }
+
+  const nomMentionne = extraireNomMentionne(texteAction);
+
+  // 🔍 DEBUG — NOM EXTRAIT
+  console.log("👤 NOM EXTRAIT =", nomMentionne);
+
+  if (!nomMentionne) {
+    await ovl.sendMessage(chatId, {
+      text: "❌ Aucun joueur mentionné. Mentionne un joueur avec @Nom."
+    });
+    return;
+  }
+
+  // 🔍 DEBUG — PARTICIPANTS
+  console.log("📋 PARTICIPANTS =", epreuve.participants.map(p => p.tag));
+
+  const cible = trouverCibleDepuisListe(
+    nomMentionne,
+    epreuve.participants,
+    epreuve.loupJid
+  );
+
+  if (!cible) {
+    await ovl.sendMessage(chatId, {
+      text: "❌ Ce joueur n’est pas inscrit dans la liste des participants."
+    });
+    return;
+  } 
+    
       const cible = trouverCibleDepuisListe(
         nomMentionne,
         epreuve.participants,
