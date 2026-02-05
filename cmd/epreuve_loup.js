@@ -72,9 +72,13 @@ function extraireTexteAction(texte) {
 
 // ✅ AJOUT — extraction du nom mentionné
 function extraireNomMentionne(texteAction) {
-  const match = texteAction.match(/@([\s\S]+?)(?:\s|$)/);
-  if (!match) return null;
-  return normalizeComparable(match[1]);
+  const idx = texteAction.indexOf('@');
+  if (idx === -1) return null;
+
+  // tout ce qu’il y a après le @
+  const apresAt = texteAction.slice(idx + 1);
+
+  return normalizeComparable(apresAt);
 }
 
 // ✅ AJOUT — recherche cible dans la liste
