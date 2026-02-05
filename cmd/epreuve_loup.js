@@ -202,42 +202,44 @@ function initLoupListener(ovl) {
 
     const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
 
-    // 🔹 Récupération du texte quel que soit le type de message
-    const texte = ms.message.conversation
-      || ms.message.extendedTextMessage?.text
-      || ms.message.listResponseMessage?.singleSelectReply?.selectedRowId
-      || ms.message.buttonsResponseMessage?.selectedButtonId;
+    // Récupération du texte
+    const texte =
+      ms.message.conversation ||
+      ms.message.extendedTextMessage?.text ||
+      ms.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      ms.message.buttonsResponseMessage?.selectedButtonId;
+
     if (!texte) return;
 
     const texteClean = cleanText(texte);
+    console.log("🔹 TEXTE REÇU :", texteClean, "| de :", senderJid);
 
     // ────────────────
-    // 1️⃣ Enregistrement pavé du Loup
+    // 1️⃣ Pavé du Loup
     // ────────────────
     if (!epreuve.tirEnCours && jidBase(senderJid) === jidBase(epreuve.loupJid)) {
-      if (!texteClean.startsWith("⚽")) return; // Seulement pavé qui commence par ⚽
+      if (!texteClean.startsWith("⚽")) return;
 
-      // On sauvegarde le pavé du Loup en attente de NEXT⚽
       epreuve.tirEnCours = {
-        auteur: epreuve.loupJid,
+        auteur: senderJid,
         pavé: texte,
         zone: null,
         cible: null,
         messages: [],
-        timerPaves: null,
-        nextValidated: false
+        nextValidated: false,
+        timerPaves: null
       };
+
+      console.log("📝 Pavé du Loup enregistré :", epreuve.tirEnCours);
       return;
     }
 
     // ────────────────
-    // 2️⃣ NEXT⚽ pour valider le tir
+    // 2️⃣ NEXT⚽ pour valider tir
     // ────────────────
     if (epreuve.tirEnCours && !epreuve.tirEnCours.nextValidated) {
-      const isNext = texteClean === "next⚽";
-      if (!isNext) return;
+      if (texteClean !== "next⚽") return;
 
-      // Extraction zone et cible du pavé initial
       const texteAction = extraireTexteAction(epreuve.tirEnCours.pavé);
       const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
       const nomMentionne = extraireNomMentionne(texteAction);
@@ -255,18 +257,24 @@ function initLoupListener(ovl) {
         return;
       }
 
-      // Validation du tir
       epreuve.tirEnCours.zone = zone;
       epreuve.tirEnCours.cible = cible.jid;
       epreuve.tirEnCours.nextValidated = true;
+
+      console.log("✅ Tir validé :", {
+        loup: epreuve.tirEnCours.auteur,
+        cible: epreuve.tirEnCours.cible,
+        zone
+      });
 
       await ovl.sendMessage(chatId, {
         text: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
         mentions: [cible.jid]
       });
 
-      // Timer silencieux de 3 min pour le pavé de la cible
+      // Timer pour pavé de la cible
       epreuve.tirEnCours.timerPaves = setTimeout(async () => {
+        console.log("⏱️ Temps écoulé, analyse du pavé de la cible");
         await analyseEsquive(chatId, ovl);
       }, 3 * 60 * 1000);
 
@@ -274,25 +282,25 @@ function initLoupListener(ovl) {
     }
 
     // ────────────────
-    // 3️⃣ Pavé d’esquive du joueur ciblé
+    // 3️⃣ Pavé d’esquive de la cible
     // ────────────────
     if (epreuve.tirEnCours && epreuve.tirEnCours.nextValidated) {
-      if (!texteClean.startsWith("⚽")) return; // Seulement pavé qui commence par ⚽
-      if (senderJid !== epreuve.tirEnCours.cible) return; // Seul le joueur ciblé compte
+      if (!texteClean.startsWith("⚽")) return;
+      if (senderJid !== epreuve.tirEnCours.cible) return;
 
-      // Sauvegarde du pavé pour analyse immédiate
       epreuve.tirEnCours.messages.push({ jid: senderJid, texte: texteClean });
 
-      // Stop le timer et lance le verdict
+      console.log("🛡️ Pavé de la cible reçu :", texteClean);
+
       clearTimeout(epreuve.tirEnCours.timerPaves);
       await analyseEsquive(chatId, ovl);
     }
   });
 }
 
-// ──────────────────────────────
-// Analyse de l’esquive et verdict final
-// ──────────────────────────────
+// ────────────────
+// Fonction analyseEsquive
+// ────────────────
 async function analyseEsquive(chatId, ovl) {
   const epreuve = epreuvesLoup.get(chatId);
   if (!epreuve?.tirEnCours) return;
@@ -301,8 +309,8 @@ async function analyseEsquive(chatId, ovl) {
   const loup = epreuve.participants.find(p => p.jid === auteur);
   const cibleP = epreuve.participants.find(p => p.jid === cible);
 
-  let esquiveValide = false;
   const pavéCible = messages.find(m => m.jid === cible)?.texte || "";
+  let esquiveValide = false;
 
   switch (zone) {
     case "tete":
@@ -343,9 +351,8 @@ async function analyseEsquive(chatId, ovl) {
     });
   }
 
-  // Reset tir en cours
   epreuve.tirEnCours = null;
-}    
+}
 
 // ──────────────────────────────
 // EXPORT
