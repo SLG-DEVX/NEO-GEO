@@ -262,19 +262,6 @@ if (!epreuve.tirEnCours) {
     return;
   } 
     
-      const cible = trouverCibleDepuisListe(
-        nomMentionne,
-        epreuve.participants,
-        epreuve.loupJid
-      );
-
-      if (!cible) {
-        await ovl.sendMessage(chatId, {
-          text: "❌ Ce joueur n’est pas inscrit dans la liste des participants."
-        });
-        return;
-      }
-
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
         cible: cible.jid,
@@ -289,7 +276,7 @@ if (!epreuve.tirEnCours) {
 
       epreuve.timerPaves = setTimeout(
         () => verdictFinal(chatId, ovl),
-        3 * 60 * 1000
+       3 * 60 * 1000
       );
       return;
     }
