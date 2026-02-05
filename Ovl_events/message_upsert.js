@@ -5,28 +5,9 @@ const evt = require("../lib/ovlcmd");
 const config = require("../set");
 const prefixe = config.PREFIXE || "";
 const getJid = require("./cache_jid");
-const { initLoupListener } = require('./epreuve_loup');
-const message_upsert = require('./events/message_upsert');
 
-async function demarrerBot() {
-  const ovl = await require('../lib/ovl_init'); // ton init du bot
-
-  // Active le listener Loup
-  initLoupListener(ovl);
-
-  // Attache ton message_upsert pour tous les messages
-  ovl.ev.on("messages.upsert", async (m) => {
-    await message_upsert(m, ovl);
-  });
-
-  console.log("✅ Bot démarré et listener Loup activé !");
-}
-
-demarrerBot();
-
-
-
-async function message_upsert(m, ovl) {
+// ─────────────── Export direct de la fonction ───────────────
+module.exports = async function message_upsert(m, ovl) {
   try {
     if (m.type !== 'notify') return;
     const ms = m.messages?.[0];
@@ -120,20 +101,18 @@ async function message_upsert(m, ovl) {
     const dev_id = dev_num.includes(auteur_Message);
     const verif_Admin = verif_Groupe && (groupe_Admin.includes(auteur_Message) || prenium_id);
     const ms_badge = {
-  key: {
-    fromMe: false,
-    participant: '0@s.whatsapp.net',
-    remoteJid: '0@s.whatsapp.net',
-  },
-  message: {
-    extendedTextMessage: {
-      text: 'ɴᴇᴏ-ʙᴏᴛ-ᴍᴅ ʙʏ ᴀɪɴᴢ',
-      contextInfo: {
-        mentionedJid: [],
+      key: {
+        fromMe: false,
+        participant: '0@s.whatsapp.net',
+        remoteJid: '0@s.whatsapp.net',
       },
-    },
-  }
-};
+      message: {
+        extendedTextMessage: {
+          text: 'ɴᴇᴏ-ʙᴏᴛ-ᴍᴅ ʙʏ ᴀɪɴᴢ',
+          contextInfo: { mentionedJid: [] },
+        },
+      }
+    };
     const repondre = (msg) => ovl.sendMessage(ms_org, { text: msg }, { quoted: ms });
 
     const cmd_options = {
@@ -198,6 +177,4 @@ async function message_upsert(m, ovl) {
   } catch (e) {
     console.error("❌ Erreur(message.upsert):", e);
   }
-}
-
-module.exports = message_upsert;
+};
