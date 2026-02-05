@@ -20,6 +20,9 @@ function normalizeJid(jid) {
   return jid ? jid.split(':')[0].trim() : '';
 }
 
+function jidBase(jid) {
+  return jid?.split('@')[0];
+}
 // ──────────────────────────────
 // RENDER FICHE PARTICIPANTS
 // ──────────────────────────────
@@ -202,7 +205,10 @@ if (!texteAction) return;
     // TIR DU LOUP
     // ────────────────
     if (!epreuve.tirEnCours) {
-      if (senderJid !== epreuve.loupJid) return;
+      console.log("SENDER =", senderJid);
+console.log("LOUP   =", epreuve.loupJid);
+      
+      if (jidBase(senderJid) !== jidBase(epreuve.loupJid)) return;
       if (!estPave) return;
 
       const zone = texteAction.match(
@@ -217,7 +223,7 @@ if (!zone) return;
 );
 
 if (!cible) return;
-if (cible.jid === epreuve.loupJid) return;
+if (jidBase(cible.jid) === jidBase(epreuve.loupJid)) return;
 
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
