@@ -407,7 +407,7 @@ ovlcmd({
                     *BLUE🔷LOCK⚽*`;
 
       return ovl.sendMessage(ms_org, {
-        image: { url: "https://files.catbox.moe/p94q3m.jpg" },
+        image: { url: "https://files.catbox.moe/kyrnzq.jpg" },
         caption: lineup
       }, { quoted: ms });
     }
