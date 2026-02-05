@@ -217,10 +217,13 @@ console.log("LOUP   =", epreuve.loupJid);
 
 if (!zone) return;
 
-      const cible = extraireCibleDepuisTexte(
-  texteAction,
-  epreuve.participants
+      const mentionedJid = mentions[0];
+if (!mentionedJid) return;
+
+const cible = epreuve.participants.find(
+  p => jidBase(p.jid) === jidBase(mentionedJid)
 );
+if (!cible) return;
 
 if (!cible) return;
 if (jidBase(cible.jid) === jidBase(epreuve.loupJid)) return;
