@@ -5,6 +5,26 @@ const evt = require("../lib/ovlcmd");
 const config = require("../set");
 const prefixe = config.PREFIXE || "";
 const getJid = require("./cache_jid");
+const { initLoupListener } = require('./epreuve_loup');
+const message_upsert = require('./events/message_upsert');
+
+async function demarrerBot() {
+  const ovl = await require('../lib/ovl_init'); // ton init du bot
+
+  // Active le listener Loup
+  initLoupListener(ovl);
+
+  // Attache ton message_upsert pour tous les messages
+  ovl.ev.on("messages.upsert", async (m) => {
+    await message_upsert(m, ovl);
+  });
+
+  console.log("✅ Bot démarré et listener Loup activé !");
+}
+
+demarrerBot();
+
+
 
 async function message_upsert(m, ovl) {
   try {
