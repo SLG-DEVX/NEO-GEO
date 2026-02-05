@@ -47,10 +47,14 @@ function renderFicheParticipants(epreuve) {
 // EXTRACTION DU TEXT
 // ──────────────────────────────
 function extraireTexteAction(texte) {
-  const match = texte.match(/⚽([\s\S]*?)⚽\s*blue🔷lock🥅/i);
-  if (!match) return null;
+  const idx = texte.indexOf("⚽");
+  if (idx === -1) return null;
 
-  return cleanText(match[1]);
+  return cleanText(
+    texte
+      .slice(idx + 1) // tout après le premier ⚽
+      .replace(/blue🔷lock🥅/gi, "")
+  );
 }
 
 // ──────────────────────────────
@@ -202,7 +206,7 @@ if (!texteAction) return;
       if (!estPave) return;
 
       const zone = texteAction.match(
-  /tete|torse|abdomen|jambe gauche|jambe droite/
+  /tete|tête|torse|abdomen|jambe gauche|jambe droite/
 )?.[0];
 
 if (!zone) return;
