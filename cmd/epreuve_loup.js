@@ -194,72 +194,50 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 function initLoupListener(ovl) {
   ovl.ev.on("messages.upsert", async ({ messages }) => {
     const ms = messages?.[0];
-    if (!ms || !ms.message || ms.key.fromMe) return;
+    if (!ms || !ms.message) return;
 
     const chatId = ms.key.remoteJid;
     const epreuve = epreuvesLoup.get(chatId);
     if (!epreuve || !epreuve.loupJid) return;
 
     const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
-    const texte = ms.message.conversation || ms.message.extendedTextMessage?.text;
+
+    // 🔹 Récupération du texte quel que soit le type de message
+    const texte = ms.message.conversation
+      || ms.message.extendedTextMessage?.text
+      || ms.message.listResponseMessage?.singleSelectReply?.selectedRowId
+      || ms.message.buttonsResponseMessage?.selectedButtonId;
     if (!texte) return;
 
-    console.log("🔍 TEXTE POUR PAVE =", texte);
-const estPave = true; // juste pour tester si on arrive au tir
-    if (!estPave) return;
-
-    const texteAction = extraireTexteAction(texte);
-    if (!texteAction) return;
+    console.log("🔍 TEXTE REÇU =", texte);
 
     // ────────────────
-    // TIR DU LOUP
+    // Tir du Loup
     // ────────────────
-if (!epreuve.tirEnCours) {
-  if (jidBase(senderJid) !== jidBase(epreuve.loupJid)) return;
+    if (!epreuve.tirEnCours) {
+      if (jidBase(senderJid) !== jidBase(epreuve.loupJid)) return;
 
-  // 🔍 DEBUG — TEXTE
-  console.log("📩 TEXTE BRUT =", texte);
+      const texteAction = extraireTexteAction(texte);
+      if (!texteAction) return;
 
-  const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
+      const zone = texteAction.match(/tete|tête|torse|abdomen|jambe gauche|jambe droite/)?.[0];
+      if (!zone) {
+        await ovl.sendMessage(chatId, { text: "❌ Zone invalide. Utilise : tête, torse, abdomen, jambe gauche ou jambe droite." });
+        return;
+      }
 
-  // 🔍 DEBUG — TEXTE ACTION
-  console.log("🎯 TEXTE ACTION =", texteAction);
+      const nomMentionne = extraireNomMentionne(texteAction);
+      if (!nomMentionne) {
+        await ovl.sendMessage(chatId, { text: "❌ Aucun joueur mentionné. Mentionne un joueur avec @Nom." });
+        return;
+      }
 
-  if (!zone) {
-    await ovl.sendMessage(chatId, {
-      text: "❌ Zone invalide. Utilise : tête, torse, abdomen, jambe gauche ou jambe droite."
-    });
-    return;
-  }
+      const cible = trouverCibleDepuisListe(nomMentionne, epreuve.participants, epreuve.loupJid);
+      if (!cible) {
+        await ovl.sendMessage(chatId, { text: "❌ Ce joueur n’est pas inscrit dans la liste des participants." });
+        return;
+      }
 
-  const nomMentionne = extraireNomMentionne(texteAction);
-
-  // 🔍 DEBUG — NOM EXTRAIT
-  console.log("👤 NOM EXTRAIT =", nomMentionne);
-
-  if (!nomMentionne) {
-    await ovl.sendMessage(chatId, {
-      text: "❌ Aucun joueur mentionné. Mentionne un joueur avec @Nom."
-    });
-    return;
-  }
-
-  // 🔍 DEBUG — PARTICIPANTS
-  console.log("📋 PARTICIPANTS =", epreuve.participants.map(p => p.tag));
-
-  const cible = trouverCibleDepuisListe(
-    nomMentionne,
-    epreuve.participants,
-    epreuve.loupJid
-  );
-
-  if (!cible) {
-    await ovl.sendMessage(chatId, {
-      text: "❌ Ce joueur n’est pas inscrit dans la liste des participants."
-    });
-    return;
-  } 
-    
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
         cible: cible.jid,
@@ -272,62 +250,38 @@ if (!epreuve.tirEnCours) {
         mentions: [cible.jid]
       });
 
-      epreuve.timerPaves = setTimeout(
-        () => verdictFinal(chatId, ovl),
-       3 * 60 * 1000
-      );
+      epreuve.timerPaves = setTimeout(() => verdictFinal(chatId, ovl), 3 * 60 * 1000);
       return;
     }
 
-
     // ────────────────
-    // ESQUIVE
+    // Esquive
     // ────────────────
     if (epreuve.tirEnCours) {
-      if (!estPave) return;
-
-      const texteClean = cleanText(texte);
       const zone = epreuve.tirEnCours.zone;
       let esquiveValide = false;
+      const texteClean = cleanText(texte);
 
       switch (zone) {
         case "tete":
-          esquiveValide =
-            texteClean.includes("baisse") ||
-            texteClean.includes("baisser") ||
-            texteClean.includes("accroupi") ||
-            texteClean.includes("accroupir");
+        case "tête":
+          esquiveValide = texteClean.includes("baisse") || texteClean.includes("accroupi");
           break;
-
         case "torse":
         case "abdomen":
-          esquiveValide =
-            texteClean.includes("decale") ||
-            texteClean.includes("decalage") ||
-            texteClean.includes("bond");
+          esquiveValide = texteClean.includes("decale") || texteClean.includes("bond");
           break;
-
         case "jambe gauche":
         case "jambe droite":
-          esquiveValide =
-            texteClean.includes("bond") ||
-            texteClean.includes("saute") ||
-            texteClean.includes("saut") ||
-            texteClean.includes("plie");
+          esquiveValide = texteClean.includes("bond") || texteClean.includes("saute") || texteClean.includes("plie");
           break;
       }
 
       if (esquiveValide) {
-        epreuve.tirEnCours.messages.push({
-          jid: senderJid,
-          texte: texteClean
-        });
+        epreuve.tirEnCours.messages.push({ jid: senderJid, texte: texteClean });
       }
 
-      if (
-        senderJid === epreuve.tirEnCours.cible &&
-        esquiveValide
-      ) {
+      if (senderJid === epreuve.tirEnCours.cible && esquiveValide) {
         clearTimeout(epreuve.timerPaves);
         await verdictFinal(chatId, ovl);
       }
