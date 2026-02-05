@@ -24,7 +24,6 @@ function jidBase(jid) {
   return jid?.split('@')[0];
 }
 
-// ✅ AJOUT — normalisation forte pour comparaison texte
 function normalizeComparable(str) {
   return str
     .normalize("NFKD")
@@ -54,42 +53,6 @@ function renderFicheParticipants(epreuve) {
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
                       ⚽BLUE🔷LOCK`;
   return txt;
-}
-
-// ──────────────────────────────
-// EXTRACTION TEXTE ACTION
-// ──────────────────────────────
-function extraireTexteAction(texte) {
-  const idx = texte.indexOf("⚽");
-  if (idx === -1) return null;
-
-  return cleanText(
-    texte
-      .slice(idx + 1)
-      .replace(/blue🔷lock🥅/gi, "")
-  );
-}
-
-// ✅ AJOUT — extraction du nom mentionné
-function extraireNomMentionne(texteAction) {
-  const idx = texteAction.indexOf('@');
-  if (idx === -1) return null;
-
-  // tout ce qu’il y a après le @
-  const apresAt = texteAction.slice(idx + 1);
-
-  return normalizeComparable(apresAt);
-}
-
-// ✅ AJOUT — recherche cible dans la liste
-function trouverCibleDepuisListe(nomMentionne, participants, loupJid) {
-  for (const p of participants) {
-    if (jidBase(p.jid) === jidBase(loupJid)) continue;
-    if (normalizeComparable(p.tag) === nomMentionne) {
-      return p;
-    }
-  }
-  return null;
 }
 
 // ──────────────────────────────
@@ -186,4 +149,108 @@ Le joueur @${jidBase(loupJid)} est le Loup 🐺⚠️
 Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
     mentions: [loupJid]
   });
+});
+
+// ──────────────────────────────
+// GESTION AUTOMATIQUE DES TIRS
+// ──────────────────────────────
+async function gererMessageTir(message, ovl, getJid) {
+  try {
+    if (!message?.message) return;
+    const chatId = message.key?.remoteJid;
+    if (!chatId) return;
+
+    const epreuve = epreuvesLoup.get(chatId);
+    if (!epreuve || !epreuve.loupJid || epreuve.tirEnCours) return;
+
+    const auteur = normalizeJid(message.key?.participant || message.key?.remoteJid);
+    if (auteur !== epreuve.loupJid) return;
+
+    const texte = message.message.conversation || message.message.extendedTextMessage?.text || "";
+    const mentions = message.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+    if (!texte.includes("⚽") || mentions.length === 0) return;
+
+    const cibleJid = normalizeJid(mentions[0]);
+    const cible = epreuve.participants.find(p => normalizeJid(p.jid) === cibleJid);
+    if (!cible) return;
+
+    const tirTexte = texte.split("⚽")[1]?.trim() || "Tir du Loup";
+
+    epreuve.tirEnCours = { cibleJid, texte: tirTexte, timestamp: Date.now() };
+
+    // Calcul du succès automatique
+    let chance = 50 + (Math.random() * 20 - 10);
+    const touché = Math.random() * 100 <= chance;
+
+    if (touché) {
+      epreuve.loupJid = cibleJid;
+      await ovl.sendMessage(chatId, {
+        video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+        gifPlayback: true,
+        caption: `✅ **TOUCHÉ !**\n@${jidBase(cibleJid)} devient le nouveau Loup 🐺.`,
+        mentions: [cibleJid]
+      });
+    } else {
+      await ovl.sendMessage(chatId, {
+        video: { url: ['https://files.catbox.moe/obqo0d.mp4','https://files.catbox.moe/m00580.mp4'][Math.floor(Math.random()*2)] },
+        gifPlayback: true,
+        caption: `❌ **RATÉ !**\nLe Loup reste @${jidBase(epreuve.loupJid)}.`,
+        mentions: [epreuve.loupJid]
+      });
+    }
+
+    epreuve.tirEnCours = null;
+
+  } catch (err) {
+    console.error("[LOUP][GERER TIR] ❌", err);
+  }
+}
+
+// OvLCMD global pour écouter tous les messages
+ovlcmd({
+  nom_cmd: 'tir_loup_auto',
+  isfunc: true
+}, async (ms_org, ovl, { texte, getJid }) => {
+  await gererMessageTir(ms_org, ovl, getJid);
+});
+
+// ──────────────────────────────
+// COMMANDES UTILITAIRES : PAUSE / STOP / PING
+// ──────────────────────────────
+ovlcmd({ nom_cmd: 'stoploup', desc: "Arrête l'épreuve", react: '🛑' }, async (ms_org, ovl, { repondre, commande }) => {
+  if (commande !== 'stoploup') return;
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve) return;
+
+  clearTimeout(epreuve.timerPaves);
+  epreuvesLoup.delete(chatId);
+  await ovl.sendMessage(chatId, { text: `🛑 Épreuve arrêtée manuellement.\nLoup actuel : @${jidBase(epreuve.loupJid)}`, mentions: [epreuve.loupJid] });
+});
+
+ovlcmd({ nom_cmd: 'pauseloup', desc: "Pause", react: '⏸️' }, async (ms_org, ovl, { repondre, commande }) => {
+  if (commande !== 'pauseloup') return;
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve) return;
+
+  clearTimeout(epreuve.timerPaves);
+  await ovl.sendMessage(chatId, { text: "⏸️ Épreuve pausée." });
+});
+
+ovlcmd({ nom_cmd: 'resumeloup', desc: "Reprise", react: '▶️' }, async (ms_org, ovl, { repondre, commande }) => {
+  if (commande !== 'resumeloup') return;
+  const chatId = ms_org.key?.remoteJid || ms_org;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve || !epreuve.loupJid) return;
+
+  await ovl.sendMessage(chatId, { text: "▶️ Épreuve reprise." });
+});
+
+ovlcmd({ nom_cmd: 'ping', desc: "Ping test", react: '🏓' }, async (ms_org, ovl, { repondre, texte }) => {
+  if (!texte?.toLowerCase().startsWith('+ping')) return;
+  const t1 = Date.now();
+  await repondre("🏓 Pong !");
+  const t2 = Date.now();
+  await repondre(`⏱️ Latence : ${t2 - t1}ms`);
 });
