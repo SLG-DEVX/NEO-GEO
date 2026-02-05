@@ -204,10 +204,8 @@ function initLoupListener(ovl) {
     const texte = ms.message.conversation || ms.message.extendedTextMessage?.text;
     if (!texte) return;
 
-    const estPave =
-      texte.includes("💬:") &&
-      /⚽[\s\S]*?blue🔷lock🥅/i.test(texte);
-
+    console.log("🔍 TEXTE POUR PAVE =", texte);
+const estPave = true; // juste pour tester si on arrive au tir
     if (!estPave) return;
 
     const texteAction = extraireTexteAction(texte);
