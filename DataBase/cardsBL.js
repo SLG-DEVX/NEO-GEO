@@ -385,7 +385,7 @@ const cardsBlueLock = {
   phy: 83,
   def: 83,
   goal: "https://files.catbox.moe/zy7mft.mp4",
-  image: "https://files.catbox.moe/jklwb8.png",
+  image: "https://files.catbox.moe/xh8x69.jpg",
   rank: "A",
   taille: "180cm",
   pieds: "droit"
@@ -402,7 +402,7 @@ const cardsBlueLock = {
   phy: 70,
   def: 80,
   goal: "https://files.catbox.moe/7gww4i.mp4",
-  image: "https://files.catbox.moe/xdfpua.png",
+  image: "https://files.catbox.moe/l1lbgq.jpg",
   rank: "A",
   taille: "183cm",
   pieds: "droit"
@@ -419,7 +419,7 @@ const cardsBlueLock = {
   phy: 75,
   def: 80,
   goal: "https://files.catbox.moe/oog906.mp4",
-  image: "https://files.catbox.moe/jtocd1.png",
+  image: "https://files.catbox.moe/wx0gd3.jpg",
   rank: "A",
   taille: "184cm",
   pieds: "droit"
@@ -436,7 +436,7 @@ const cardsBlueLock = {
   phy: 75,
   def: 75,
   goal: "https://files.catbox.moe/cwmmhe.mp4",
-  image: "https://files.catbox.moe/xw0u39.png",
+  image: "https://files.catbox.moe/tc21iq.jpg",
   rank: "B",
   taille: "183cm",
   pieds: "gauche"
@@ -453,7 +453,7 @@ const cardsBlueLock = {
   phy: 76,
   def: 78,
   goal: "",
-  image: "https://files.catbox.moe/8m9bhv.png",
+  image: "",
   rank: "B",
   taille: "178cm",
   pieds: "Ambidextre"
