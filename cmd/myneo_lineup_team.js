@@ -523,6 +523,7 @@ ovlcmd({
     console.error("❌ updateGlobalRanking error:", err);
   }
 }
+});
 
 /* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
 ovlcmd({
