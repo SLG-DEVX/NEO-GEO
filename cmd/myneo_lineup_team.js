@@ -538,12 +538,12 @@ async function handleMatchResults(texte, ovl, ms_org) {
     if (!texte || !texte.includes("MATCH RESULTS")) return;
 
     // ─── PARSING MATCH ───
-    const linePlayers = texte.match(
-      /👤(.+?)\s+▒░\s+\*(\d+)\s-\s(\d+)\*\s+▒░\s+👤(.+)/
-    );
-    const lineRatings = texte.match(
-      /📊Rating:\s*(✅|❌)?\s*-\s*📊Rating:\s*(✅|❌)?/
-    );
+const linePlayers = texte.match(
+  /👤(.+?)\s+\*(\d+)\s-\s(\d+)\*\s+👤(.+)/
+);
+const lineRatings = texte.match(
+  /📊Rating:\s*(✅|❌)?\s+-\s+📊Rating:\s*(✅|❌)?/
+);
 
     if (!linePlayers) return;
 
