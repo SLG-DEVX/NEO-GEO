@@ -617,7 +617,6 @@ ovlcmd({
     }
 });
 
-
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
     nom_cmd: "classement⚽",
@@ -630,8 +629,11 @@ ovlcmd({
         const allTeams = Object.values(allPlayersObj)
             .filter(d => d.team === "⚽" && d.name);
 
-        if (!allTeams.length) return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
+        if (!allTeams.length) {
+            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
+        }
 
+        // Tri : goals > wins > niveau > loss
         allTeams.sort((a, b) => {
             if ((b.goals || 0) !== (a.goals || 0)) return (b.goals || 0) - (a.goals || 0);
             if ((b.wins || 0) !== (a.wins || 0)) return (b.wins || 0) - (a.wins || 0);
