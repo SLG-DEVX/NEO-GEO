@@ -557,19 +557,16 @@ ovlcmd({
     }
 });
 
-
 /* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
 ovlcmd({
     nom: "match_results_listener",
     isfunc: true
-}, async (ms_org, ovl, { texte, ms, getJid }) => {
+}, async (ms_org, ovl, { texte, ms }) => {
     if (!texte) return;
-
-    // Vérifie pavé MATCH RESULTS
     if (!texte.includes("🔷⚽ MATCH RESULTS 🥅")) return;
 
     try {
-        // ─── PARSE SCORES ───
+        // ─── PARSE MATCH ───
         const matchLine = texte.match(/👤\s*([^\*]+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+)/);
         const ratingLine = texte.match(/📊Rating:\s*(✅|❌)?\s*-\s*📊Rating:\s*(✅|❌)?/);
 
@@ -578,20 +575,25 @@ ovlcmd({
         let [_, name1, score1, score2, name2] = matchLine;
         let [__, rating1, rating2] = ratingLine;
 
-        // Normalise noms (enlève émojis et caractères invisibles)
-        const cleanName = n => n.replace(/[^\p{L}\p{N}\s]/gu, '').trim();
+        // Nettoyage noms
+        const cleanName = n => n
+            .normalize("NFKC")
+            .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+            .replace(/[^\p{L}\p{N}\s]/gu, '')
+            .trim();
+
         name1 = cleanName(name1);
         name2 = cleanName(name2);
 
-        // Récupération JID
+        // Récupération JID via users
         const jid1 = await findTeamJidByUsers(name1);
-const jid2 = await findTeamJidByUsers(name2);
+        const jid2 = await findTeamJidByUsers(name2);
 
-if (!jid1 || !jid2) {
-    console.log("MATCH RESULTS — joueur introuvable", { name1, name2 });
-    return;
-}
-}
+        if (!jid1 || !jid2) {
+            console.log("MATCH RESULTS — joueur introuvable", { name1, name2 });
+            return;
+        }
+
         const data1 = await getData({ jid: jid1 });
         const data2 = await getData({ jid: jid2 });
         if (!data1 || !data2) return;
@@ -618,45 +620,37 @@ if (!jid1 || !jid2) {
         if (rating2 === "✅") await setfiche("niveau", (data2.niveau || 0) + 1, jid2);
         if (rating2 === "❌") await setfiche("niveau", Math.max(0, (data2.niveau || 0) - 1), jid2);
 
-        // ─── MISE À JOUR CLASSEMENT ───
+        // ─── CLASSEMENT ───
         const allPlayersObj = await getData({ allPlayers: true });
-if (!allPlayersObj || typeof allPlayersObj !== "object") {
-    return ovl.sendMessage(ms_org, { text: "⚠️ Aucune donnée de classement trouvée." });
-}
+        if (!allPlayersObj) return;
 
-const allTeams = Object.values(allPlayersObj)
-    .filter(d => d.team === "⚽" && (d.name || d.users));
+        const allTeams = Object.values(allPlayersObj)
+            .filter(d => d.team === "⚽" && d.users);
 
-        // Tri par goals > wins > niveau > loss
         allTeams.sort((a, b) => {
-            if ((b.goals || 0) !== (a.goals || 0)) return (b.goals || 0) - (a.goals || 0);
-            if ((b.wins || 0) !== (a.wins || 0)) return (b.wins || 0) - (a.wins || 0);
-            if ((b.niveau || 0) !== (a.niveau || 0)) return (b.niveau || 0) - (a.niveau || 0);
+            if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
+            if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
+            if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
             return (a.loss || 0) - (b.loss || 0);
         });
 
-        // Met à jour classement dans la base
         const emojies = ["🥇", "🥈", "🥉"];
         for (let i = 0; i < allTeams.length; i++) {
             const c = emojies[i] || `${i + 1}e`;
-            await setfiche("classement", `${c}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽`, allTeams[i].jid);
+            await setfiche(
+                "classement",
+                `${c}: ${allTeams[i].users} | ${allTeams[i].goals || 0} ⚽`,
+                allTeams[i].jid
+            );
         }
-
-        // ─── ENVOIE CLASSEMENT AUTOMATIQUE APRÈS MATCH ───
-        let classementTexte = "*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
-        for (let i = 0; i < allTeams.length; i++) {
-            const emoji = emojies[i] || `${i + 1}e`;
-            classementTexte += `${emoji}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽\n`;
-        }
-        classementTexte += "\n╰───────────────────\n                  *BLUE🔷LOCK⚽🥅*";
 
         await ovl.sendMessage(ms_org, { text: "✅ Résultats du match mis à jour !" }, { quoted: ms });
-        await ovl.sendMessage(ms_org, { text: classementTexte });
 
     } catch (e) {
         console.error("❌ Erreur listener MATCH RESULTS :", e);
     }
 });
+
 
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
