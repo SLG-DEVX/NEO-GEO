@@ -31,6 +31,25 @@ const pureName = str => {
 };
 const compact = s => pureName(s).replace(/\s+/g, "");
 
+// --- COMPTE COMBIEN DE JOUEURS POSSÈDENT UNE CARTE ---
+async function countCardOwners(cardName) {
+  const users = await MyNeoFunctions.getAllUsers(); // ⚠️ doit exister
+  const normCard = pureName(cardName);
+
+  let count = 0;
+
+  for (const u of users) {
+    if (!u.cards) continue;
+    const owned = u.cards
+      .split("\n")
+      .map(c => pureName(c));
+
+    if (owned.includes(normCard)) count++;
+  }
+
+  return count;
+}
+
 // --- EMOJI PAYS ---
 const countryEmojis = {
   "Japan": "\u{1F1EF}\u{1F1F5}",//🇯🇵
@@ -63,6 +82,26 @@ function calculPrix(card) {
   let ovr = Number(card.ovr || 0);
   let bonusOvr = ovr * 1000;
   return baseRankPrice + bonusOvr;
+}
+
+// --- PRIX DYNAMIQUE + LIMITE ---
+async function getDynamicCardPrice(card) {
+  const basePrice = card.price;
+  const owners = await countCardOwners(card.name);
+
+  if (owners >= 3) {
+    return {
+      allowed: false,
+      reason: "❌ Cette carte a atteint la limite de 3 joueurs."
+    };
+  }
+
+  const extra = owners * 500000; // +500k par joueur existant
+  return {
+    allowed: true,
+    price: basePrice + extra,
+    owners
+  };
 }
 
 // --- TRANSFORMATION DES CARTES ---
@@ -205,7 +244,15 @@ Ton niveau : ${ficheTeam.niveau}▲ | Tes goals : ${ficheTeam.goals}
         continue;
       }
 
-      const basePrix = card.price;
+      const dynamic = await getDynamicCardPrice(card);
+
+if (!dynamic.allowed) {
+  await repondre(dynamic.reason);
+  userInput = await waitFor();
+  continue;
+}
+
+const basePrix = dynamic.price;;
 
       await ovl.sendMessage(ms_org, {
         image: { url: card.image },
