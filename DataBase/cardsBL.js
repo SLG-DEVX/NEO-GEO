@@ -1184,7 +1184,7 @@ const cardsBlueLock = {
   phy: 97,
   def: 103,
   goal: "",
-  image: "https://files.catbox.moe/1q0icx.png",
+  image: "https://files.catbox.moe/n9065s.jpg",
   rank: "SS",
   taille: "193cm",
   pieds: "gauche"
