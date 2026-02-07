@@ -479,7 +479,6 @@ ovlcmd({
   }
 });
  
-
 ovlcmd({
     nom: "stats_lineup",
     isfunc: true
@@ -488,11 +487,15 @@ ovlcmd({
         if (!texte) return;
         const mots = texte.trim().toLowerCase().split(/\s+/);
 
+        // Exemple : @user j1 + 5
         if (mots.length === 4 && mots[0].startsWith("@")) {
             const userW = mots[0].slice(1);
             let userId;
-            if (userW.endsWith('lid')) {
+
+            if (userW.endsWith("lid")) {
                 userId = await getJid(userW, ms_org, ovl);
+            } else {
+                userId = userW + "@s.whatsapp.net";
             }
 
             const joueurKey = mots[1];
@@ -500,30 +503,33 @@ ovlcmd({
                 const statKey = `stat${joueurKey.replace("j", "")}`;
                 const signe = mots[2];
                 const valeur = parseInt(mots[3], 10);
-                if (!isNaN(valeur) && valeur > 0 && ['+', '-'].includes(signe)) {
+
+                if (!isNaN(valeur) && valeur > 0 && ["+", "-"].includes(signe)) {
                     await updateStats(userId, statKey, signe, valeur);
                 }
             }
+
+        // Exemple : @user reset_stats
         } else if (mots.length === 2 && mots[1] === "reset_stats" && mots[0].startsWith("@")) {
             const userW = mots[0].slice(1);
             let userId;
-            if (userW.endsWith('lid')) {
+
+            if (userW.endsWith("lid")) {
                 userId = await getJid(userW, ms_org, ovl);
+            } else {
+                userId = userW + "@s.whatsapp.net";
             }
+
             if (typeof BlueLockFunctions?.resetStats === "function") {
                 await BlueLockFunctions.resetStats(userId);
             }
         }
+
     } catch (e) {
-        // console.error("Erreur stats_lineup:", e);
+        console.error("❌ Erreur stats_lineup:", e);
     }
 });
 
-  } catch (err) {
-    console.error("❌ updateGlobalRanking error:", err);
-  }
-}
-});
 
 /* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
 ovlcmd({
