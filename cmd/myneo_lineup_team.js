@@ -518,3 +518,186 @@ ovlcmd({
         // console.error("Erreur stats_lineup:", e);
     }
 });
+
+// ──────────────────────────────────────────────
+// LISTENER AUTO MATCH RESULTS
+// ──────────────────────────────────────────────
+ovlcmd({
+  nom: "auto_match_results",
+  isfunc: true
+}, async (ms_org, ovl, { texte }) => {
+  await handleMatchResults(texte, ovl, ms_org);
+});
+
+
+// ──────────────────────────────────────────────
+// TRAITEMENT MATCH RESULTS + UPDATE CLASSEMENT
+// ──────────────────────────────────────────────
+async function handleMatchResults(texte, ovl, ms_org) {
+  try {
+    if (!texte || !texte.includes("MATCH RESULTS")) return;
+
+    // ─── PARSING MATCH ───
+    const linePlayers = texte.match(
+      /👤(.+?)\s+▒░\s+\*(\d+)\s-\s(\d+)\*\s+▒░\s+👤(.+)/
+    );
+    const lineRatings = texte.match(
+      /📊Rating:\s*(✅|❌)?\s*-\s*📊Rating:\s*(✅|❌)?/
+    );
+
+    if (!linePlayers) return;
+
+    const joueur1Name = linePlayers[1].trim();
+    const score1 = parseInt(linePlayers[2], 10);
+    const score2 = parseInt(linePlayers[3], 10);
+    const joueur2Name = linePlayers[4].trim();
+
+    const rating1 = lineRatings?.[1] || null;
+    const rating2 = lineRatings?.[2] || null;
+
+    // ─── RÉCUPÉRATION TEAMS ───
+    const allTeams = await getTeam();
+    if (!allTeams) return;
+
+    const team1Entry = Object.entries(allTeams).find(
+      ([_, d]) => pureName(d.users) === pureName(joueur1Name)
+    );
+    const team2Entry = Object.entries(allTeams).find(
+      ([_, d]) => pureName(d.users) === pureName(joueur2Name)
+    );
+
+    if (!team1Entry || !team2Entry) return;
+
+    const [jid1, data1] = team1Entry;
+    const [jid2, data2] = team2Entry;
+
+    const updates1 = {};
+    const updates2 = {};
+
+    // ─── GOALS ───
+    updates1.goals = (data1.goals || 0) + score1;
+    updates2.goals = (data2.goals || 0) + score2;
+
+    // ─── NIVEAU ───
+    if (rating1 === "❌") updates1.niveau = (data1.niveau || 0) - 1;
+    else if (rating1 === "✅" && score1 > 0) updates1.niveau = (data1.niveau || 0) + 1;
+
+    if (rating2 === "❌") updates2.niveau = (data2.niveau || 0) - 1;
+    else if (rating2 === "✅" && score2 > 0) updates2.niveau = (data2.niveau || 0) + 1;
+
+    // ─── WINS / LOSS ───
+    if (score1 > score2) {
+      updates1.wins = (data1.wins || 0) + 1;
+      updates2.loss = (data2.loss || 0) + 1;
+    } else if (score2 > score1) {
+      updates2.wins = (data2.wins || 0) + 1;
+      updates1.loss = (data1.loss || 0) + 1;
+    }
+
+    // ─── UPDATE DB DES JOUEURS ───
+    await updateTeam(jid1, updates1);
+    await updateTeam(jid2, updates2);
+
+    console.log(`⚽ MATCH AUTO OK : ${joueur1Name} ${score1}-${score2} ${joueur2Name}`);
+
+    // ─── UPDATE CLASSEMENT GLOBAL APRÈS CHAQUE MATCH ───
+    await updateGlobalRanking();
+
+  } catch (err) {
+    console.error("❌ handleMatchResults error:", err);
+  }
+}
+
+
+// ──────────────────────────────────────────────
+// CLASSEMENT AUTOMATIQUE PAR GOALS + DÉPARTAGE
+// ──────────────────────────────────────────────
+async function updateGlobalRanking() {
+  try {
+    const allTeams = await getTeam();
+    if (!allTeams) return;
+
+    const teamsArray = Object.entries(allTeams)
+      .map(([jid, data]) => ({
+        jid,
+        users: data.users,
+        goals: data.goals || 0,
+        wins: data.wins || 0,
+        niveau: data.niveau || 0,
+        loss: data.loss || 0
+      }))
+      .filter(t => t.users && typeof t.goals === "number");
+
+    if (teamsArray.length === 0) return;
+
+    // ─── TRI AVEC DÉPARTAGE ───
+    teamsArray.sort((a, b) => {
+      if (b.goals !== a.goals) return b.goals - a.goals;        // plus de buts
+      if (b.wins !== a.wins) return b.wins - a.wins;          // plus de victoires
+      if (b.niveau !== a.niveau) return b.niveau - a.niveau;  // plus de niveau
+      return a.loss - b.loss;                                  // moins de défaites
+    });
+
+    // ─── ATTRIBUTION CLASSEMENT VISUEL ───
+    for (let i = 0; i < teamsArray.length; i++) {
+      let rankLabel;
+      if (i === 0) rankLabel = "1er🥇";
+      else if (i === 1) rankLabel = "2e🥈";
+      else if (i === 2) rankLabel = "3e🥉";
+      else rankLabel = `${i + 1}e`;
+
+      await updateTeam(teamsArray[i].jid, { classement: rankLabel });
+    }
+
+    console.log("🏆 Classement mis à jour automatiquement avec départage");
+
+  } catch (err) {
+    console.error("❌ updateGlobalRanking error:", err);
+  }
+}
+
+
+// ──────────────────────────────────────────────
+// COMMANDE +classement⚽ POUR AFFICHER TOUT LE CLASSEMENT
+// ──────────────────────────────────────────────
+ovlcmd({
+  nom_cmd: "classement⚽",
+  classe: "Other",
+  react: "🏆",
+  desc: "Afficher le classement complet des joueurs par goals",
+}, async (ms_org, ovl, cmd) => {
+  try {
+    const { repondre } = cmd;
+
+    const allTeams = await getTeam();
+    if (!allTeams) return repondre("⚠️ Aucune team enregistrée.");
+
+    const teamsArray = Object.values(allTeams)
+      .filter(d => d.users && typeof d.goals === "number")
+      .sort((a, b) => b.goals - a.goals);
+
+    if (teamsArray.length === 0) return repondre("⚠️ Aucune team valide.");
+
+    let text = `*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n`;
+    text += "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+
+    teamsArray.forEach((d, i) => {
+      let rankLabel;
+      if (i === 0) rankLabel = "1er🥇";
+      else if (i === 1) rankLabel = "2e🥈";
+      else if (i === 2) rankLabel = "3e🥉";
+      else rankLabel = `${i + 1}e`;
+
+      text += `${rankLabel}: ${d.users} | ${d.goals} ⚽\n`;
+    });
+
+    text += "\n╰───────────────────\n";
+    text += "                  *BLUE🔷LOCK⚽🥅*";
+
+    return repondre(text);
+
+  } catch (err) {
+    console.error("❌ +classement⚽ error:", err);
+    return repondre("❌ Une erreur est survenue lors de l'affichage du classement.");
+  }
+});
