@@ -543,7 +543,7 @@ ovlcmd({
 
     try {
         // ─── PARSE SCORES ───
-        const matchLine = texte.match(/👤\s*(.+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+)/);
+        const matchLine = texte.match(/👤\s*([^\*]+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+)/);
         const ratingLine = texte.match(/📊Rating:\s*(✅|❌)?\s*-\s*📊Rating:\s*(✅|❌)?/);
 
         if (!matchLine || !ratingLine) return;
@@ -559,8 +559,10 @@ ovlcmd({
         // Récupération JID
         const jid1 = await getJid(name1, ms_org, ovl).catch(() => null);
         const jid2 = await getJid(name2, ms_org, ovl).catch(() => null);
-        if (!jid1 || !jid2) return;
-
+        if (!jid1 || !jid2) {
+    console.log("MATCH RESULTS — JID introuvable:", { name1, name2 });
+    return;
+}
         const data1 = await getData({ jid: jid1 });
         const data2 = await getData({ jid: jid2 });
         if (!data1 || !data2) return;
@@ -589,8 +591,12 @@ ovlcmd({
 
         // ─── MISE À JOUR CLASSEMENT ───
         const allPlayersObj = await getData({ allPlayers: true });
-        const allTeams = Object.values(allPlayersObj)
-            .filter(d => d.team === "⚽" && d.name);
+if (!allPlayersObj || typeof allPlayersObj !== "object") {
+    return ovl.sendMessage(ms_org, { text: "⚠️ Aucune donnée de classement trouvée." });
+}
+
+const allTeams = Object.values(allPlayersObj)
+    .filter(d => d.team === "⚽" && (d.name || d.users));
 
         // Tri par goals > wins > niveau > loss
         allTeams.sort((a, b) => {
