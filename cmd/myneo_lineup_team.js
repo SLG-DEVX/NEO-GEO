@@ -530,6 +530,8 @@ ovlcmd({
     isfunc: true
 }, async (ms_org, ovl, { texte, ms, getJid }) => {
     if (!texte) return;
+
+    // Vérifie pavé MATCH RESULTS
     if (!texte.includes("🔷⚽ MATCH RESULTS 🥅")) return;
 
     try {
@@ -542,10 +544,12 @@ ovlcmd({
         let [_, name1, score1, score2, name2] = matchLine;
         let [__, rating1, rating2] = ratingLine;
 
+        // Normalise noms (enlève émojis et caractères invisibles)
         const cleanName = n => n.replace(/[^\p{L}\p{N}\s]/gu, '').trim();
         name1 = cleanName(name1);
         name2 = cleanName(name2);
 
+        // Récupération JID
         const jid1 = await getJid(name1, ms_org, ovl).catch(() => null);
         const jid2 = await getJid(name2, ms_org, ovl).catch(() => null);
         if (!jid1 || !jid2) return;
@@ -589,24 +593,19 @@ ovlcmd({
             return (a.loss || 0) - (b.loss || 0);
         });
 
-        // ─── ASSIGNATION EMOJIS / RANGS AUTOMATIQUE ───
-        let classementTexte = "*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+        // Met à jour classement dans la base
         const emojies = ["🥇", "🥈", "🥉"];
-        let rank = 1;
-
         for (let i = 0; i < allTeams.length; i++) {
-            if (i > 0 && allTeams[i].goals === allTeams[i - 1].goals) {
-                // égalité → même rang
-            } else {
-                rank = i + 1;
-            }
-            const emoji = emojies[rank - 1] || `${rank}e`;
-            classementTexte += `${emoji}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽\n`;
-
-            // Met à jour classement dans la base
-            await setfiche("classement", `${emoji}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽`, allTeams[i].jid);
+            const c = emojies[i] || `${i + 1}e`;
+            await setfiche("classement", `${c}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽`, allTeams[i].jid);
         }
 
+        // ─── ENVOIE CLASSEMENT AUTOMATIQUE APRÈS MATCH ───
+        let classementTexte = "*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+        for (let i = 0; i < allTeams.length; i++) {
+            const emoji = emojies[i] || `${i + 1}e`;
+            classementTexte += `${emoji}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽\n`;
+        }
         classementTexte += "\n╰───────────────────\n                  *BLUE🔷LOCK⚽🥅*";
 
         await ovl.sendMessage(ms_org, { text: "✅ Résultats du match mis à jour !" }, { quoted: ms });
@@ -632,7 +631,6 @@ ovlcmd({
 
         if (!allTeams.length) return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
 
-        // Tri par goals > wins > niveau > loss
         allTeams.sort((a, b) => {
             if ((b.goals || 0) !== (a.goals || 0)) return (b.goals || 0) - (a.goals || 0);
             if ((b.wins || 0) !== (a.wins || 0)) return (b.wins || 0) - (a.wins || 0);
@@ -640,22 +638,16 @@ ovlcmd({
             return (a.loss || 0) - (b.loss || 0);
         });
 
-        // Gestion égalités pour emojis/rangs
         let classementTexte = "*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
         const emojies = ["🥇", "🥈", "🥉"];
-        let rank = 1;
 
         for (let i = 0; i < allTeams.length; i++) {
-            if (i > 0 && allTeams[i].goals === allTeams[i - 1].goals) {
-                // même rang
-            } else {
-                rank = i + 1;
-            }
-            const emoji = emojies[rank - 1] || `${rank}e`;
+            const emoji = emojies[i] || `${i + 1}e`;
             classementTexte += `${emoji}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽\n`;
         }
 
         classementTexte += "\n╰───────────────────\n                  *BLUE🔷LOCK⚽🥅*";
+
         await ovl.sendMessage(ms_org, { text: classementTexte });
 
     } catch (e) {
