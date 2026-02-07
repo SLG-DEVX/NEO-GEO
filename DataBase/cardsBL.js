@@ -623,7 +623,7 @@ const cardsBlueLock = {
   phy: 72,
   def: 70,
   goal: "",
-  image: "https://files.catbox.moe/05cnuq.png",
+  image: "https://files.catbox.moe/eyms94.jpg",
   rank: "B",
   taille: "172cm",
   pieds: "droit"
@@ -674,7 +674,7 @@ const cardsBlueLock = {
   phy: 88,
   def: 84,
   goal: "",
-  image: "https://files.catbox.moe/kdj1fe.png",
+  image: "https://files.catbox.moe/kt8m3f.jpg",
   rank: "B",
   taille: "191cm",
   pieds: "droit"
