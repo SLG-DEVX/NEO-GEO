@@ -115,6 +115,33 @@ function generateStarterLineupFromDB() {
   });
     }
 
+
+function normalizeName(str) {
+    return String(str || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\p{L}\p{N}\s]/gu, "")
+        .toLowerCase()
+        .trim();
+}
+
+async function findTeamJidByUsers(targetName) {
+    const allPlayersObj = await getData({ allPlayers: true });
+    if (!allPlayersObj || typeof allPlayersObj !== "object") return null;
+
+    const target = normalizeName(targetName);
+
+    for (const fiche of Object.values(allPlayersObj)) {
+        if (!fiche || fiche.team !== "⚽") continue;
+
+        const usersName = normalizeName(fiche.users);
+        if (usersName === target) {
+            return fiche.jid;
+        }
+    }
+    return null;
+}
+
+
 // ------------------- Commandes -------------------
 ovlcmd({
   nom_cmd: "save",
@@ -557,11 +584,13 @@ ovlcmd({
         name2 = cleanName(name2);
 
         // Récupération JID
-        const jid1 = await getJid(name1, ms_org, ovl).catch(() => null);
-        const jid2 = await getJid(name2, ms_org, ovl).catch(() => null);
-        if (!jid1 || !jid2) {
-    console.log("MATCH RESULTS — JID introuvable:", { name1, name2 });
+        const jid1 = await findTeamJidByUsers(name1);
+const jid2 = await findTeamJidByUsers(name2);
+
+if (!jid1 || !jid2) {
+    console.log("MATCH RESULTS — joueur introuvable", { name1, name2 });
     return;
+}
 }
         const data1 = await getData({ jid: jid1 });
         const data2 = await getData({ jid: jid2 });
