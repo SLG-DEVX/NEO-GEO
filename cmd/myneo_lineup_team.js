@@ -558,7 +558,6 @@ ovlcmd({
 });
 
 /* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
-/* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
 ovlcmd({
     nom: "match_results_listener",
     isfunc: true
@@ -566,63 +565,41 @@ ovlcmd({
     if (!texte) return;
     if (!texte.includes("🔷⚽ MATCH RESULTS 🥅")) return;
 
-    try {        
+    try {
         // ─── PARSE MATCH ───
-const matchLine = texte.match(
-    /👤\s*([^\*]+)\*\s*(\d+)\s*-\s*(\d+)\*\s*👤\s*([^\n]+)/ 
-);
+        const matchLine = texte.match(/👤\s*([^\*]+)\*\s*(\d+)\s*-\s*(\d+)\*\s*👤\s*([^\n]+)/);
+        const ratingLine = texte.match(/📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/);
 
-const ratingLine = texte.match(
-    /📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/
-);
+        if (!matchLine || !ratingLine) return;
 
-console.log("MATCH LINE:", matchLine);
-console.log("RATING LINE:", ratingLine);
+        let [_, rawName1, score1, score2, rawName2] = matchLine;
+        let [__, rating1, rating2] = ratingLine;
 
-if (!matchLine || !ratingLine) return;
+        // ─── Fonction pour nettoyer noms et enlever emojis invisibles ───
+        const cleanName = n => n
+            .normalize("NFKC")
+            .replace(/[\u200B-\u206F]/g,'')
+            .replace(/[\p{Emoji}]/gu,'')
+            .trim();
 
-let [_, name1, score1, score2, name2] = matchLine;
-let [__, rating1, rating2] = ratingLine;
+        const name1 = cleanName(rawName1);
+        const name2 = cleanName(rawName2);
 
-// Nettoyage emojis et espaces invisibles
-const cleanName = n =>
-    n.normalize("NFKC")
-     .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-     .replace(/[\p{Emoji}]/gu, '')
-     .trim();
+        console.log("MATCH RESULTS — CLEAN NAMES:", name1, name2);
 
-name1 = cleanName(name1);
-name2 = cleanName(name2);
-
-console.log("CLEAN NAMES:", name1, name2);
-
+        // ─── Fonction pour retrouver le JID depuis un nom d'utilisateur ───
+        async function findTeamJidByUsers(target) {
             const allTeams = await TeamFunctions.getAllTeams();
             if (!allTeams || !allTeams.length) return null;
 
             for (let team of allTeams) {
                 if (!team.users || team.users === "aucun") continue;
-
                 const teamUsersClean = cleanName(team.users);
-
-                if (teamUsersClean === target) {
-                    return team.id;
-                }
+                if (teamUsersClean === target) return team.id;
             }
-
             return null;
         }
 
-        // Nettoyage noms
-        const cleanName = n =>
-            n.normalize("NFKC")
-             .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-             .replace(/[^\p{L}\p{N}\s]/gu, '')
-             .trim();
-
-        name1 = cleanName(name1);
-        name2 = cleanName(name2);
-
-        // ─── Récupération JID ───
         const jid1 = await findTeamJidByUsers(name1);
         const jid2 = await findTeamJidByUsers(name2);
 
@@ -633,7 +610,6 @@ console.log("CLEAN NAMES:", name1, name2);
 
         const data1 = await TeamFunctions.getUserData(jid1);
         const data2 = await TeamFunctions.getUserData(jid2);
-        if (!data1 || !data2) return;
 
         const s1 = parseInt(score1, 10);
         const s2 = parseInt(score2, 10);
@@ -659,23 +635,18 @@ console.log("CLEAN NAMES:", name1, name2);
 
         // ─── CLASSEMENT ───
         const allTeams = await TeamFunctions.getAllTeams();
-        if (!allTeams || !allTeams.length) return;
+        const blueLockTeams = allTeams.filter(t => t.team === "⚽" && t.users && t.users !== "aucun");
 
-        const blueLockTeams = allTeams.filter(
-            t => t.team === "⚽" && t.users && t.users !== "aucun"
+        blueLockTeams.sort((a, b) => 
+            (b.goals || 0) - (a.goals || 0) ||
+            (b.wins || 0) - (a.wins || 0) ||
+            (b.niveau || 0) - (a.niveau || 0) ||
+            (a.loss || 0) - (b.loss || 0)
         );
-
-        blueLockTeams.sort((a, b) => {
-            if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
-            if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
-            if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
-            return (a.loss || 0) - (b.loss || 0);
-        });
 
         const emojies = ["🥇", "🥈", "🥉"];
         for (let i = 0; i < blueLockTeams.length; i++) {
             const c = emojies[i] || `${i + 1}e`;
-
             await TeamFunctions.updateUser(blueLockTeams[i].id, {
                 classement: `${c}: ${blueLockTeams[i].users} | ${blueLockTeams[i].goals || 0} ⚽`
             });
@@ -687,6 +658,7 @@ console.log("CLEAN NAMES:", name1, name2);
         console.error("❌ Erreur listener MATCH RESULTS :", e);
     }
 });
+
 
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
