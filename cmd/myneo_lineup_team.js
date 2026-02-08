@@ -627,29 +627,32 @@ console.log("RATING LINE:", ratingLine);
         if (rating2 === "✅") await setfiche("niveau", (data2.niveau || 0) + 1, jid2);
         if (rating2 === "❌") await setfiche("niveau", Math.max(0, (data2.niveau || 0) - 1), jid2);
 
-        // ─── CLASSEMENT ───
-        const allPlayersObj = await getData({ allPlayers: true });
-        if (!allPlayersObj) return;
+        // ─── CLASSEMENT ───        
+const allTeams = await TeamFunctions.getAllTeams();
+if (!allTeams || !allTeams.length) return;
 
-        const allTeams = Object.values(allPlayersObj)
-            .filter(d => d.team === "⚽" && d.users);
+// uniquement les équipes Blue Lock valides
+const blueLockTeams = allTeams.filter(
+  t => t.team === "⚽" && t.users && t.users !== "aucun"
+);
 
-        allTeams.sort((a, b) => {
-            if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
-            if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
-            if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
-            return (a.loss || 0) - (b.loss || 0);
-        });
+blueLockTeams.sort((a, b) => {
+  if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
+  if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
+  if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
+  return (a.loss || 0) - (b.loss || 0);
+});
 
-        const emojies = ["🥇", "🥈", "🥉"];
-        for (let i = 0; i < allTeams.length; i++) {
-            const c = emojies[i] || `${i + 1}e`;
-            await setfiche(
-                "classement",
-                `${c}: ${allTeams[i].users} | ${allTeams[i].goals || 0} ⚽`,
-                allTeams[i].jid
-            );
-        }
+const emojies = ["🥇", "🥈", "🥉"];
+
+for (let i = 0; i < blueLockTeams.length; i++) {
+  const c = emojies[i] || `${i + 1}e`;
+
+  await TeamFunctions.updateUser(blueLockTeams[i].id, {
+    classement: `${c}: ${blueLockTeams[i].users} | ${blueLockTeams[i].goals || 0} ⚽`
+  });
+}
+        
 
         await ovl.sendMessage(ms_org, { text: "✅ Résultats du match mis à jour !" }, { quoted: ms });
 
