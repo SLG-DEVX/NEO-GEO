@@ -94,7 +94,7 @@ if (
           image: { url: card.image },
           caption:
 `🔷⚽ *BLUE LOCK CARD*
-
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱
 Nom : ${card.name}
 Country : ${card.country}
 Rang : ${card.rank}
@@ -104,7 +104,7 @@ Placement : ${card.placement}
 Prix : ${formatNumber(card.price)} 💶
 
 ╰───────────────────
-                      *🔷BLUELOCK⚽*`
+▝▝▝                    *🔷BLUELOCK⚽*`
         }, { quoted: reply });
 
         continue;
@@ -158,14 +158,16 @@ Prix : ${formatNumber(card.price)} 💶
         image: { url: chosenCard.image },
         caption:
 `🔷⚽ *BLUE LOCK CARD*
-
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱
 Nom : ${chosenCard.name}
 Country : ${chosenCard.country}
 Rang : ${chosenCard.rank}
 OVR : ${chosenCard.ovr}
 Catégorie : ${chosenCard.category}
 Placement : ${chosenCard.placement}
-Prix : ${formatNumber(chosenCard.price)} 💶`
+Prix : ${formatNumber(chosenCard.price)} 💶
+╰───────────────────
+▝▝▝                    *🔷BLUELOCK⚽*`
       }, { quoted: choiceReply });
 
     }
