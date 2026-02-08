@@ -660,6 +660,31 @@ ovlcmd({
     }
 });
 
+/* ================= PAVÉ DE FIN DE MATCH ================= */
+ovlcmd({
+    nom: "endmatch⚽",
+    isfunc: true
+}, async (ms_org, ovl, { ms }) => {
+    try {
+        const pavé = `
+🔷⚽ MATCH RESULTS 🥅
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+🥅👤Joueur1:            0 ⚽ - ✅              
+🥅👤Joueur2:           0 ⚽ - ✅ 
+             
+╰───────────────────
+. . .               *BLUE🔷LOCK⚽🥅*
+`;
+
+        await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
+
+    } catch (e) {
+        console.error("❌ Erreur commande +endmatch⚽ :", e);
+        await ovl.sendMessage(ms_org, { text: "❌ Une erreur est survenue." }, { quoted: ms });
+    }
+});
+
+
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
     nom_cmd: "classement⚽",
