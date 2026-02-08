@@ -1,6 +1,9 @@
 const { Sequelize, DataTypes } = require("sequelize");
 const config = require("../set");
 
+// =====================
+// CONNEXION DB
+// =====================
 const db = config.DATABASE;
 const sequelize = db
   ? new Sequelize(db, {
@@ -19,6 +22,9 @@ const sequelize = db
       logging: false,
     });
 
+// =====================
+// MODELS
+// =====================
 const MyNeo = sequelize.define("MyNeo", {
   id: { type: DataTypes.STRING, primaryKey: true },
   users: { type: DataTypes.STRING, defaultValue: "aucun" },
@@ -81,17 +87,31 @@ const Team = sequelize.define(
   }
 );
 
+// =====================
+// SYNC
+// =====================
 (async () => {
   await sequelize.sync();
-  console.log("✅ Toutes les tables ont été synchronisées avec succès.");
+  console.log("✅ Toutes les tables ont été synchronisées.");
 })();
 
+// =====================
+// FUNCTIONS
+// =====================
 const MyNeoFunctions = {
   async getUserData(id) {
     try {
       return await MyNeo.findByPk(id);
     } catch {
       return null;
+    }
+  },
+
+  async getAllUsers() {
+    try {
+      return await MyNeo.findAll();
+    } catch {
+      return [];
     }
   },
 
@@ -126,6 +146,18 @@ const MyNeoFunctions = {
 };
 
 const BlueLockFunctions = {
+  async getUserData(jid) {
+    return await BlueLockStats.findByPk(jid);
+  },
+
+  async getAllPlayers() {
+    try {
+      return await BlueLockStats.findAll();
+    } catch {
+      return [];
+    }
+  },
+
   async saveUser(jid, data = {}) {
     const exists = await BlueLockStats.findByPk(jid);
     if (exists) return "⚠️ Ce joueur existe déjà.";
@@ -138,10 +170,6 @@ const BlueLockFunctions = {
     return deleted ? "✅ Joueur supprimé." : "⚠️ Joueur introuvable.";
   },
 
-  async getUserData(jid) {
-    return await BlueLockStats.findByPk(jid);
-  },
-
   async updatePlayers(jid, updates) {
     const record = await BlueLockStats.findByPk(jid);
     if (!record) return "⚠️ Joueur introuvable.";
@@ -149,16 +177,16 @@ const BlueLockFunctions = {
     return `✅ Mises à jour effectuées pour ${record.nom}`;
   },
 
-  async updateStats(jid, statKey, signe, newValue) {
+  async updateStats(jid, statKey, signe, value) {
     const record = await BlueLockStats.findByPk(jid);
     if (!record) return "⚠️ Joueur introuvable.";
 
     const oldVal = record[statKey] || 0;
-    const updated = signe === "+" ? oldVal + newValue : oldVal - newValue;
+    const updated = signe === "+" ? oldVal + value : oldVal - value;
 
     await record.update({ [statKey]: updated });
 
-    return `✅ Stat mise à jour : ${oldVal} ${signe} ${newValue} = ${updated}`;
+    return `✅ Stat mise à jour : ${oldVal} ${signe} ${value} = ${updated}`;
   },
 
   async resetStats(jid) {
@@ -170,22 +198,30 @@ const BlueLockFunctions = {
     );
 
     await record.update(reset);
-
     return `✅ Stats remises à 100 pour ${record.nom}`;
   },
 };
 
 const TeamFunctions = {
+  async getUserData(jid) {
+    const data = await Team.findByPk(jid);
+    return data ? data.toJSON() : null;
+  },
+
+  async getAllTeams() {
+    try {
+      const data = await Team.findAll();
+      return data.map(d => d.toJSON());
+    } catch {
+      return [];
+    }
+  },
+
   async saveUser(jid, data = {}) {
     const exists = await Team.findByPk(jid);
     if (exists) return "⚠️ Déjà enregistré.";
     await Team.create({ id: jid, ...data });
     return "✅ Joueur enregistré.";
-  },
-
-  async getUserData(jid) {
-    const data = await Team.findByPk(jid);
-    return data ? data.toJSON() : null;
   },
 
   async deleteUser(jid) {
@@ -203,6 +239,7 @@ const TeamFunctions = {
   },
 };
 
+// =====================
 module.exports = {
   MyNeoFunctions,
   BlueLockFunctions,
