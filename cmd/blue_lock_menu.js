@@ -84,11 +84,11 @@ ovlcmd(
     desc: "Affiche le message d'annonce de lancement Blue Lock"
   },
   async (ms_org, ovl, { repondre }) => {
-    repondre(`💬:
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
-⚽ 
-
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
-                 *⚽BLUE🔷LOCK🥅*    `);
+    repondre(`💬: 
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱
+⚽: 
+             
+╰───────────────────
+  ▝▝▝       *BLUE🔷LOCK⚽🥅*`);
   }
 );
