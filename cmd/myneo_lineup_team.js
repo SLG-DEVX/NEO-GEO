@@ -684,7 +684,6 @@ ovlcmd({
     }
 });
 
-
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
     nom_cmd: "classement⚽",
@@ -693,28 +692,35 @@ ovlcmd({
     desc: "Afficher le classement complet des joueurs Blue🔷Lock."
 }, async (ms_org, ovl) => {
     try {
-        const allPlayersObj = await getData({ allPlayers: true });
-        const allTeams = Object.values(allPlayersObj)
-            .filter(d => d.team === "⚽" && d.name);
+        // ✅ Récupérer toutes les équipes
+        const allTeams = await TeamFunctions.getAllTeams();
 
-        if (!allTeams.length) {
+        if (!allTeams || !allTeams.length) {
+            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
+        }
+
+        // Filtrer uniquement les équipes Blue Lock valides
+        const blueLockTeams = allTeams.filter(t => t.team === "⚽" && t.users && t.users !== "aucun");
+
+        if (!blueLockTeams.length) {
             return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
         }
 
         // Tri : goals > wins > niveau > loss
-        allTeams.sort((a, b) => {
-            if ((b.goals || 0) !== (a.goals || 0)) return (b.goals || 0) - (a.goals || 0);
-            if ((b.wins || 0) !== (a.wins || 0)) return (b.wins || 0) - (a.wins || 0);
-            if ((b.niveau || 0) !== (a.niveau || 0)) return (b.niveau || 0) - (a.niveau || 0);
+        blueLockTeams.sort((a, b) => {
+            if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
+            if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
+            if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
             return (a.loss || 0) - (b.loss || 0);
         });
 
+        // Construction du classement
         let classementTexte = "*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
         const emojies = ["🥇", "🥈", "🥉"];
 
-        for (let i = 0; i < allTeams.length; i++) {
+        for (let i = 0; i < blueLockTeams.length; i++) {
             const emoji = emojies[i] || `${i + 1}e`;
-            classementTexte += `${emoji}: ${allTeams[i].name} | ${allTeams[i].goals || 0} ⚽\n`;
+            classementTexte += `${emoji}: ${blueLockTeams[i].users} | ${blueLockTeams[i].goals || 0} ⚽\n`;
         }
 
         classementTexte += "\n╰───────────────────\n                  *BLUE🔷LOCK⚽🥅*";
