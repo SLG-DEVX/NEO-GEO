@@ -127,9 +127,8 @@ Dans cet exercice l'objectif est de marquer 18 buts en 18 tirs max dans le temps
 Souhaitez-vous lancer l'exercice ? :
 ✅ Oui
 ❌ Non
-🏆 Records
 ╰───────────────────
-                      *⚽BLUE🔷LOCK*`;
+  ▝▝▝               *⚽BLUE🔷LOCK*`;
 
     await ovl.sendMessage(ms_org,{
       image:{url:"https://files.catbox.moe/09rll9.jpg"},
