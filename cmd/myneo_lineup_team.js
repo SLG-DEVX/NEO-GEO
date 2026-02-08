@@ -558,6 +558,7 @@ ovlcmd({
 });
 
 /* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
+/* ================= LISTENER AUTOMATIQUE MATCH RESULTS ================= */
 ovlcmd({
     nom: "match_results_listener",
     isfunc: true
@@ -568,31 +569,60 @@ ovlcmd({
     try {
         // ─── PARSE MATCH ───
         const matchLine = texte.match(
-  /👤\s*(.+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+?)\s*(?:\n|$)/
-);
+            /👤\s*(.+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+?)\s*(?:\n|$)/
+        );
 
-const ratingLine = texte.match(
-  /📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/
-);
-console.log("MATCH LINE:", matchLine);
-console.log("RATING LINE:", ratingLine);
-      
+        const ratingLine = texte.match(
+            /📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/
+        );
+
+        console.log("MATCH LINE:", matchLine);
+        console.log("RATING LINE:", ratingLine);
+
         if (!matchLine || !ratingLine) return;
 
         let [_, name1, score1, score2, name2] = matchLine;
         let [__, rating1, rating2] = ratingLine;
 
+        // ─── Fonction pour trouver le JID depuis le nom ───
+        async function findTeamJidByUsers(name) {
+            if (!name) return null;
+
+            const cleanName = n =>
+                n.normalize("NFKC")
+                 .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+                 .replace(/[^\p{L}\p{N}\s]/gu, '')
+                 .trim();
+
+            const target = cleanName(name);
+
+            const allTeams = await TeamFunctions.getAllTeams();
+            if (!allTeams || !allTeams.length) return null;
+
+            for (let team of allTeams) {
+                if (!team.users || team.users === "aucun") continue;
+
+                const teamUsersClean = cleanName(team.users);
+
+                if (teamUsersClean === target) {
+                    return team.id;
+                }
+            }
+
+            return null;
+        }
+
         // Nettoyage noms
-        const cleanName = n => n
-            .normalize("NFKC")
-            .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-            .replace(/[^\p{L}\p{N}\s]/gu, '')
-            .trim();
+        const cleanName = n =>
+            n.normalize("NFKC")
+             .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+             .replace(/[^\p{L}\p{N}\s]/gu, '')
+             .trim();
 
         name1 = cleanName(name1);
         name2 = cleanName(name2);
 
-        // Récupération JID via users
+        // ─── Récupération JID ───
         const jid1 = await findTeamJidByUsers(name1);
         const jid2 = await findTeamJidByUsers(name2);
 
@@ -601,58 +631,55 @@ console.log("RATING LINE:", ratingLine);
             return;
         }
 
-        const data1 = await getData({ jid: jid1 });
-        const data2 = await getData({ jid: jid2 });
+        const data1 = await TeamFunctions.getUserData(jid1);
+        const data2 = await TeamFunctions.getUserData(jid2);
         if (!data1 || !data2) return;
 
         const s1 = parseInt(score1, 10);
         const s2 = parseInt(score2, 10);
 
         // ─── GOALS ───
-        await setfiche("goals", (data1.goals || 0) + s1, jid1);
-        await setfiche("goals", (data2.goals || 0) + s2, jid2);
+        await TeamFunctions.updateUser(jid1, { goals: (data1.goals || 0) + s1 });
+        await TeamFunctions.updateUser(jid2, { goals: (data2.goals || 0) + s2 });
 
         // ─── WINS / LOSS ───
         if (s1 > s2) {
-            await setfiche("wins", (data1.wins || 0) + 1, jid1);
-            await setfiche("loss", (data2.loss || 0) + 1, jid2);
+            await TeamFunctions.updateUser(jid1, { wins: (data1.wins || 0) + 1 });
+            await TeamFunctions.updateUser(jid2, { loss: (data2.loss || 0) + 1 });
         } else if (s2 > s1) {
-            await setfiche("wins", (data2.wins || 0) + 1, jid2);
-            await setfiche("loss", (data1.loss || 0) + 1, jid1);
+            await TeamFunctions.updateUser(jid2, { wins: (data2.wins || 0) + 1 });
+            await TeamFunctions.updateUser(jid1, { loss: (data1.loss || 0) + 1 });
         }
 
         // ─── NIVEAU ───
-        if (rating1 === "✅") await setfiche("niveau", (data1.niveau || 0) + 1, jid1);
-        if (rating1 === "❌") await setfiche("niveau", Math.max(0, (data1.niveau || 0) - 1), jid1);
-        if (rating2 === "✅") await setfiche("niveau", (data2.niveau || 0) + 1, jid2);
-        if (rating2 === "❌") await setfiche("niveau", Math.max(0, (data2.niveau || 0) - 1), jid2);
+        if (rating1 === "✅") await TeamFunctions.updateUser(jid1, { niveau: (data1.niveau || 0) + 1 });
+        if (rating1 === "❌") await TeamFunctions.updateUser(jid1, { niveau: Math.max(0, (data1.niveau || 0) - 1) });
+        if (rating2 === "✅") await TeamFunctions.updateUser(jid2, { niveau: (data2.niveau || 0) + 1 });
+        if (rating2 === "❌") await TeamFunctions.updateUser(jid2, { niveau: Math.max(0, (data2.niveau || 0) - 1) });
 
-        // ─── CLASSEMENT ───        
-const allTeams = await TeamFunctions.getAllTeams();
-if (!allTeams || !allTeams.length) return;
+        // ─── CLASSEMENT ───
+        const allTeams = await TeamFunctions.getAllTeams();
+        if (!allTeams || !allTeams.length) return;
 
-// uniquement les équipes Blue Lock valides
-const blueLockTeams = allTeams.filter(
-  t => t.team === "⚽" && t.users && t.users !== "aucun"
-);
+        const blueLockTeams = allTeams.filter(
+            t => t.team === "⚽" && t.users && t.users !== "aucun"
+        );
 
-blueLockTeams.sort((a, b) => {
-  if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
-  if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
-  if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
-  return (a.loss || 0) - (b.loss || 0);
-});
+        blueLockTeams.sort((a, b) => {
+            if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
+            if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
+            if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
+            return (a.loss || 0) - (b.loss || 0);
+        });
 
-const emojies = ["🥇", "🥈", "🥉"];
+        const emojies = ["🥇", "🥈", "🥉"];
+        for (let i = 0; i < blueLockTeams.length; i++) {
+            const c = emojies[i] || `${i + 1}e`;
 
-for (let i = 0; i < blueLockTeams.length; i++) {
-  const c = emojies[i] || `${i + 1}e`;
-
-  await TeamFunctions.updateUser(blueLockTeams[i].id, {
-    classement: `${c}: ${blueLockTeams[i].users} | ${blueLockTeams[i].goals || 0} ⚽`
-  });
-}
-        
+            await TeamFunctions.updateUser(blueLockTeams[i].id, {
+                classement: `${c}: ${blueLockTeams[i].users} | ${blueLockTeams[i].goals || 0} ⚽`
+            });
+        }
 
         await ovl.sendMessage(ms_org, { text: "✅ Résultats du match mis à jour !" }, { quoted: ms });
 
@@ -660,7 +687,6 @@ for (let i = 0; i < blueLockTeams.length; i++) {
         console.error("❌ Erreur listener MATCH RESULTS :", e);
     }
 });
-
 
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
