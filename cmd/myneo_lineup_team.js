@@ -566,35 +566,35 @@ ovlcmd({
     if (!texte) return;
     if (!texte.includes("🔷⚽ MATCH RESULTS 🥅")) return;
 
-    try {
+    try {        
         // ─── PARSE MATCH ───
-        const matchLine = texte.match(
-            /👤\s*(.+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+?)\s*(?:\n|$)/
-        );
+const matchLine = texte.match(
+    /👤\s*([^\*]+)\*\s*(\d+)\s*-\s*(\d+)\*\s*👤\s*([^\n]+)/ 
+);
 
-        const ratingLine = texte.match(
-            /📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/
-        );
+const ratingLine = texte.match(
+    /📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/
+);
 
-        console.log("MATCH LINE:", matchLine);
-        console.log("RATING LINE:", ratingLine);
+console.log("MATCH LINE:", matchLine);
+console.log("RATING LINE:", ratingLine);
 
-        if (!matchLine || !ratingLine) return;
+if (!matchLine || !ratingLine) return;
 
-        let [_, name1, score1, score2, name2] = matchLine;
-        let [__, rating1, rating2] = ratingLine;
+let [_, name1, score1, score2, name2] = matchLine;
+let [__, rating1, rating2] = ratingLine;
 
-        // ─── Fonction pour trouver le JID depuis le nom ───
-        async function findTeamJidByUsers(name) {
-            if (!name) return null;
+// Nettoyage emojis et espaces invisibles
+const cleanName = n =>
+    n.normalize("NFKC")
+     .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+     .replace(/[\p{Emoji}]/gu, '')
+     .trim();
 
-            const cleanName = n =>
-                n.normalize("NFKC")
-                 .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
-                 .replace(/[^\p{L}\p{N}\s]/gu, '')
-                 .trim();
+name1 = cleanName(name1);
+name2 = cleanName(name2);
 
-            const target = cleanName(name);
+console.log("CLEAN NAMES:", name1, name2);
 
             const allTeams = await TeamFunctions.getAllTeams();
             if (!allTeams || !allTeams.length) return null;
