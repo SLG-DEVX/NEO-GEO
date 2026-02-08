@@ -567,9 +567,16 @@ ovlcmd({
 
     try {
         // ─── PARSE MATCH ───
-        const matchLine = texte.match(/👤\s*([^\*]+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+)/);
-        const ratingLine = texte.match(/📊Rating:\s*(✅|❌)?\s*-\s*📊Rating:\s*(✅|❌)?/);
+        const matchLine = texte.match(
+  /👤\s*(.+?)\s*\*(\d+)\s*-\s*(\d+)\*\s*👤\s*(.+?)\s*(?:\n|$)/
+);
 
+const ratingLine = texte.match(
+  /📊Rating:\s*(✅|❌)\s*-\s*📊Rating:\s*(✅|❌)/
+);
+console.log("MATCH LINE:", matchLine);
+console.log("RATING LINE:", ratingLine);
+      
         if (!matchLine || !ratingLine) return;
 
         let [_, name1, score1, score2, name2] = matchLine;
