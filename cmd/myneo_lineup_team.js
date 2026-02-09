@@ -328,7 +328,7 @@ ovlcmd({
       }
     }
 
-    if('np' in updates) updates.np = Math.min(updates.np, 20);
+    if('np' in updates) updates.np = Math.min(updates.np, 10);
 
     if(Object.keys(updates).length===0 && nsDelta===0)
       return repondre("⚠️ Aucun champ mis à jour. Exemple : +myNeo @user nc + 200 ou ns + 1");
