@@ -203,21 +203,29 @@ function initLoupListener(ovl) {
     // ────────────────
     if (!epreuve.tirEnCours) {
       // Seul le loup peut tirer
-      if (senderJid !== epreuve.loupJid) return;
+      const senderNorm = normalizeJid(senderJid);
+const loupNorm = normalizeJid(epreuve.loupJid);
 
+if (senderNorm !== loupNorm) return;
+      
       // Extraire la zone touchée
       const zone = texteAction.match(/tete|torse|abdomen|jambe gauche|jambe droite/i)?.[0];
       if (!zone) return;
 
-      // Extraire la cible mentionnée (@tag)
-      const mention = ms.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
-                      texteAction.match(/@(\S+)/)?.[1];
-      if (!mention) return;
+      
+// Extraire la cible (MENTION WHATSAPP)
+const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
 
-      const cible = epreuve.participants.find(p => normalizeJid(p.jid) === normalizeJid(mention));
-      if (!cible) return;
-      if (cible.jid === epreuve.loupJid) return;
+if (!Array.isArray(mentioned) || mentioned.length === 0) return;
 
+const cibleJid = normalizeJid(mentioned[0]);
+
+const cible = epreuve.participants.find(
+  p => normalizeJid(p.jid) === cibleJid
+);
+
+if (!cible) return;
+if (normalizeJid(cible.jid) === normalizeJid(epreuve.loupJid)) return;
       // Enregistrer le tir
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
