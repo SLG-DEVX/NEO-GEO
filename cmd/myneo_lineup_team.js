@@ -416,17 +416,25 @@ ovlcmd({
   react: "⚽",
   desc: "Afficher ou modifier la team d’un joueur.",
 }, async (ms_org, ovl, cmd_options) => {
-  const { arg, auteur_Message, prenium_id, repondre } = cmd_options;
-  let userId = auteur_Message;
+
+  const { arg, auteur_Message, prenium_id, repondre, ms } = cmd_options;
+
+  // ─── ID CIBLE ───
+  let userId;
   if (arg.length >= 1) {
-    userId = arg[0];
-    if (!userId) return repondre("⚠️ Mentionne un utilisateur.");
+    userId = normalizeJid(arg[0]);
+    if (!userId) return repondre("⚠️ Mentionne un utilisateur valide.");
+  } else {
+    userId = normalizeJid(auteur_Message);
   }
 
+  if (!userId) return repondre("⚠️ Utilisateur invalide.");
+
   try {
-    let data = await getTeam(userId);
+    const data = await getTeam(userId);
     if (!data) return repondre("⚠️ Aucune donnée trouvée pour cet utilisateur.");
 
+    // ─── AFFICHAGE SIMPLE ───
     if (arg.length <= 1) {
       const fiche = `░░ *👤PLAYER🥅⚽*: ${data.users}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
@@ -441,70 +449,64 @@ ovlcmd({
 ░▒▒▒▒░ *🏆Trophies:* ${data.trophies}
 
 ╭───〔 *⚽DATAS📊🔷* 〕───⬣
-🥅+Lineup⚽: ⚠️pour voir la formation
-🌍+player⚽: ⚠️pour voir son Hero
-
+🥅+Lineup⚽ : voir la formation
+🌍+player⚽ : voir le Hero
 ╰───────────────────
 ▝▝▝                    *🔷BLUELOCK⚽*`;
 
-      return await ovl.sendMessage(ms_org, {
-        image: { url: "https://files.catbox.moe/2patx3.jpg" },
-        caption: fiche,
-      }, { quoted: cmd_options.ms });
+      return ovl.sendMessage(
+        ms_org,
+        { image: { url: "https://files.catbox.moe/2patx3.jpg" }, caption: fiche },
+        { quoted: ms }
+      );
     }
 
-    if (!prenium_id) return repondre("⚠️ Seuls les membres de la NS peuvent actualiser une team.");
+    // ─── MODIFICATION (NS UNIQUEMENT) ───
+    if (!prenium_id)
+      return repondre("⚠️ Seuls les membres de la NS peuvent modifier une team.");
 
     const modifiables = [
-      "users", "team", "niveau",
-      "argent", "classement", "wins", "loss", "goals", "trophies",
+      "users","team","niveau","argent",
+      "classement","wins","loss","goals","trophies"
     ];
 
     let updates = {};
+
     for (let i = 1; i < arg.length;) {
       const field = arg[i]?.toLowerCase();
       const op = arg[i + 1];
-      if (!modifiables.includes(field) || !["=", "+", "-"].includes(op)) { i++; continue; }
-
-      const isNumeric = [
-        "niveau", "argent", "classement",
-        "wins", "loss", "goals", "trophies",
-      ].includes(field);
-
-      let value;
-      if (op === "=" && !isNumeric) {
-        let valParts = [], j = i + 2;
-        while (j < arg.length && !modifiables.includes(arg[j].toLowerCase())) valParts.push(arg[j++]);
-        value = valParts.join(" "); i = j;
-      } else {
-        value = arg[i + 2]; i += 3;
+      if (!modifiables.includes(field) || !["=", "+", "-"].includes(op)) {
+        i++; continue;
       }
 
-      if (value !== undefined) {
-        if (isNumeric) {
-          const val = parseInt(value);
-          if (!isNaN(val)) {
-            if (op === "=") updates[field] = val;
-            else if (op === "+") updates[field] = data[field] + val;
-            else if (op === "-") updates[field] = data[field] - val;
-          }
-        } else if (op === "=") updates[field] = value;
+      const isNumeric = !["users","team","classement"].includes(field);
+      const value = arg[i + 2];
+      i += 3;
+
+      if (isNumeric) {
+        const val = parseInt(value);
+        if (!isNaN(val)) {
+          if (op === "=") updates[field] = val;
+          if (op === "+") updates[field] = data[field] + val;
+          if (op === "-") updates[field] = data[field] - val;
+        }
+      } else if (op === "=") {
+        updates[field] = value;
       }
     }
-    
-    if (Object.keys(updates).length > 0) {
-      
-      const message = await updateTeam(userId, updates);
-      return repondre(message);
-    } else {
-      return repondre("⚠️ Format incorrect ou champ non valide. Exemple : +team @user wins + 2 team = BlueLock Elite");
-    }
+
+    if (!Object.keys(updates).length)
+      return repondre("⚠️ Aucun champ valide détecté.");
+
+    const msg = await updateTeam(userId, updates);
+    return repondre(msg);
 
   } catch (err) {
-    console.error("❌ Erreur ligne team:", err);
+    console.error("❌ TEAM ERROR:", err);
     return repondre("❌ Une erreur est survenue.");
   }
 });
+
  
 ovlcmd({
     nom: "stats_lineup",
