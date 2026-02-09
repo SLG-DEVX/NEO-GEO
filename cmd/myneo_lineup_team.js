@@ -682,6 +682,39 @@ ovlcmd({
     await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
 });
 
+// ======== Liste des joueurs cachés (peut être persistée dans DB) ========
+const hiddenPlayers = new Set();
+
+/* ================= COMMANDE +HIDE / +SHOW ================= */
+ovlcmd({
+    nom_cmd: "hide_show⚽",
+    classe: "Other",
+    react: "🙈",
+    desc: "Masquer ou afficher un joueur dans le classement."
+}, async (ms_org, ovl, cmd_options) => {
+    const { arg = [], repondre } = cmd_options;
+    if (!arg.length) return repondre("⚠️ Format: +hide: NomDuJoueur ou +show: NomDuJoueur");
+
+    const texte = arg.join(" ");
+    const isHide = texte.toLowerCase().startsWith("hide:");
+    const isShow = texte.toLowerCase().startsWith("show:");
+
+    if (!isHide && !isShow) return repondre("⚠️ Commande invalide. Utilise +hide: ou +show:");
+
+    const playerName = texte.split(":")[1]?.trim();
+    if (!playerName) return repondre("⚠️ Tu dois préciser le nom du joueur.");
+
+    if (isHide) {
+        hiddenPlayers.add(playerName);
+        return repondre(`🙈 Le joueur ${playerName} a été retiré du classement.`);
+    }
+
+    if (isShow) {
+        hiddenPlayers.delete(playerName);
+        return repondre(`✅ Le joueur ${playerName} est de nouveau visible dans le classement.`);
+    }
+});
+
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
 ovlcmd({
     nom_cmd: "classement⚽",
@@ -690,42 +723,38 @@ ovlcmd({
     desc: "Afficher le classement complet des joueurs Blue🔷Lock."
 }, async (ms_org, ovl) => {
     try {
-        // 🔹 Récupérer toutes les fiches team⚽
+        // ✅ Récupérer toutes les équipes / fiches joueurs
         const allTeams = await TeamFunctions.getAllTeams();
-
-        if (!allTeams || !allTeams.length) {
+        if (!allTeams || !allTeams.length)
             return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
-        }
 
-        // 🔹 Filtrer uniquement les joueurs avec des Goals (>0)
-        const activePlayers = allTeams.filter(t => t.goals && t.goals > 0);
+        // ✅ Garder seulement les joueurs avec Goals > 0 et non cachés
+        const activePlayers = allTeams
+            .filter(t => t.goals && t.goals > 0)
+            .filter(t => !hiddenPlayers.has(t.users));
 
-        if (!activePlayers.length) {
-            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur avec des Goals trouvé." });
-        }
+        if (!activePlayers.length)
+            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur avec des goals visibles pour le classement." });
 
-        // 🔹 Tri : Goals > Wins > Niveau > Loss
+        // ✅ Tri : Goals > Wins > Niveau > Loss
         activePlayers.sort((a, b) => {
             if (b.goals !== a.goals) return b.goals - a.goals;
             if (b.wins !== a.wins) return b.wins - a.wins;
             if (b.niveau !== a.niveau) return b.niveau - a.niveau;
-            return a.loss - b.loss;
+            return (a.loss || 0) - (b.loss || 0);
         });
 
-        // 🔹 Construire le classement style “pavé”
+        // ✅ Construction du classement texte
         let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
-
         const emojies = ["🥇", "🥈", "🥉"];
 
-        activePlayers.forEach((p, i) => {
-            const emoji = emojies[i] || `${i + 1}e`;
-            // Alignement simple avec espace
-            const userName = p.users.padEnd(15, ' ');
-            const stats = `${p.goals}⚽ | ${p.wins}W ${p.loss}L | Niv:${p.niveau}`;
-            classementTexte += `${emoji} ${userName} → ${stats}\n`;
-        });
+        for (let i = 0; i < activePlayers.length; i++) {
+            const emoji = emojies[i] || `${i + 1} `;
+            const p = activePlayers[i];
+            classementTexte += `${emoji}: ${p.users} → ${p.goals}⚽ - ${p.wins || 0}W ${p.loss || 0}L - Niv:${p.niveau || 0}\n`;
+        }
 
-        classementTexte += "\n╰───────────────────\n                  *BLUE🔷LOCK⚽🥅*";
+        classementTexte += "\n╰───────────────────\n▝▝▝          *BLUE🔷LOCK⚽🥅*";
 
         await ovl.sendMessage(ms_org, { text: classementTexte });
 
