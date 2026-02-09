@@ -280,7 +280,7 @@ ovlcmd({
 ⚽Blue Lock: ${data.blue_lock}
 💠Élysium: ${data.elysium}
 ╰───────────────────
-🔷NEOVERSE🎮`;
+▝▝▝       🔷NEOVERSE🎮`;
 
       await ovl.sendMessage(ms_org,{video:{url:"https://files.catbox.moe/yimc4o.mp4"},gifPlayback:true},{quoted:cmd_options.ms});
       return await ovl.sendMessage(ms_org,{image:{url:"https://files.catbox.moe/nyy6fb.jpg"},caption:myn},{quoted:cmd_options.ms});
@@ -445,7 +445,7 @@ ovlcmd({
 🌍+player⚽: ⚠️pour voir son Hero
 
 ╰───────────────────
-                 *BLUE🔷LOCK⚽*`;
+▝▝▝                    *🔷BLUELOCK⚽*`;
 
       return await ovl.sendMessage(ms_org, {
         image: { url: "https://files.catbox.moe/2patx3.jpg" },
@@ -673,7 +673,7 @@ ovlcmd({
 🥅👤Joueur2:           0 ⚽ - ✅ 
              
 ╰───────────────────
-. . .               *BLUE🔷LOCK⚽🥅*
+▝▝▝                    *🔷BLUELOCK⚽*
 `;
 
         await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
