@@ -138,7 +138,7 @@ async function addToLineup(auteur_Message, card, ovl, ms_org, repondre) {
 🔷Choisis la position où la placer dans ton lineup (1-15).
 Positions libres : ${freePositions.map(i => `J${i}`).join(", ")}
 ╰───────────────────
-   ▝▝▝                       *BLUE🔷LOCK⚽*`);
+   ▝▝▝          *BLUE🔷LOCK⚽*`);
 
     const waitFor = async (timeout = 60000) => {
       try {
@@ -196,7 +196,7 @@ Ensuite attends la validation du système✅ !
 pour fermer la session de boutique 👉🏽 close.
 
 ╰───────────────────
- ▝▝▝         *🔷BLUE LOCK🛍️ STORE*`
+ ▝▝▝       *🔷BLUE LOCK🛍️ STORE*`
     }, { quoted: ms });
 
     const waitFor = async (timeout = 120000) => {
@@ -238,7 +238,7 @@ pour fermer la session de boutique 👉🏽 close.
 Niveau requis : ${limite.niveau}▲ | Goals requis : ${limite.goals}  
 Ton niveau : ${ficheTeam.niveau}▲ | Tes goals : ${ficheTeam.goals}
 ╰───────────────────
- ▝▝▝              *BLUE🔷LOCK⚽*`);
+ ▝▝▝          *BLUE🔷LOCK⚽*`);
         userInput = await waitFor();
         continue;
       }
@@ -269,7 +269,7 @@ const basePrix = dynamic.price;;
 
 Confirmer ${mode} ? (oui / non / +coupon)
 ╰───────────────────
-  ▝▝▝                 *BLUE🔷LOCK⚽*`
+  ▝▝▝          *BLUE🔷LOCK⚽*`
       }, { quoted: ms });
 
       let conf = (await waitFor(60000)).toLowerCase();
@@ -316,7 +316,7 @@ ${couponUsed ? "🎟️ Coupon utilisé (-50%)" : ""}
 
 Merci pour l'achat ⚽🔷 !
 ╰───────────────────
- ▝▝▝                *BLUE🔷LOCK⚽*`);
+ ▝▝▝          *BLUE🔷LOCK⚽*`);
       } else if (mode === "vente") {
         // --- VENTE ---
         let ficheLineup = await getLineup(auteur_Message);
@@ -445,7 +445,7 @@ ovlcmd({
 14 👤${data.joueur14 || "aucun"}
 15 👤${data.joueur15 || "aucun"}
 ╰───────────────────
-▝▝▝      *BLUE🔷LOCK⚽*`;
+▝▝▝           *BLUE🔷LOCK⚽*`;
 
       return ovl.sendMessage(ms_org, {
         image: { url: "https://files.catbox.moe/kyrnzq.jpg" },
@@ -731,7 +731,7 @@ ovlcmd({
 🔹 Taille : ${carte.taille}
 🔹 Pied : ${carte.pieds}
 ╰───────────────────
-▝▝▝                *BLUE🔷LOCK⚽*`
+▝▝▝             *BLUE🔷LOCK⚽*`
       }, { quoted: ms });
     }
 
