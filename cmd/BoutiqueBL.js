@@ -398,24 +398,17 @@ ovlcmd({
   try {
 
     // ==========================
-    // 🔒 NORMALISATION IMMÉDIATE DES IDS
+    // 🎯 DÉTERMINATION DU JOUEUR
     // ==========================
-    const authorJid = normalizeJid(auteur_Message);
-    if (!authorJid) return repondre("⚠️ Utilisateur invalide.");
-
-    let targetUser = authorJid;
-
+    let targetUser = auteur_Message;
     if (arg.length >= 1 && !/^j\d+$/i.test(arg[0])) {
-      const target = normalizeJid(arg[0]);
-      if (!target) return repondre("⚠️ Mention invalide.");
-      targetUser = target;
+      targetUser = arg[0]; // ID du joueur tagué
     }
 
     // ==========================
-    // 🎬 GIF uniquement à l'affichage
+    // 🎬 GIF d'affichage uniquement
     // ==========================
     const isModification = arg.some(a => /^j\d+$/i.test(a));
-
     if (!isModification) {
       await ovl.sendMessage(ms_org, {
         video: { url: "https://files.catbox.moe/z64kuq.mp4" },
@@ -428,11 +421,8 @@ ovlcmd({
     // 📋 AFFICHAGE DU LINEUP
     // ==========================
     if (!isModification) {
-
       let data = await getLineup(targetUser);
-      if (!data)
-        return repondre("❌ Aucun lineup trouvé pour ce joueur.");
-
+      if (!data) return repondre("❌ Aucun lineup trouvé pour ce joueur.");
       data = data.toJSON ? data.toJSON() : data;
 
       const lineup = `░░ *👥SQUAD⚽🥅*
@@ -455,7 +445,7 @@ ovlcmd({
 14 👤${data.joueur14 || "aucun"}
 15 👤${data.joueur15 || "aucun"}
 ╰───────────────────
-▝▝▝                  *BLUE🔷LOCK⚽*`;
+                    *BLUE🔷LOCK⚽*`;
 
       return ovl.sendMessage(ms_org, {
         image: { url: "https://files.catbox.moe/kyrnzq.jpg" },
@@ -466,7 +456,7 @@ ovlcmd({
     // ==========================
     // 🔒 SÉCURITÉ : PAS DE MODIF SUR AUTRUI
     // ==========================
-    if (targetUser !== authorJid)
+    if (targetUser !== auteur_Message)
       return repondre("❌ Tu ne peux pas modifier le lineup d’un autre joueur.");
 
     // ==========================
@@ -475,10 +465,9 @@ ovlcmd({
     if (arg.length < 3)
       return repondre("⚠️ Format : +lineup⚽ j2 = Kuon");
 
-    let ficheLineup = await getLineup(authorJid);
+    let ficheLineup = await getLineup(auteur_Message);
     if (!ficheLineup)
       return repondre("❌ Impossible de récupérer ton lineup.");
-
     ficheLineup = ficheLineup.toJSON ? ficheLineup.toJSON() : ficheLineup;
 
     const updates = {};
@@ -495,17 +484,19 @@ ovlcmd({
       let found = players.find(p => pureName(p.name) === input)
                || players.find(p => pureName(p.name).includes(input));
 
-      if (!found)
-        return repondre(`❌ Joueur introuvable : ${arg[i + 2]}`);
+      if (!found) {
+        updates[`joueur${pos}`] = `aucun`;
+        continue; // ignore si introuvable
+      }
 
-      updates[`joueur${pos}`] =
-        `${found.name} (${found.ovr}) ${getCountryEmoji(found.country)}`;
+      const countryEmoji = found.country ? getCountryEmoji(found.country) : "";
+      updates[`joueur${pos}`] = `${found.name} (${found.ovr}) ${countryEmoji}`;
     }
 
     if (!Object.keys(updates).length)
       return repondre("⚠️ Aucun changement effectué.");
 
-    await updatePlayers(authorJid, updates);
+    await updatePlayers(auteur_Message, updates);
 
     return repondre(
       "✅ Lineup mis à jour ⚽\n" +
