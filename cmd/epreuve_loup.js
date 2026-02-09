@@ -232,8 +232,9 @@ function initLoupListener(ovl) {
       });
 
       // Timer de 3 minutes pour l’esquive
-      epreuve.timerPaves = setTimeout(() => verdictFinal(chatId, ovl), 3 * 60 * 1000);
-    }
+      epreuve.timerPaves = setTimeout(async () => {
+  await verdictFinal(chatId, ovl);
+}, 3 * 60 * 1000);
   });
 }
 
