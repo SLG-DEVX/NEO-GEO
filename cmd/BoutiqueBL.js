@@ -398,12 +398,17 @@ ovlcmd({
   try {
 
     // ==========================
-    // 🎯 DÉTERMINATION DU JOUEUR (COMME team⚽)
+    // 🔒 NORMALISATION IMMÉDIATE DES IDS
     // ==========================
-    let targetUser = auteur_Message;
+    const authorJid = normalizeJid(auteur_Message);
+    if (!authorJid) return repondre("⚠️ Utilisateur invalide.");
+
+    let targetUser = authorJid;
 
     if (arg.length >= 1 && !/^j\d+$/i.test(arg[0])) {
-      targetUser = arg[0]; // ✅ ID du joueur tagué
+      const target = normalizeJid(arg[0]);
+      if (!target) return repondre("⚠️ Mention invalide.");
+      targetUser = target;
     }
 
     // ==========================
@@ -461,7 +466,7 @@ ovlcmd({
     // ==========================
     // 🔒 SÉCURITÉ : PAS DE MODIF SUR AUTRUI
     // ==========================
-    if (targetUser !== auteur_Message)
+    if (targetUser !== authorJid)
       return repondre("❌ Tu ne peux pas modifier le lineup d’un autre joueur.");
 
     // ==========================
@@ -470,7 +475,7 @@ ovlcmd({
     if (arg.length < 3)
       return repondre("⚠️ Format : +lineup⚽ j2 = Kuon");
 
-    let ficheLineup = await getLineup(auteur_Message);
+    let ficheLineup = await getLineup(authorJid);
     if (!ficheLineup)
       return repondre("❌ Impossible de récupérer ton lineup.");
 
@@ -500,7 +505,7 @@ ovlcmd({
     if (!Object.keys(updates).length)
       return repondre("⚠️ Aucun changement effectué.");
 
-    await updatePlayers(auteur_Message, updates);
+    await updatePlayers(authorJid, updates);
 
     return repondre(
       "✅ Lineup mis à jour ⚽\n" +
@@ -513,7 +518,7 @@ ovlcmd({
     console.error("❌ LINEUP ERROR:", e);
     return repondre("❌ Erreur interne LINEUP.");
   }
-});
+}); 
 
 
 // --- SUBSTITUTION / ÉCHANGE +sub⚽ ---
