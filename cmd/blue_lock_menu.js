@@ -76,19 +76,25 @@ ovlcmd(
   }
 );
 
-ovlcmd(
-  {
-    nom_cmd: 'pave⚽',
-    classe: 'Bluelock⚽',
-    react: '⚽',
-    desc: "Affiche le message d'annonce de lancement Blue Lock"
-  },
-  async (ms_org, ovl, { repondre }) => {
-    repondre(`💬: 
+ovlcmd({
+  nom_cmd: 'pave⚽',
+  classe: 'Bluelock⚽',
+  react: '⚽',
+  desc: "Affiche le message d'annonce de lancement Blue Lock (safe)"
+}, async (ms_org, ovl, { ms }) => {
+  try {
+    const pavé = `
+💬: 
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱
 ⚽: 
              
 ╰───────────────────
-  ▝▝▝       *BLUE🔷LOCK⚽🥅*`);
+  ▝▝▝       *BLUE🔷LOCK⚽🥅*`;
+
+    // Envoi direct, sans repondre(), pour éviter de déclencher d'autres listeners
+    await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
+  } catch (e) {
+    console.error("❌ Erreur +pave⚽ safe:", e);
+    await ovl.sendMessage(ms_org, { text: "❌ Une erreur est survenue lors de l'envoi du pavé." }, { quoted: ms });
   }
-);
+});
