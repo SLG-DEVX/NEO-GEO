@@ -682,84 +682,82 @@ ovlcmd({
     await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
 });
 
-// ======== Liste des joueurs cachés (peut être persistée dans DB) ========
-const hiddenPlayers = new Set();
+// Stockage joueurs cachés
+let hiddenPlayers = new Set();
 
-/* ================= COMMANDE +HIDE / +SHOW ================= */
+// ================= COMMANDE +CLASSEMENT⚽ =================
 ovlcmd({
-    nom_cmd: "hide_show⚽",
-    classe: "Other",
-    react: "🙈",
-    desc: "Masquer ou afficher un joueur dans le classement."
-}, async (ms_org, ovl, cmd_options) => {
-    const { arg = [], repondre } = cmd_options;
-    if (!arg.length) return repondre("⚠️ Format: +hide: NomDuJoueur ou +show: NomDuJoueur");
+  nom_cmd: "classement⚽",
+  classe: "Other",
+  react: "🏆",
+  desc: "Afficher le classement complet des joueurs Blue🔷Lock."
+}, async (ms_org, ovl) => {
+  try {
+    const allPlayers = await getAllPlayers(); // récupère toutes les fiches
+    if (!allPlayers || !allPlayers.length)
+      return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré." });
 
-    const texte = arg.join(" ");
-    const isHide = texte.toLowerCase().startsWith("hide:");
-    const isShow = texte.toLowerCase().startsWith("show:");
+    // Filtrer joueurs avec Goals > 0 et non cachés
+    let activePlayers = allPlayers.filter(p => p.records?.goals > 0 && !hiddenPlayers.has(p.user));
 
-    if (!isHide && !isShow) return repondre("⚠️ Commande invalide. Utilise +hide: ou +show:");
+    if (!activePlayers.length)
+      return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur actif avec des goals." });
 
-    const playerName = texte.split(":")[1]?.trim();
-    if (!playerName) return repondre("⚠️ Tu dois préciser le nom du joueur.");
+    // Tri : Goals > Wins > Niveau > Loss
+    activePlayers.sort((a, b) => {
+      if (b.records.goals !== a.records.goals) return b.records.goals - a.records.goals;
+      if (b.records.wins !== a.records.wins) return b.records.wins - a.records.wins;
+      if (b.niveau !== a.niveau) return b.niveau - a.niveau;
+      return (a.records.loss || 0) - (b.records.loss || 0);
+    });
 
-    if (isHide) {
-        hiddenPlayers.add(playerName);
-        return repondre(`🙈 Le joueur ${playerName} a été retiré du classement.`);
+    // Mettre à jour le classement dans la fiche de chaque joueur
+    for (let i = 0; i < activePlayers.length; i++) {
+      const rankText = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`;
+      await updatePlayerData(activePlayers[i].user, { classement: rankText });
     }
 
-    if (isShow) {
-        hiddenPlayers.delete(playerName);
-        return repondre(`✅ Le joueur ${playerName} est de nouveau visible dans le classement.`);
+    // Construction texte classement avec ligne centrale
+    let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+
+    for (let i = 0; i < activePlayers.length; i++) {
+      const p = activePlayers[i];
+      const rank = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1} `;
+      // Ajuster espace pour aligner avec barre
+      const space = rank.length < 2 ? " " : "";
+      classementTexte += `${rank}:${space}${p.user.padEnd(10)} | → ${p.records.goals}⚽ - ${p.records.wins}W ${p.records.loss}L\n`;
     }
+
+    classementTexte += "\n╰───────────────────\n▝▝▝          *BLUE🔷LOCK⚽🥅*";
+    await ovl.sendMessage(ms_org, { text: classementTexte });
+
+  } catch (e) {
+    console.error("❌ Erreur commande +classement⚽ :", e);
+    await ovl.sendMessage(ms_org, { text: "❌ Une erreur est survenue lors de l'affichage du classement." });
+  }
 });
 
-/* ================= COMMANDE +CLASSEMENT⚽ ================= */
+// ================= COMMANDE +HIDE / +SHOW =================
 ovlcmd({
-    nom_cmd: "classement⚽",
-    classe: "Other",
-    react: "🏆",
-    desc: "Afficher le classement complet des joueurs Blue🔷Lock."
-}, async (ms_org, ovl) => {
-    try {
-        // ✅ Récupérer toutes les équipes / fiches joueurs
-        const allTeams = await TeamFunctions.getAllTeams();
-        if (!allTeams || !allTeams.length)
-            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
+  nom_cmd: "hide",
+  classe: "Other",
+  react: "🙈",
+  desc: "Masquer un joueur du classement."
+}, async (ms_org, ovl, { texte, repondre }) => {
+  const target = texte.split(":")[1]?.trim();
+  if (!target) return repondre("⚠️ Format : +hide: NomDuJoueur");
+  hiddenPlayers.add(target);
+  return repondre(`✅ ${target} est maintenant caché du classement.`);
+});
 
-        // ✅ Garder seulement les joueurs avec Goals > 0 et non cachés
-        const activePlayers = allTeams
-            .filter(t => t.goals && t.goals > 0)
-            .filter(t => !hiddenPlayers.has(t.users));
-
-        if (!activePlayers.length)
-            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur avec des goals visibles pour le classement." });
-
-        // ✅ Tri : Goals > Wins > Niveau > Loss
-        activePlayers.sort((a, b) => {
-            if (b.goals !== a.goals) return b.goals - a.goals;
-            if (b.wins !== a.wins) return b.wins - a.wins;
-            if (b.niveau !== a.niveau) return b.niveau - a.niveau;
-            return (a.loss || 0) - (b.loss || 0);
-        });
-
-        // ✅ Construction du classement texte
-        let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
-        const emojies = ["🥇", "🥈", "🥉"];
-
-        for (let i = 0; i < activePlayers.length; i++) {
-            const emoji = emojies[i] || `${i + 1} `;
-            const p = activePlayers[i];
-            classementTexte += `${emoji}: ${p.users} → ${p.goals}⚽ - ${p.wins || 0}W ${p.loss || 0}L - Niv:${p.niveau || 0}\n`;
-        }
-
-        classementTexte += "\n╰───────────────────\n▝▝▝          *BLUE🔷LOCK⚽🥅*";
-
-        await ovl.sendMessage(ms_org, { text: classementTexte });
-
-    } catch (e) {
-        console.error("❌ Erreur commande +classement⚽ :", e);
-        await ovl.sendMessage(ms_org, { text: "❌ Une erreur est survenue lors de l'affichage du classement." });
-    }
+ovlcmd({
+  nom_cmd: "show",
+  classe: "Other",
+  react: "👀",
+  desc: "Réafficher un joueur dans le classement."
+}, async (ms_org, ovl, { texte, repondre }) => {
+  const target = texte.split(":")[1]?.trim();
+  if (!target) return repondre("⚠️ Format : +show: NomDuJoueur");
+  hiddenPlayers.delete(target);
+  return repondre(`✅ ${target} est maintenant visible dans le classement.`);
 });
