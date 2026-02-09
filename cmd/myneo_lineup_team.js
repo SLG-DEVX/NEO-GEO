@@ -453,7 +453,7 @@ ovlcmd({
 🌍+player⚽ → voir le Hero
 
 ╰───────────────────
-▝▝▝      *🔷BLUELOCK⚽*`;
+▝▝▝           *🔷BLUELOCK⚽*`;
 
       return ovl.sendMessage(
         ms_org,
