@@ -673,7 +673,7 @@ ovlcmd({
 🥅👤Joueur2:           0 ⚽ - ✅ 
              
 ╰───────────────────
-▝▝▝                    *🔷BLUELOCK⚽*
+▝▝▝           *🔷BLUELOCK⚽*
 `;
 
         await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
