@@ -445,7 +445,7 @@ ovlcmd({
 14 👤${data.joueur14 || "aucun"}
 15 👤${data.joueur15 || "aucun"}
 ╰───────────────────
-                    *BLUE🔷LOCK⚽*`;
+▝▝▝      *BLUE🔷LOCK⚽*`;
 
       return ovl.sendMessage(ms_org, {
         image: { url: "https://files.catbox.moe/kyrnzq.jpg" },
