@@ -168,7 +168,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 });
 
 // ──────────────────────────────
-// LISTENER AUTOMATIQUE
+// LISTENER AUTOMATIQUE LOUP
 // ──────────────────────────────
 function initLoupListener(ovl) {
   ovl.ev.on("messages.upsert", async ({ messages }) => {
@@ -179,60 +179,63 @@ function initLoupListener(ovl) {
     const epreuve = epreuvesLoup.get(chatId);
     if (!epreuve || !epreuve.loupJid) return;
 
-    const senderJid = normalizeJid(
-  ms.key.participant || ms.key.remoteJid
-);
-    const texte =
-      ms.message.conversation ||
-      ms.message.extendedTextMessage?.text;
+    const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
+    const texte = ms.message.conversation || ms.message.extendedTextMessage?.text;
     if (!texte) return;
 
-    const estPave =
-  texte.includes("💬:") &&
-  /⚽[\s\S]*?blue🔷lock🥅/i.test(texte);
+    // ────────────────
+    // Détection pavé Loup
+    // ────────────────
+    // On considère un pavé si le texte contient 💬: et ⚽:
+    if (!/💬:/.test(texte) || !/⚽:/.test(texte)) return;
 
-if (!estPave) return;
+    // ────────────────
+    // Extraire texte après ⚽:
+    // ────────────────
+    const matchTir = texte.match(/⚽:\s*([\s\S]+)/i);
+    if (!matchTir) return;
 
-const texteAction = extraireTexteAction(texte);
-if (!texteAction) return;
+    const texteAction = matchTir[1].trim();
+    if (!texteAction) return;
+
     // ────────────────
     // TIR DU LOUP
     // ────────────────
     if (!epreuve.tirEnCours) {
+      // Seul le loup peut tirer
       if (senderJid !== epreuve.loupJid) return;
-      if (!estPave) return;
 
-      const zone = texteAction.match(
-  /tete|torse|abdomen|jambe gauche|jambe droite/
-)?.[0];
+      // Extraire la zone touchée
+      const zone = texteAction.match(/tete|torse|abdomen|jambe gauche|jambe droite/i)?.[0];
+      if (!zone) return;
 
-if (!zone) return;
+      // Extraire la cible mentionnée (@tag)
+      const mention = ms.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
+                      texteAction.match(/@(\S+)/)?.[1];
+      if (!mention) return;
 
-      const cible = extraireCibleDepuisTexte(
-  texteAction,
-  epreuve.participants
-);
+      const cible = epreuve.participants.find(p => normalizeJid(p.jid) === normalizeJid(mention));
+      if (!cible) return;
+      if (cible.jid === epreuve.loupJid) return;
 
-if (!cible) return;
-if (cible.jid === epreuve.loupJid) return;
-
+      // Enregistrer le tir
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
         cible: cible.jid,
         zone,
         messages: []
       };
-await ovl.sendMessage(chatId, {
-  text: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
-  mentions: [cible.jid]
-});
 
-      epreuve.timerPaves = setTimeout(
-        () => verdictFinal(chatId, ovl),
-        3 * 60 * 1000
-      );
-      return;
+      await ovl.sendMessage(chatId, {
+        text: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
+        mentions: [cible.jid]
+      });
+
+      // Timer de 3 minutes pour l’esquive
+      epreuve.timerPaves = setTimeout(() => verdictFinal(chatId, ovl), 3 * 60 * 1000);
     }
+  });
+}
 
     // ────────────────
     // ESQUIVE
