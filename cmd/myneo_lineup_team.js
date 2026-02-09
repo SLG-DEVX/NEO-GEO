@@ -690,36 +690,41 @@ ovlcmd({
     desc: "Afficher le classement complet des joueurs Blue🔷Lock."
 }, async (ms_org, ovl) => {
     try {
-        // ✅ Récupérer toutes les équipes
-        const allTeams = await TeamFunctions.getAllTeams();
+        // ✅ Récupérer tous les joueurs
+        const allPlayers = await TeamFunctions.getAllPlayers();
 
-        if (!allTeams || !allTeams.length) {
-            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
+        if (!allPlayers || !allPlayers.length) {
+            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré." });
         }
 
-        // Filtrer uniquement les équipes Blue Lock valides
-        const blueLockTeams = allTeams.filter(t => t.team === "⚽" && t.users && t.users !== "aucun");
+        // Filtrer uniquement les joueurs Blue Lock avec Goals > 0
+        const blueLockPlayers = allPlayers.filter(p => {
+            const hasUser = p.users && p.users !== "aucun" && p.users.trim() !== "";
+            const isBlueLock = p.team && p.team.toUpperCase().includes("BLUELOCK");
+            const hasGoals = p.goals && p.goals > 0;
+            return hasUser && isBlueLock && hasGoals;
+        });
 
-        if (!blueLockTeams.length) {
-            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré avec une team⚽." });
+        if (!blueLockPlayers.length) {
+            return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur BLUELOCK avec des Goals." });
         }
 
         // Tri : goals > wins > niveau > loss
-        blueLockTeams.sort((a, b) => {
-            if ((b.goals || 0) !== (a.goals || 0)) return b.goals - a.goals;
-            if ((b.wins || 0) !== (a.wins || 0)) return b.wins - a.wins;
-            if ((b.niveau || 0) !== (a.niveau || 0)) return b.niveau - a.niveau;
-            return (a.loss || 0) - (b.loss || 0);
+        blueLockPlayers.sort((a, b) => {
+            if (b.goals !== a.goals) return b.goals - a.goals;
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            if (b.niveau !== a.niveau) return b.niveau - a.niveau;
+            return a.loss - b.loss;
         });
 
-        // Construction du classement
-        let classementTexte = "*🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
-        const emojies = ["🥇", "🥈", "🥉"];
+        // Construction du classement compact
+        let classementTexte = "*🏆 CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+        const podium = ["🥇", "🥈", "🥉"];
 
-        for (let i = 0; i < blueLockTeams.length; i++) {
-            const emoji = emojies[i] || `${i + 1}e`;
-            classementTexte += `${emoji}: ${blueLockTeams[i].users} | ${blueLockTeams[i].goals || 0} ⚽\n`;
-        }
+        blueLockPlayers.forEach((p, i) => {
+            const emoji = podium[i] || `${i + 1}e`;
+            classementTexte += `${emoji} | ${p.users.padEnd(15)} | ⚽ ${p.goals.toString().padStart(2)} | W:${p.wins || 0} L:${p.loss || 0} | Niv:${p.niveau || 0}\n`;
+        });
 
         classementTexte += "\n╰───────────────────\n                  *BLUE🔷LOCK⚽🥅*";
 
