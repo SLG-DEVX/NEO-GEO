@@ -777,15 +777,41 @@ ovlcmd({
       if (ficheLineup[`joueur${pos}`] && ficheLineup[`joueur${pos}`] !== "aucun") return repondre(`❌ Position J${pos} déjà occupée. Aucune carte ajoutée.`);
     }
 
-    // --- Ajout des cartes ---
-    for (let i = 0; i < cartesTirees.length; i++) {
-      const carte = cartesTirees[i];
-      const pos = positions[i];
-      ficheLineup[`joueur${pos}`] = `${carte.name} (${carte.ovr}) ${getCountryEmoji(carte.country)}`;
-    }
+    // --- Ajout des cartes avec vérification rankLimits ---
+const cartesAjoutees = [];
+for (let i = 0; i < cartesTirees.length; i++) {
+  const carte = cartesTirees[i];
+  const pos = positions[i];
 
-    await updatePlayers(auteur_Message, ficheLineup);
-    return repondre(`✅ Les cartes ont été ajoutées à ton lineup aux positions : ${positions.map(p=>"J"+p).join(", ")}`);
+  // Vérification du rank
+  const limite = rankLimits[carte.rank];
+  if (limite && (ficheNeo.niveau < limite.niveau || ficheNeo.buts < limite.goals)) {
+    await repondre(
+      `❌ Impossible d'ajouter ${carte.name} (Rank ${carte.rank}) en J${pos} !\n` +
+      `Niveau requis : ${limite.niveau}▲ | Goals requis : ${limite.goals}\n` +
+      `Ton niveau : ${ficheNeo.niveau}▲ | Tes goals : ${ficheNeo.buts}`
+    );
+    continue; // passe à la carte suivante
+  }
+
+  // Vérification que la position est libre
+  if (ficheLineup[`joueur${pos}`] && ficheLineup[`joueur${pos}`] !== "aucun") {
+    await repondre(`❌ Position J${pos} déjà occupée par ${ficheLineup[`joueur${pos}`]}.`);
+    continue;
+  }
+
+  // Ajout
+  ficheLineup[`joueur${pos}`] = `${carte.name} (${carte.ovr}) ${getCountryEmoji(carte.country)}`;
+  cartesAjoutees.push(`J${pos} → ${carte.name}`);
+}
+
+await updatePlayers(auteur_Message, ficheLineup);
+
+if (cartesAjoutees.length) {
+  return repondre(`✅ Les cartes ont été ajoutées à ton lineup aux positions : ${positions.map(p=>"J"+p).join(", ")}`);
+} else {
+  await repondre("⚠️ Aucune carte n'a été ajoutée au lineup (conditions non respectées ou positions occupées).");
+}    
 
   } catch (e) {
     if (e.message === "SessionClose") return repondre("✅ Session fermée par l'utilisateur.");
