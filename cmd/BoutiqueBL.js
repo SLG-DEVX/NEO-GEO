@@ -238,7 +238,7 @@ pour fermer la session de boutique 👉🏽 close.
 Niveau requis : ${limite.niveau}▲ | Goals requis : ${limite.goals}  
 Ton niveau : ${ficheTeam.niveau}▲ | Tes goals : ${ficheTeam.goals}
 ╰───────────────────
- ▝▝▝          *BLUE🔷LOCK⚽*`);
+ ▝▝▝        *BLUE🔷LOCK⚽*`);
         userInput = await waitFor();
         continue;
       }
@@ -269,7 +269,7 @@ const basePrix = dynamic.price;;
 
 Confirmer ${mode} ? (oui / non / +coupon)
 ╰───────────────────
-  ▝▝▝          *BLUE🔷LOCK⚽*`
+  ▝▝▝        *BLUE🔷LOCK⚽*`
       }, { quoted: ms });
 
       let conf = (await waitFor(60000)).toLowerCase();
@@ -316,7 +316,7 @@ ${couponUsed ? "🎟️ Coupon utilisé (-50%)" : ""}
 
 Merci pour l'achat ⚽🔷 !
 ╰───────────────────
- ▝▝▝          *BLUE🔷LOCK⚽*`);
+ ▝▝▝         *BLUE🔷LOCK⚽*`);
       } else if (mode === "vente") {
         // --- VENTE ---
         let ficheLineup = await getLineup(auteur_Message);
@@ -375,7 +375,7 @@ Merci pour l'achat ⚽🔷 !
 💰 Argent actuel : ${ficheTeam.argent + salePrice}
 
 ╰───────────────────
- ▝▝▝              *BLUE🔷LOCK⚽*`);
+ ▝▝▝          *BLUE🔷LOCK⚽*`);
       }
 
       userInput = await waitFor();
@@ -731,7 +731,7 @@ ovlcmd({
 🔹 Taille : ${carte.taille}
 🔹 Pied : ${carte.pieds}
 ╰───────────────────
-▝▝▝             *BLUE🔷LOCK⚽*`
+▝▝▝         *BLUE🔷LOCK⚽*`
       }, { quoted: ms });
     }
 
