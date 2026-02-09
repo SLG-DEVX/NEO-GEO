@@ -662,26 +662,21 @@ ovlcmd({
 
 /* ================= PAVÉ DE FIN DE MATCH ================= */
 ovlcmd({
-    nom: "endmatch⚽",
-    isfunc: true
+    nom_cmd: "endmatch⚽",
+    classe: "Bluelock⚽",
+    react: "⚽",
+    desc: "Affiche le pavé de fin de match"
 }, async (ms_org, ovl, { ms }) => {
-    try {
-        const pavé = `
+    const pavé = `
 🔷⚽ MATCH RESULTS 🥅
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 🥅👤Joueur1:            0 ⚽ - ✅              
 🥅👤Joueur2:           0 ⚽ - ✅ 
              
 ╰───────────────────
-▝▝▝           *🔷BLUELOCK⚽*
-`;
+▝▝▝           *🔷BLUELOCK⚽*`;
 
-        await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
-
-    } catch (e) {
-        console.error("❌ Erreur commande +endmatch⚽ :", e);
-        await ovl.sendMessage(ms_org, { text: "❌ Une erreur est survenue." }, { quoted: ms });
-    }
+    await ovl.sendMessage(ms_org, { text: pavé }, { quoted: ms });
 });
 
 /* ================= COMMANDE +CLASSEMENT⚽ ================= */
