@@ -235,7 +235,7 @@ function initLoupListener(ovl) {
       epreuve.timerPaves = setTimeout(async () => {
   await verdictFinal(chatId, ovl);
 }, 3 * 60 * 1000);
-  });
+return;      
 }
 
     // ────────────────
