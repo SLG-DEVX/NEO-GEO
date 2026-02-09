@@ -104,7 +104,7 @@ Placement : ${card.placement}
 Prix : ${formatNumber(card.price)} 💶
 
 ╰───────────────────
-▝▝▝                    *🔷BLUELOCK⚽*`
+▝▝▝             *🔷BLUELOCK⚽*`
         }, { quoted: reply });
 
         continue;
@@ -167,7 +167,7 @@ Catégorie : ${chosenCard.category}
 Placement : ${chosenCard.placement}
 Prix : ${formatNumber(chosenCard.price)} 💶
 ╰───────────────────
-▝▝▝                    *🔷BLUELOCK⚽*`
+▝▝▝            *🔷BLUELOCK⚽*`
       }, { quoted: choiceReply });
 
     }
