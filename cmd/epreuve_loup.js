@@ -170,7 +170,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 // ──────────────────────────────
 // LISTENER AUTOMATIQUE LOUP RP COMPLET
 // ──────────────────────────────
-function initLoupListenerRP(ovl) {
+function initLoupListener(ovl) {
   ovl.ev.on("messages.upsert", async ({ messages }) => {
     const ms = messages?.[0];
     if (!ms || !ms.message || ms.key.fromMe) return;
