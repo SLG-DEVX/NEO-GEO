@@ -179,7 +179,11 @@ function initLoupListener(ovl) {
     const epreuve = epreuvesLoup.get(chatId);
     if (!epreuve || !epreuve.loupJid) return;
 
-    const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
+    const loupNorm = normalizeJid(epreuve.loupJid);
+
+    const senderJid = normalizeJid(
+      ms.key.participant || ms.key.remoteJid
+    );
 
     const rawTexte =
       ms.message.conversation ||
@@ -196,15 +200,14 @@ function initLoupListener(ovl) {
     // ─────────────────
     if (!epreuve.tirEnCours && texte.includes("⚽:")) {
 
+      const senderNorm = normalizeJid(senderJid);
+      if (senderNorm !== loupNorm) return;
+
       const parts = texte.split("⚽:");
       if (parts.length < 2) return;
 
       const texteAction = parts.slice(1).join("⚽:").trim();
       if (!texteAction) return;
-
-      const senderNorm = normalizeJid(senderJid);
-      const loupNorm = normalizeJid(epreuve.loupJid);
-      if (senderNorm !== loupNorm) return;
 
       const zone = texteAction.match(
         /tete|torse|abdomen|jambe gauche|jambe droite/i
@@ -212,23 +215,21 @@ function initLoupListener(ovl) {
       if (!zone) return;
 
       // ────────────────
-// CIBLE : OBLIGATOIREMENT UN PARTICIPANT
-// ────────────────
-const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
+      // CIBLE : OBLIGATOIREMENT UN PARTICIPANT TAG
+      // ────────────────
+      const mentioned =
+        ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
 
-if (!Array.isArray(mentioned) || mentioned.length !== 1) return;
+      if (!Array.isArray(mentioned) || mentioned.length !== 1) return;
 
-const cibleJid = normalizeJid(mentioned[0]);
+      const cibleJid = normalizeJid(mentioned[0]);
 
-const cible = epreuve.participants.find(
-  p => normalizeJid(p.jid) === cibleJid
-);
+      if (cibleJid === loupNorm) return; // interdit auto-tir
 
-if (!cible) return;
-
-// Interdiction de se tirer dessus
-const loupNorm = normalizeJid(epreuve.loupJid);
-if (cibleJid === loupNorm) return;
+      const cible = epreuve.participants.find(
+        p => normalizeJid(p.jid) === cibleJid
+      );
+      if (!cible) return;
 
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
@@ -238,7 +239,11 @@ if (cibleJid === loupNorm) return;
       };
 
       await ovl.sendMessage(chatId, {
-        text: `⚽ **TIR VALIDÉ !**\n⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️ @${cible.tag}`,
+        text:
+          `⚽ **TIR VALIDÉ !**\n` +
+          `🎯 Zone : *${zone}*\n` +
+          `⏱️ 3 minutes pour envoyer le pavé d’esquive 🛡️\n` +
+          `@${cible.tag}`,
         mentions: [cible.jid]
       });
 
@@ -248,6 +253,8 @@ if (cibleJid === loupNorm) return;
 
       return;
     }
+  });
+}
 
     // ─────────────────
     // ESQUIVE
