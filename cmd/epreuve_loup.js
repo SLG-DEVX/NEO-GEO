@@ -211,14 +211,24 @@ function initLoupListener(ovl) {
       )?.[0];
       if (!zone) return;
 
-      const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
-      if (!Array.isArray(mentioned) || mentioned.length === 0) return;
+      // ────────────────
+// CIBLE : OBLIGATOIREMENT UN PARTICIPANT
+// ────────────────
+const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
 
-      const cibleJid = normalizeJid(mentioned[0]);
-      const cible = epreuve.participants.find(
-        p => normalizeJid(p.jid) === cibleJid
-      );
-      if (!cible || cibleJid === loupNorm) return;
+if (!Array.isArray(mentioned) || mentioned.length !== 1) return;
+
+const cibleJid = normalizeJid(mentioned[0]);
+
+const cible = epreuve.participants.find(
+  p => normalizeJid(p.jid) === cibleJid
+);
+
+if (!cible) return;
+
+// Interdiction de se tirer dessus
+const loupNorm = normalizeJid(epreuve.loupJid);
+if (cibleJid === loupNorm) return;
 
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
