@@ -186,39 +186,31 @@ function initLoupListener(ovl) {
       ms.message.extendedTextMessage?.text;
     if (!rawTexte) return;
 
-    // 🔥 Nettoyage WhatsApp indispensable
     const texte = rawTexte
       .normalize("NFKC")
       .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
       .trim();
 
-    // Détection pavé tir (souple)
-    if (!texte.includes("⚽:")) return;
-
-    // Extraction texte après ⚽:
-    const parts = texte.split("⚽:");
-    if (parts.length < 2) return;
-
-    const texteAction = parts.slice(1).join("⚽:").trim();
-    if (!texteAction) return;
-
-    // ────────────────
+    // ─────────────────
     // TIR DU LOUP
-    // ────────────────
-    if (!epreuve.tirEnCours) {
+    // ─────────────────
+    if (!epreuve.tirEnCours && texte.includes("⚽:")) {
 
-      // Sécurité : seul le loup peut tirer
+      const parts = texte.split("⚽:");
+      if (parts.length < 2) return;
+
+      const texteAction = parts.slice(1).join("⚽:").trim();
+      if (!texteAction) return;
+
       const senderNorm = normalizeJid(senderJid);
       const loupNorm = normalizeJid(epreuve.loupJid);
       if (senderNorm !== loupNorm) return;
 
-      // Zone touchée
       const zone = texteAction.match(
         /tete|torse|abdomen|jambe gauche|jambe droite/i
       )?.[0];
       if (!zone) return;
 
-      // Cible via mention WhatsApp (FIABLE)
       const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
       if (!Array.isArray(mentioned) || mentioned.length === 0) return;
 
@@ -226,10 +218,8 @@ function initLoupListener(ovl) {
       const cible = epreuve.participants.find(
         p => normalizeJid(p.jid) === cibleJid
       );
-      if (!cible) return;
-      if (normalizeJid(cible.jid) === loupNorm) return;
+      if (!cible || cibleJid === loupNorm) return;
 
-      // Enregistrement du tir
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
         cible: cible.jid,
@@ -245,64 +235,43 @@ function initLoupListener(ovl) {
       epreuve.timerPaves = setTimeout(async () => {
         await verdictFinal(chatId, ovl);
       }, 3 * 60 * 1000);
+
+      return;
     }
-  });
-  } 
 
-    // ────────────────
+    // ─────────────────
     // ESQUIVE
-    // ────────────────
+    // ─────────────────
     if (epreuve.tirEnCours) {
-      if (!estPave) return;
-
       const texteClean = cleanText(texte);
       const zone = epreuve.tirEnCours.zone;
+
       let esquiveValide = false;
 
       switch (zone) {
         case "tete":
-          esquiveValide =
-            texteClean.includes("baisse") ||
-            texteClean.includes("baisser") ||
-            texteClean.includes("accroupi") ||
-            texteClean.includes("accroupir");
+          esquiveValide = ["baisse", "baisser", "accroupi"].some(w => texteClean.includes(w));
           break;
-
         case "torse":
         case "abdomen":
-          esquiveValide =
-            texteClean.includes("decale") ||
-            texteClean.includes("decalage") ||
-            texteClean.includes("bond");
+          esquiveValide = ["decale", "decalage", "bond"].some(w => texteClean.includes(w));
           break;
-
         case "jambe gauche":
         case "jambe droite":
-          esquiveValide =
-            texteClean.includes("bond") ||
-            texteClean.includes("saute") ||
-            texteClean.includes("saut") ||
-            texteClean.includes("plie");
+          esquiveValide = ["bond", "saute", "saut", "plie"].some(w => texteClean.includes(w));
           break;
-      }
-
-      if (esquiveValide) {
-        epreuve.tirEnCours.messages.push({
-          jid: senderJid,
-          texte: texteClean
-        });
       }
 
       if (
-        senderJid === epreuve.tirEnCours.cible &&
-        esquiveValide
+        esquiveValide &&
+        senderJid === epreuve.tirEnCours.cible
       ) {
         clearTimeout(epreuve.timerPaves);
         await verdictFinal(chatId, ovl);
       }
     }
   });
-}
+    } 
 
 // ──────────────────────────────
 // VERDICT FINAL
