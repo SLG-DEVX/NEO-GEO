@@ -168,7 +168,7 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 });
 
 // ──────────────────────────────
-// LISTENER AUTOMATIQUE LOUP
+// LISTENER AUTOMATIQUE LOUP (CORRIGÉ)
 // ──────────────────────────────
 function initLoupListener(ovl) {
   ovl.ev.on("messages.upsert", async ({ messages }) => {
@@ -180,53 +180,56 @@ function initLoupListener(ovl) {
     if (!epreuve || !epreuve.loupJid) return;
 
     const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
-    const texte = ms.message.conversation || ms.message.extendedTextMessage?.text;
-    if (!texte) return;
 
-    // ────────────────
-    // Détection pavé Loup
-    // ────────────────
-    // On considère un pavé si le texte contient 💬: et ⚽:
-    if (!/💬:/.test(texte) || !/⚽:/.test(texte)) return;
+    const rawTexte =
+      ms.message.conversation ||
+      ms.message.extendedTextMessage?.text;
+    if (!rawTexte) return;
 
-    // ────────────────
-    // Extraire texte après ⚽:
-    // ────────────────
-    const matchTir = texte.match(/⚽:\s*([\s\S]+)/i);
-    if (!matchTir) return;
+    // 🔥 Nettoyage WhatsApp indispensable
+    const texte = rawTexte
+      .normalize("NFKC")
+      .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+      .trim();
 
-    const texteAction = matchTir[1].trim();
+    // Détection pavé tir (souple)
+    if (!texte.includes("⚽:")) return;
+
+    // Extraction texte après ⚽:
+    const parts = texte.split("⚽:");
+    if (parts.length < 2) return;
+
+    const texteAction = parts.slice(1).join("⚽:").trim();
     if (!texteAction) return;
 
     // ────────────────
     // TIR DU LOUP
     // ────────────────
     if (!epreuve.tirEnCours) {
-      // Seul le loup peut tirer
-      const senderNorm = normalizeJid(senderJid);
-const loupNorm = normalizeJid(epreuve.loupJid);
 
-if (senderNorm !== loupNorm) return;
-      
-      // Extraire la zone touchée
-      const zone = texteAction.match(/tete|torse|abdomen|jambe gauche|jambe droite/i)?.[0];
+      // Sécurité : seul le loup peut tirer
+      const senderNorm = normalizeJid(senderJid);
+      const loupNorm = normalizeJid(epreuve.loupJid);
+      if (senderNorm !== loupNorm) return;
+
+      // Zone touchée
+      const zone = texteAction.match(
+        /tete|torse|abdomen|jambe gauche|jambe droite/i
+      )?.[0];
       if (!zone) return;
 
-      
-// Extraire la cible (MENTION WHATSAPP)
-const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
+      // Cible via mention WhatsApp (FIABLE)
+      const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
+      if (!Array.isArray(mentioned) || mentioned.length === 0) return;
 
-if (!Array.isArray(mentioned) || mentioned.length === 0) return;
+      const cibleJid = normalizeJid(mentioned[0]);
+      const cible = epreuve.participants.find(
+        p => normalizeJid(p.jid) === cibleJid
+      );
+      if (!cible) return;
+      if (normalizeJid(cible.jid) === loupNorm) return;
 
-const cibleJid = normalizeJid(mentioned[0]);
-
-const cible = epreuve.participants.find(
-  p => normalizeJid(p.jid) === cibleJid
-);
-
-if (!cible) return;
-if (normalizeJid(cible.jid) === normalizeJid(epreuve.loupJid)) return;
-      // Enregistrer le tir
+      // Enregistrement du tir
       epreuve.tirEnCours = {
         auteur: epreuve.loupJid,
         cible: cible.jid,
@@ -239,12 +242,12 @@ if (normalizeJid(cible.jid) === normalizeJid(epreuve.loupJid)) return;
         mentions: [cible.jid]
       });
 
-      // Timer de 3 minutes pour l’esquive
       epreuve.timerPaves = setTimeout(async () => {
-  await verdictFinal(chatId, ovl);
-}, 3 * 60 * 1000);
-return;      
-}
+        await verdictFinal(chatId, ovl);
+      }, 3 * 60 * 1000);
+    }
+  });
+  } 
 
     // ────────────────
     // ESQUIVE
