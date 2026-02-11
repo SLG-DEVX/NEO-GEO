@@ -241,7 +241,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
       data.cards = data.cards ?? "";
 
       if (!arg.length) {
-        const fiche = `░▒▒░░▒░ *👤N E O P L A Y E R 🎮*
+        const fiche = `░▒░ *👤N E O P L A Y E R | RAZORX⚡™ 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 ◇ *Pseudo👤*: ${data.pseudo}
 ◇ *User👤*: ${data.user}
@@ -257,9 +257,6 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ◇ *Golds🧭*: ${data.golds} ©🧭
 ◇ *Fans👥*: ${data.fans} 👥
 ◇ *Archetype ⚖️*: ${data.archetype}
-◇ *Commentaire*: ${data.commentaire}
-
-◇ *Armes⭐*: ${data.armes}
 
 ░▒░░ PALMARÈS🏆
 ▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
@@ -286,7 +283,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 🎴 ${data.cards.split("\n").join(" • ")}
 
 ╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™`;
+░▒░  *𝗡𝗘𝗢🔷 ESPORTS ARENA®🏆* ░▒░`;
 
         await ovl.sendMessage(ms_org, {
           video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
