@@ -125,13 +125,13 @@ ovlcmd(
 
     const texte = `░▒░ RAZORX⚡™ | 🪀GAMING 🎮░▒░
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-🎧 Chat:
+💬:
 
-▔▔▔▔▔▔░▒░▔▔▔▔▔▔▔▔▔
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 🌀🎮:  
 
 ╰───────────────────
-🏆NSL PRO ESPORT ARENA® | RAZORX⚡™`;
+░▒░  *𝗡𝗘𝗢🔷 ESPORTS ARENA®🏆* ░▒░`;
 
     await ovl.sendMessage(ms_org, { text: texte }, { quoted: ms });
   }
