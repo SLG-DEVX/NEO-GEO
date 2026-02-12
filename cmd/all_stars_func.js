@@ -175,7 +175,7 @@ ovlcmd({
   let countdownTime = null;
   let isGo = false;
   if (mots[0]?.startsWith("@") && /(next|nx|nxt)$/.test(mots[1] || "")) {
-    countdownTime = 5 * 60;
+    countdownTime = 6 * 60;
   } else if (mots[0]?.startsWith("@") && /go$/.test(mots[1] || "")) {
     countdownTime = 6 * 60;
     isGo = true;
