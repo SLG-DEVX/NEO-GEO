@@ -705,9 +705,10 @@ ovlcmd({
       return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré." });
 
     // Filtrer joueurs avec Goals > 0 et non cachés
-let activePlayers = allPlayers.filter(
-  p => p.goals > 0 && p.users && !hiddenPlayers.has(cleanName(p.users))
-);
+    let activePlayers = allPlayers.filter(
+      p => p.goals > 0 && p.users && !hiddenPlayers.has(cleanName(p.users))
+    );
+
     if (!activePlayers.length)
       return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur actif avec des goals." });
 
@@ -726,26 +727,28 @@ let activePlayers = allPlayers.filter(
       await TeamFunctions.updateUser(activePlayers[i].id, { classement: rankText });
     }
 
-    // Classement nouveau format classement (compact)
-let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n";
-classementTexte += "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+    // Classement nouveau format texte
+    let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n";
+    classementTexte += "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
 
-// 1️⃣ Trouver la longueur max des noms
-const maxLength = Math.max(
-  ...activePlayers.map(p => (p.users || "").length)
-);
+    // Longueur max des noms pour alignement
+    const maxLength = Math.max(
+      ...activePlayers.map(p => (p.users || "").length)
+    );
 
-for (let i = 0; i < activePlayers.length; i++) {
-  const p = activePlayers[i];
-  const rank = emojies[i] || `${i + 1}e`;
+    for (let i = 0; i < activePlayers.length; i++) {
+      const p = activePlayers[i];
+      const rank = emojies[i] || `${i + 1}e`;
+      const name = (p.users || "Inconnu").padEnd(maxLength + 2, " ");
 
-  const name = (p.users || "Inconnu").padEnd(maxLength + 2, " ");
+      classementTexte += `${rank}: ${name}Goals: ${p.goals || 0} ⚽\n`;
+    }
 
-  classementTexte += `${rank}: ${name}Goals: ${p.goals || 0}⚽\n`;
-}
+    classementTexte += "\n╰───────────────────\n";
+    classementTexte += "▝▝▝          *BLUE🔷LOCK⚽🥅*";
 
-classementTexte += "\n╰───────────────────\n";
-classementTexte += "▝▝▝          *BLUE🔷LOCK⚽🥅*";
+    // 🔥 ENVOI DU MESSAGE
+    await ovl.sendMessage(ms_org, { text: classementTexte });
 
   } catch (e) {
     console.error("❌ Erreur commande +classement⚽ :", e);
