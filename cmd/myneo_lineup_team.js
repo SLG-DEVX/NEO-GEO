@@ -718,17 +718,22 @@ ovlcmd({
       await TeamFunctions.updateUser(activePlayers[i].id, { classement: rankText });
     }
 
-    // Construction texte classement avec ligne centrale
-    let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
+    // Classement nouveau format classement (compact)
+let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n";
+classementTexte += "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
 
-    for (let i = 0; i < activePlayers.length; i++) {
-      const p = activePlayers[i];
-      const rank = emojies[i] || `${i + 1} `;
-      const space = rank.length < 2 ? " " : "";
-      classementTexte += `${rank}:${space}${p.users.padEnd(12)} | → ${p.goals}⚽ - ${p.wins}W ${p.loss}L\n`;
-    }
+for (let i = 0; i < activePlayers.length; i++) {
+  const p = activePlayers[i];
+  const rank = emojies[i] || `${i + 1}e`;
 
-    classementTexte += "\n╰───────────────────\n▝▝▝          *BLUE🔷LOCK⚽🥅*";
+  // Alignement plus serré (16 caractères au lieu de 20)
+  const name = (p.users || "Inconnu").padEnd(16, " ");
+
+  classementTexte += `${rank}:${name}Goals: ${p.goals || 0}⚽\n`;
+}
+
+classementTexte += "\n╰───────────────────\n";
+classementTexte += "▝▝▝          *BLUE🔷LOCK⚽🥅*";
     await ovl.sendMessage(ms_org, { text: classementTexte });
 
   } catch (e) {
