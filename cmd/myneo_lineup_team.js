@@ -705,8 +705,9 @@ ovlcmd({
       return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur enregistré." });
 
     // Filtrer joueurs avec Goals > 0 et non cachés
-    let activePlayers = allPlayers.filter(p => p.goals > 0 && p.users && !hiddenPlayers.has(cleanName(p.users));
-
+let activePlayers = allPlayers.filter(
+  p => p.goals > 0 && p.users && !hiddenPlayers.has(cleanName(p.users))
+);
     if (!activePlayers.length)
       return ovl.sendMessage(ms_org, { text: "⚠️ Aucun joueur actif avec des goals." });
 
