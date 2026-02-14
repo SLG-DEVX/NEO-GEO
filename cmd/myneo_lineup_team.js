@@ -71,6 +71,13 @@ function normalizeJid(input) {
   return String(input);
 }
 
+function cleanName(str) {
+  return String(str || "")
+    .normalize("NFKC")
+    .replace(/[\u200B-\u206F]/g, "") // supprime caractères invisibles
+    .trim();
+}
+
 function generateStarterLineupFromDB() {
   // 1️⃣ Récupération DB
   const allPlayers = Object.values(cardsBlueLock);
@@ -749,11 +756,13 @@ ovlcmd({
   react: "⚽",
   desc: "Masquer un joueur du classement."
 }, async (ms_org, ovl, { texte, repondre }) => {
-  const target = texte.split(":")[1]?.trim();
-  if (!target) return repondre("⚠️ Format : +hide: NomDuJoueur");
 
-  // Normalisation simple pour éviter les problèmes d'espaces invisibles
-  hiddenPlayers.add(target.normalize("NFKC").trim());
+  const target = texte.split(":")[1]?.trim();
+  if (!target)
+    return repondre("⚠️ Format : +hide: NomDuJoueur");
+
+  hiddenPlayers.add(cleanName(target));
+
   return repondre(`✅ ${target} est maintenant caché du classement.`);
 });
 
@@ -764,9 +773,12 @@ ovlcmd({
   react: "⚽",
   desc: "Réafficher un joueur dans le classement."
 }, async (ms_org, ovl, { texte, repondre }) => {
-  const target = texte.split(":")[1]?.trim();
-  if (!target) return repondre("⚠️ Format : +show: NomDuJoueur");
 
-  hiddenPlayers.delete(target.normalize("NFKC").trim());
+  const target = texte.split(":")[1]?.trim();
+  if (!target)
+    return repondre("⚠️ Format : +show: NomDuJoueur");
+
+  hiddenPlayers.delete(cleanName(target));
+
   return repondre(`✅ ${target} est maintenant visible dans le classement.`);
 });
