@@ -729,19 +729,22 @@ ovlcmd({
 let classementTexte = "░░ *🏆CLASSEMENT BLUE🔷LOCK⚽ 🏆*\n";
 classementTexte += "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n";
 
+// 1️⃣ Trouver la longueur max des noms
+const maxLength = Math.max(
+  ...activePlayers.map(p => (p.users || "").length)
+);
+
 for (let i = 0; i < activePlayers.length; i++) {
   const p = activePlayers[i];
   const rank = emojies[i] || `${i + 1}e`;
 
-  // Alignement plus serré (16 caractères au lieu de 20)
-  const name = (p.users || "Inconnu").padEnd(16, " ");
+  const name = (p.users || "Inconnu").padEnd(maxLength + 2, " ");
 
-  classementTexte += `${rank}:${name}Goals: ${p.goals || 0}⚽\n`;
+  classementTexte += `${rank}: ${name}Goals: ${p.goals || 0}⚽\n`;
 }
 
 classementTexte += "\n╰───────────────────\n";
 classementTexte += "▝▝▝          *BLUE🔷LOCK⚽🥅*";
-    await ovl.sendMessage(ms_org, { text: classementTexte });
 
   } catch (e) {
     console.error("❌ Erreur commande +classement⚽ :", e);
