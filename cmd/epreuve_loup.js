@@ -181,34 +181,52 @@ Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
 });
 
 // ──────────────────────────────
-// LISTENER AUTOMATIQUE LOUP RP COMPLET
+// LISTENER AUTOMATIQUE LOUP RP AVEC TRACE DÉTECT TIR
 // ──────────────────────────────
 function initLoupListener(ovl) {
-
   ovl.ev.on("messages.upsert", async ({ messages }) => {
-
     try {
+      console.log("🔹 messages.upsert reçu :", messages?.length);
 
       const ms = messages?.[0];
-      if (!ms || !ms.message || ms.key.fromMe) return;
+      if (!ms || !ms.message || ms.key.fromMe) {
+        console.log("❌ Message invalide ou envoyé par moi-même.");
+        return;
+      }
 
       const chatId = ms.key.remoteJid;
       const epreuve = epreuvesLoup.get(chatId);
-      if (!epreuve || !epreuve.loupJid) return;
+      if (!epreuve || !epreuve.loupJid) {
+        console.log("❌ Pas d'épreuve active pour ce chat :", chatId);
+        return;
+      }
 
       const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
+      const rawTexte = ms.message.conversation || ms.message.extendedTextMessage?.text;
+      if (!rawTexte) {
+        console.log("❌ Texte vide du message :", ms);
+        return;
+      }
 
-      const rawTexte =
-        ms.message.conversation ||
-        ms.message.extendedTextMessage?.text;
+      console.log("💬 Texte reçu :", rawTexte);
 
-      if (!rawTexte) return;
+      if (!rawTexte.startsWith("💬:")) {
+        console.log("❌ Pas un pavé 💬, on ignore.");
+        return;
+      }
 
-      // 🔥 Extraction propre du texte RP
-      const texteAction = extraireTexteAction(rawTexte);
-      if (!texteAction) return;
+      const match = rawTexte.match(/⚽:\s*([\s\S]*)/i);
+      if (!match) {
+        console.log("❌ Pas de ⚽: trouvé dans le message.");
+        return;
+      }
 
-      const texte = texteAction;
+      const action = match[1].split("╰")[0].split("BLUE🔷LOCK")[0].trim();
+      console.log("⚽ Action extraite :", action);
+      if (!action) {
+        console.log("❌ Action après ⚽: vide.");
+        return;
+      }
 
       const senderNorm = normalizeJid(senderJid);
       const loupNorm = normalizeJid(epreuve.loupJid);
@@ -217,22 +235,42 @@ function initLoupListener(ovl) {
       // DÉTECTION DU TIR DU LOUP
       // ──────────────────────────────
       if (!epreuve.tirEnCours) {
+        console.log("🔹 Aucun tir en cours, vérification si c'est le Loup...");
+        if (senderNorm !== loupNorm) {
+          console.log(`❌ Ce n'est pas le Loup. Sender=${senderNorm}, Loup=${loupNorm}`);
+          return;
+        }
 
-        if (senderNorm !== loupNorm) return;
+        // ───────────── TRACE DÉTECT TIR
+        console.log("🔹 Appel de detectTirLoup avec action :", action);
+        const tir = detectTirLoup(action, { trace: true }); // <-- passer trace si tu modifies la fonction
+        console.log("🔹 Résultat detectTirLoup :", tir);
 
-        const tir = detectTirLoupRP(texte);
-        if (!tir) return;
+        if (!tir) {
+          console.log("❌ Aucun tir détecté par detectTirLoup.");
+          return;
+        }
 
         const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
-        if (!Array.isArray(mentioned) || mentioned.length !== 1) return;
+        console.log("🔹 Mentionnés :", mentioned);
+        if (!Array.isArray(mentioned) || mentioned.length !== 1) {
+          console.log("❌ Pas exactement une cible mentionnée.");
+          return;
+        }
 
         const cibleJid = normalizeJid(mentioned[0]);
-        if (cibleJid === loupNorm) return;
+        if (cibleJid === loupNorm) {
+          console.log("❌ La cible est le Loup lui-même, on ignore.");
+          return;
+        }
 
-        const cible = epreuve.participants.find(
-          p => normalizeJid(p.jid) === cibleJid
-        );
-        if (!cible) return;
+        const cible = epreuve.participants.find(p => normalizeJid(p.jid) === cibleJid);
+        if (!cible) {
+          console.log("❌ Cible non trouvée dans la liste des participants :", cibleJid);
+          return;
+        }
+
+        console.log("✅ Tir validé sur :", cible.tag);
 
         epreuve.tirEnCours = {
           auteur: epreuve.loupJid,
@@ -248,6 +286,7 @@ function initLoupListener(ovl) {
         });
 
         epreuve.timerPaves = setTimeout(async () => {
+          console.log("⏱️ Timer pavé terminé, verdict final lancé");
           await verdictFinal(chatId, ovl);
         }, 3 * 60 * 1000);
 
@@ -255,31 +294,26 @@ function initLoupListener(ovl) {
       }
 
       // ──────────────────────────────
-      // GESTION ESQUIVE
+      // GESTION DES PAVÉS D'ESQUIVE
       // ──────────────────────────────
       if (epreuve.tirEnCours) {
-
         const cibleJid = normalizeJid(epreuve.tirEnCours.cible);
-        const texteClean = normalize(texte);
+        const texteClean = normalize(action);
         const zone = epreuve.tirEnCours.zone;
 
         let esquiveValide = false;
-
         switch (zone) {
           case "tête":
             esquiveValide = texteClean.includes("baisse") || texteClean.includes("accroup");
             break;
-
           case "torse":
           case "abdomen":
             esquiveValide = texteClean.includes("decale") || texteClean.includes("bond");
             break;
-
           case "jambe gauche":
           case "jambe droite":
             esquiveValide = texteClean.includes("bond") || texteClean.includes("saute") || texteClean.includes("plie");
             break;
-
           case "bras gauche":
           case "bras droit":
             esquiveValide = texteClean.includes("evite") || texteClean.includes("decale");
@@ -287,29 +321,28 @@ function initLoupListener(ovl) {
         }
 
         if (esquiveValide) {
-
+          console.log("✅ Pavé d'esquive valide de :", senderJid);
           epreuve.tirEnCours.messages.push({
             jid: senderJid,
             texte: texteClean
           });
 
           if (normalizeJid(senderJid) === cibleJid) {
-
+            console.log("⏱️ Cible a envoyé son pavé, verdict final lancé");
             clearTimeout(epreuve.timerPaves);
             await verdictFinal(chatId, ovl);
-
           }
+        } else {
+          console.log("❌ Pavé d'esquive non valide :", texteClean);
         }
       }
 
     } catch (err) {
-
       console.error("❌ ERREUR LISTENER LOUP :", err);
-
+      console.log("💬 Message qui a causé l'erreur :", messages?.[0]);
     }
-
   });
-}
+    }
 
 // ──────────────────────────────
 // VERDICT FINAL
