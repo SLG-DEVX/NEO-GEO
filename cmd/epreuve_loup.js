@@ -140,82 +140,93 @@ Le modérateur doit ensuite envoyer la liste des participants avec leurs niveaux
 });
 
 // ──────────────────────────────
-// LECTURE LISTE DES PARTICIPANTS (CORRIGÉ)
+// LECTURE LISTE DES PARTICIPANTS (FORMAT SANS @)
 // ──────────────────────────────
 ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, repondre }) => {
-  try {
-    const chatId = ms_org.key?.remoteJid || ms_org;
-    const epreuve = epreuvesLoup.get(chatId);
-    if (!epreuve || !epreuve.debut) return;
-    if (epreuve.tirEnCours) return;
+try {
+const chatId = ms_org.key?.remoteJid || ms_org;
+const epreuve = epreuvesLoup.get(chatId);
+if (!epreuve || !epreuve.debut) return;
+if (epreuve.tirEnCours) return;
 
-    const lignes = texte
-      .normalize("NFKC")
-      .replace(/[\u2066-\u2069]/g, '')
-      .split('\n');
+const lignes = texte
+  .normalize("NFKC")
+  .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+  .split('\n');
 
-    let loupJid = null;
+let loupJid = null;
 
-    for (const ligne of lignes) {
+for (const ligne of lignes) {
 
-      if (!ligne.includes(':')) continue;
+  if (!ligne.includes(':')) continue;
 
-      const [nomBrut, niveauBrut] = ligne.split(':');
+  let [nomBrut, niveauBrut] = ligne.split(':');
+  if (!nomBrut || !niveauBrut) continue;
 
-      if (!nomBrut || !niveauBrut) continue;
+  // ───── retire "1-" "2 -" etc
+  nomBrut = nomBrut
+    .replace(/^\s*\d+\s*-\s*/, '')
+    .trim();
 
-      // Nettoyage propre du tag
-      const tagOriginal = nomBrut.replace('@','').trim();
-      const tagClean = cleanTag(tagOriginal);
+  const tagOriginal = nomBrut;         // affichage
+  const tagClean = cleanTag(tagOriginal); // recherche DB
 
-      const niveau = parseInt(niveauBrut.replace(/[^\d]/g,''), 10);
-      if (isNaN(niveau)) continue;
+  // ───── niveau
+  const niveau = parseInt(niveauBrut.replace(/[^\d]/g,''), 10);
+  if (isNaN(niveau)) continue;
 
-      const isLoup = /\(loup\)/i.test(ligne);
+  // ───── détecte (Loup)
+  const isLoup = /\(loup\)/i.test(ligne);
 
-      // Recherche JID
-      let jid = await findJidByTag(tagClean);
+  // ───── cherche jid via DB
+  let jid = await findJidByTag(tagClean);
 
-      if (!jid) {
-        console.log("⚠️ Joueur non trouvé dans les teams :", tagOriginal);
-        continue; // on ignore au lieu de créer un faux jid
-      }
+  if (!jid) {
+    console.log("⚠️ Joueur non trouvé :", tagOriginal);
+    continue;
+  }
 
-      jid = normalizeJid(jid);
+  jid = normalizeJid(jid);
 
-      epreuve.participants.push({
-        jid,
-        tag: tagOriginal,
-        niveau
-      });
+  epreuve.participants.push({
+    jid,
+    tag: tagOriginal,
+    niveau
+  });
 
-      if (isLoup) loupJid = jid;
-    }
+  if (isLoup) loupJid = jid;
+}
 
-    if (epreuve.participants.length < 2)
-      return repondre("❌ Il faut au moins 2 participants.");
+// ──────────────────────────────
+// VALIDATIONS
+// ──────────────────────────────
+if (epreuve.participants.length < 2)
+  return repondre("❌ Il faut au moins 2 participants.");
 
-    if (!loupJid)
-      return repondre("❌ Aucun joueur avec (Loup) détecté.");
+if (!loupJid)
+  return repondre("❌ Aucun joueur avec (Loup) détecté.");
 
-    epreuve.loupJid = normalizeJid(loupJid);
-    epreuve.debut = false;
+epreuve.loupJid = normalizeJid(loupJid);
+epreuve.debut = false;
 
-    const mentionId = loupJid.split('@')[0];
+const mentionId = loupJid.split('@')[0];
 
-    await ovl.sendMessage(chatId, {
-      video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-      gifPlayback: true,
-      caption: `⚽ Début de l'exercice !
+await ovl.sendMessage(chatId, {
+  video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+  gifPlayback: true,
+  caption: `⚽ Début de l'exercice !
+
 Le joueur ${mentionId} est le Loup 🐺⚠️
 Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
-      mentions: [loupJid]
-    });
+  mentions: [loupJid]
+});
 
-  } catch (err) {
-    console.error("❌ ERREUR liste_loup :", err);
-  }
-}); 
+} catch (err) {
+console.error("❌ ERREUR liste_loup :", err);
+}
+});
+
+
 
 // ──────────────────────────────
 // LISTENER GLOBAL LOUP
