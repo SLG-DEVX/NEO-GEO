@@ -55,14 +55,19 @@ function renderFicheParticipants(epreuve) {
 // EXTRACTION DU TEXT
 // ──────────────────────────────
 function extraireTexteAction(texte) {
-  const match = texte.match(/⚽([\s\S]*?)⚽\s*blue🔷lock🥅/i);
+
+  const match = texte.match(/⚽:\s*([\s\S]*?)(?=\n╰|BLUE🔷LOCK|$)/i);
+
   if (!match) return null;
 
-  return cleanText(match[1]);
+  const contenu = match[1].trim();
+  if (!contenu) return null;
+
+  return normalize(contenu);
 }
 
 // ──────────────────────────────
-// EXTRACTION DU TEXT
+// EXTRACTION DE CIBLE
 // ──────────────────────────────
 function extraireCibleDepuisTexte(texteAction, participants) {
   for (const p of participants) {
