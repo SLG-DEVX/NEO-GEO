@@ -152,13 +152,20 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, rep
   let loupJid = null;
 
   for (const ligne of lignes) {
-    const m = ligne.match(/@?(\S+).*?:\s*(\d+)/i);
-    if (!m) continue;
+    const parts = ligne.split(':');
+    if (parts.length < 2) continue;
 
-    const tag = m[1];
-    const niveau = parseInt(m[2], 10);
+    // Récupère le tag proprement, enlève @ et espaces invisibles
+    let tag = normalize(parts[0].replace('@','').trim());
+
+    // Récupère le niveau uniquement numérique
+    const niveau = parseInt(parts[1].replace(/[^\d]/g,''), 10);
+    if (isNaN(niveau)) continue;
+
+    // Détecte si c'est le Loup
     const isLoup = /\(loup\)/i.test(ligne);
 
+    // Cherche le JID dans toutes les équipes
     let jid = await findJidByTag(tag);
     if (!jid) jid = tag + "@temp"; // fallback si non trouvé
 
@@ -177,38 +184,10 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, rep
   await ovl.sendMessage(chatId, {
     video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
     gifPlayback: true,
-    caption:
-`⚽ Début de l'exercice !
-Le joueur ${mentionId} est le Loup 🐺⚠️
-Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
+    caption: `⚽ Début de l'exercice !\nLe joueur ${mentionId} est le Loup 🐺⚠️\nVeuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
     mentions: [loupJid]
   });
-});
-
-// ──────────────────────────────
-// LISTENER AUTOMATIQUE LOUP RP
-// ──────────────────────────────
-function initLoupListener(ovl) {
-  ovl.ev.on("messages.upsert", async ({ messages }) => {
-    try {
-      const ms = messages?.[0];
-      if (!ms || !ms.message || ms.key.fromMe) return;
-
-      const chatId = ms.key.remoteJid;
-      const epreuve = epreuvesLoup.get(chatId);
-      if (!epreuve || !epreuve.loupJid) return;
-
-      const senderJid = normalizeJid(ms.key.participant || ms.key.remoteJid);
-      const rawTexte = ms.message.conversation || ms.message.extendedTextMessage?.text;
-      if (!rawTexte) return;
-
-      if (!rawTexte.includes("⚽:")) return;
-
-      const action = rawTexte.split("⚽:")[1].split("╰")[0].split("BLUE🔷LOCK")[0].trim();
-      if (!action) return;
-
-      const senderNorm = normalizeJid(senderJid);
-      const loupNorm = normalizeJid(epreuve.loupJid);
+}); 
 
       // ──────────────────────────────
       // DÉTECTION DU TIR DU LOUP
