@@ -158,31 +158,35 @@ let loupJid = null;
 
 for (const ligne of lignes) {
 
-  if (!ligne.includes(':')) continue;
+  const line = ligne.trim();
+  if (!line) continue;
 
-  let [nomBrut, niveauBrut] = ligne.split(':');
-  if (!nomBrut || !niveauBrut) continue;
+  // doit contenir "nom : niveau"
+  if (!line.includes(':')) continue;
 
-  // ───── retire "1-" "2 -" etc
-  nomBrut = nomBrut
+  // ignore lignes décoratives
+  if (line.includes("BLUE") || line.includes("▔")) continue;
+
+  const parts = line.split(':');
+  if (parts.length < 2) continue;
+
+  let nomBrut = parts[0]
     .replace(/^\s*\d+\s*-\s*/, '')
+    .replace(/\(loup\)/i, '')
     .trim();
 
-  const tagOriginal = nomBrut;         // affichage
-  const tagClean = cleanTag(tagOriginal); // recherche DB
+  const tagOriginal = nomBrut;
+  const tagClean = cleanTag(tagOriginal);
 
-  // ───── niveau
-  const niveau = parseInt(niveauBrut.replace(/[^\d]/g,''), 10);
+  const niveau = parseInt(parts[1].replace(/[^\d]/g,''), 10);
   if (isNaN(niveau)) continue;
 
-  // ───── détecte (Loup)
-  const isLoup = /\(loup\)/i.test(ligne);
+  const isLoup = /\(loup\)/i.test(line);
 
-  // ───── cherche jid via DB
   let jid = await findJidByTag(tagClean);
 
   if (!jid) {
-    console.log("⚠️ Joueur non trouvé :", tagOriginal);
+    console.log("⚠️ Joueur non trouvé en DB :", tagOriginal, "| clean:", tagClean);
     continue;
   }
 
@@ -195,8 +199,9 @@ for (const ligne of lignes) {
   });
 
   if (isLoup) loupJid = jid;
-}
-
+} 
+console.log("Participants détectés:", epreuve.participants);
+console.log("Loup détecté:", loupJid);
 // ──────────────────────────────
 // VALIDATIONS
 // ──────────────────────────────
