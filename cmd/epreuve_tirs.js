@@ -97,7 +97,6 @@ Dans cet exercice l'objectif est de marquer 18 buts en 18 tirs max dans le temps
 Souhaitez-vous lancer l'exercice ? :
 ✅ Oui
 ❌ Non
-🏆 Records
 ╰───────────────────
                       *⚽BLUE🔷LOCK*`;
 
