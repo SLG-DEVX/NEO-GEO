@@ -1,248 +1,169 @@
 const { ovlcmd } = require('../lib/ovlcmd');
 const joueurs = new Map();
-const { MyNeoFunctions, TeamFunctions, BlueLockFunctions } = require("../DataBase/myneo_lineup_team");
-const { cardsBlueLock } = require("../DataBase/cardsBL");
-const { saveUser: saveMyNeo, deleteUser: delMyNeo, getUserData: getNeo, updateUser: updateMyNeo } = MyNeoFunctions;
-const { saveUser: saveTeam, deleteUser: delTeam, getUserData: getTeam, updateUser: updateTeam } = TeamFunctions;
-const { saveUser: saveLineup, deleteUser: delLineup, getUserData: getLineup, updatePlayers, updateStats } = BlueLockFunctions;
 
-// ---------------- ZONES & PIEDS ----------------
-const ZONES = ["ras du sol gauche","ras du sol droite","mi-hauteur gauche","mi-hauteur droite","lucarne gauche","lucarne droite"];
+//---------------- ZONES ET PIEDS ----------------
+const ZONES = ["ras du sol gauche","ras du sol droite","ras du sol droit","mi-hauteur gauche","mi-hauteur droite","mi-hauteur droit","lucarne gauche","lucarne droite"];
+const PIEDS = ["interieur du pied droit","interieur du pied gauche","pointe du pied droit","pointe du pied gauche","cou de pied droit","cou de pied gauche","exterieur du pied droit","exterieur du pied gauche","extérieur du pied droit","extérieur du pied gauche"];
 
+//---------------- MODÈLES DE TIRS ----------------
 const MODELES_TIRS = [
-  { type:"tir direct", zones:ZONES },
-  { type:"tir enroulé", zones:["lucarne gauche","lucarne droite","mi-hauteur gauche","mi-hauteur droite"] },
-  { type:"tir trivela", zones:["lucarne gauche","lucarne droite","mi-hauteur gauche","mi-hauteur droite"] }
+  { texte:"Tir direct", tir_type:"tir direct" },
+  { texte:"Tir enroulé", tir_type:"tir enroulé" },
+  { texte:"Tir trivela", tir_type:"tir trivela" }
 ];
 
-// ---------------- NORMALISATION ----------------
+//---------------- NORMALISATION ----------------
 function normalize(t){
-  return t.toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g,"")
-    .replace(/[^\w\s]/g,"")
-    .trim();
+  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 }
 
-// ---------------- TIR IMPOSÉ (PROBAS) ----------------
-function tirerTypeImpose(){
-  const r = Math.random();
-  if(r < 0.5) return "tir direct";
-  if(r < 0.5) return "tir trivela";
-  return "tir enroulé";
-}
-
-// ---------------- DÉTECTION DU TIR ----------------
-function detectTir(text){
+//---------------- DÉTECTION DU TIR ----------------
+function detectTirParElements(text){
   const t = normalize(text);
-  for(const m of MODELES_TIRS){
-    if(!t.includes(m.type)) continue;
-    const zone = m.zones.find(z => t.includes(normalize(z)));
-    if(zone) return { type:m.type, zone };
-  }
-  return { type:"MISSED" };
+  if(t.includes("tir direct")) return {tir_type:"tir direct", tir_zone: detectZone(t)};
+  if(t.includes("tir enroulé")) return {tir_type:"tir enroulé", tir_zone: detectZone(t)};
+  if(t.includes("tir trivela")) return {tir_type:"tir trivela", tir_zone: detectZone(t)};
+  return {tir_type:"MISSED"};
 }
 
-// ---------------- CHANCE ----------------
-function chance(type){
-  if(type==="tir direct") return 0.7;
-  if(type==="tir enroulé") return 0.65;
-  if(type==="tir trivela") return 0.65;
+function detectZone(t){
+  return ZONES.find(z=>t.includes(normalize(z))) || null;
+}
+
+//---------------- PROBABILITÉ ----------------
+function calcChanceGoal(tir){
+  if(tir.tir_type==="tir direct") return 0.9;
+  if(tir.tir_type==="tir enroulé") return 0.8;
+  if(tir.tir_type==="tir trivela") return 0.75;
   return 0;
 }
 
-// ---------------- ANNONCE TIR OBLIGATOIRE ----------------
-function envoyerTirObligatoire(ms_org, ovl, type, id){
-  const joueur = joueurs.get(id);
-  if(!joueur) return;
-
-  joueur.timer = setTimeout(async()=>{
-    joueur.en_cours = false;
-    await ovl.sendMessage(ms_org,{
-      video:{url:"https://files.catbox.moe/9k5b3v.mp4"},
-      gifPlayback:true,
-      caption:"❌MISSED : Tir manqué! Fin de l'exercice"
-    });
-    envoyerResultats(ms_org, ovl, joueur);
-  }, 3 * 60 * 1000);
-
-  ovl.sendMessage(ms_org,{
-    video:{url:"https://files.catbox.moe/zqm7et.mp4"},
-    gifPlayback:true,
-    caption:`🎯 TIR OBLIGATOIRE : *${type.toUpperCase()}*`
-  });
-}
-
-// ---------------- COMMANDE EXERCICE ----------------
+//---------------- ÉPREUVE DU TIR ----------------
 ovlcmd({
-  nom_cmd:'exercice1',
-  classe:'BLUELOCK⚽',
-  react:'⚽'
-}, async (ms_org, ovl, { auteur_Message, repondre })=>{
-  try{
+  nom_cmd:"epreuve du tir",
+  isfunc:true
+}, async (ms_org, ovl, { texte, auteur_Message }) => {
 
-const texteDebut = `*🔷ÉPREUVE DE TIRS⚽🥅*
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
-                   🔷⚽RÈGLES:
-Dans cet exercice l'objectif est de marquer 18 buts en 18 tirs max dans le temps imparti ❗vous êtes face à un gardien Robot qui mémorise vos tirs et peut bloquer. ⚠Vous devez marquer au moins 6 buts sinon vous êtes éliminé ❌. 
-⚠SI VOUS RATEZ UN TIR, FIN DE L'EXERCICE ❌.
+  if(!texte.toLowerCase().includes("⚽blue🔷lock🥅")) return;
 
-          ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ 
-                       🔷RANKING🏆 
-           ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔                        
-🥉Novice: 5 buts⚽ (25 pts) 
-🥈Pro: 10 buts⚽ (50 pts) 
-🥇Classe mondiale: 15 buts⚽🏆(100 pts) 
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░ ░                         
-Souhaitez-vous lancer l'exercice ? :
-✅ Oui
-❌ Non
-╰───────────────────
-                      *⚽BLUE🔷LOCK*`;
+  const joueur = joueurs.get(auteur_Message);
+  if(!joueur || !joueur.en_cours) return;
 
-    await ovl.sendMessage(ms_org,{
-      image:{url:"https://files.catbox.moe/09rll9.jpg"},
-      caption:texteDebut
-    });
+  const analyse = detectTirParElements(texte);
 
-    const rep = await ovl.recup_msg({ auteur:auteur_Message, ms_org, temps:60000 });
-    const res = rep?.message?.conversation?.toLowerCase();
-    if(!res) return;
-    if(res === "non") return repondre("❌ Lancement de l'exercice annulé...");
-    if(res === "records") return afficherRecords(ms_org, ovl);
-
-    const tirImpose = tirerTypeImpose();
-
-    joueurs.set(auteur_Message,{
-      id:auteur_Message,
-      but:0,
-      tirs_total:0,
-      stats:{ direct:0, enroule:0, trivela:0 },
-      tirImpose,
-      en_cours:true,
-      timer:null
-    });
-
-    envoyerTirObligatoire(ms_org, ovl, tirImpose, auteur_Message);
-
-  }catch(e){
-    console.error(e);
-    repondre("❌Erreur survenue lors de l'exercice");
-  }
-});
-
-// ---------------- ÉPREUVE DU TIR ----------------
-ovlcmd({ nom_cmd:'epreuve_du_tir', isfunc:true }, async (ms_org, ovl, { auteur_Message, texte })=>{
-  const j = joueurs.get(auteur_Message);
-  if(!j || !j.en_cours) return;
-
-  clearTimeout(j.timer);
-
-  const tir = detectTir(texte);
-
-  // ❌ Mauvais type
-  if(tir.type !== j.tirImpose){
-    j.en_cours = false;
+  if(analyse.tir_type==="MISSED"){
+    clearTimeout(joueur.timer);
+    joueur.en_cours=false;
     await ovl.sendMessage(ms_org,{
       video:{url:"https://files.catbox.moe/9k5b3v.mp4"},
       gifPlayback:true,
-      caption:"❌MISSED : Tir manqué! Fin de l'exercice"
+      caption:"❌MISSED : Tir manqué fin de l'exercice !"
     });
-    return envoyerResultats(ms_org, ovl, j);
+    return envoyerResultats(ms_org,ovl,joueur);
   }
 
-  // 🎯 Chance
-  if(Math.random() > chance(tir.type)){
-    j.en_cours = false;
+  // ❌ répétition tir_type (hors défi)
+  if(!joueur.tirDefiEnCours){
+    const lastType = joueur.tir_info.slice(-1)[0]?.tir_type;
+    if(lastType === analyse.tir_type){
+      clearTimeout(joueur.timer);
+      joueur.en_cours=false;
+      return envoyerResultats(ms_org,ovl,joueur);
+    }
+  }
+
+  // ❌ logique zones
+  if(!joueur.tirDefiEnCours){
+    const last = joueur.tir_info.slice(-1)[0];
+    if(last){
+      if(analyse.tir_type==="tir direct" && last.tir_zone===analyse.tir_zone){
+        clearTimeout(joueur.timer);
+        joueur.en_cours=false;
+        return envoyerResultats(ms_org,ovl,joueur);
+      }
+      if((analyse.tir_type==="tir enroulé"||analyse.tir_type==="tir trivela")
+        && last.tir_zone?.startsWith("lucarne")
+        && analyse.tir_zone?.startsWith("lucarne")){
+        clearTimeout(joueur.timer);
+        joueur.en_cours=false;
+        return envoyerResultats(ms_org,ovl,joueur);
+      }
+    }
+  }
+
+  const chance = calcChanceGoal(analyse);
+  if(Math.random() > chance){
+    clearTimeout(joueur.timer);
+    joueur.en_cours=false;
     await ovl.sendMessage(ms_org,{
       video:{url:"https://files.catbox.moe/9k5b3v.mp4"},
       gifPlayback:true,
-      caption:"❌MISSED : Tir manqué! Fin de l'exercice"
+      caption:"❌MISSED : Tir manqué fin de l'exercice !"
     });
-    return envoyerResultats(ms_org, ovl, j);
+    return envoyerResultats(ms_org,ovl,joueur);
   }
 
-  // ✅ GOAL
-  j.but++;
-  j.tirs_total++;
+  // ✅ GOAL (BLOC ORIGINAL)
+  joueur.tir_info.push(analyse);
+  joueur.tirs_total++;
+  joueur.but++;
 
-  if(tir.type==="tir direct") j.stats.direct++;
-  if(tir.type==="tir enroulé") j.stats.enroule++;
-  if(tir.type==="tir trivela") j.stats.trivela++;
+  const restants = 15 - joueur.but;
 
-  await ovl.sendMessage(ms_org,{
-    video:{url:"https://files.catbox.moe/pad98d.mp4"},
+  await ovl.sendMessage(ms_org, {
+    video:{ url:"https://files.catbox.moe/pad98d.mp4" },
     gifPlayback:true,
-    caption:`✅GOAL⚽! But marqué! Il vous reste ${18 - j.but} tirs.`
+    caption:`✅⚽GOAL : ${joueur.but} but${joueur.but>1?'s':''} 🎯\n⚠️ Il vous reste ${restants} tirs ⌛`
   });
 
-  if(j.but >= 18){
-    j.en_cours = false;
-    return envoyerResultats(ms_org, ovl, j);
-  }
+  // 🔥 défi tous les 2 buts
+  if(joueur.but % 2 === 0){
+    joueur.tirDefiEnCours = true;
+    joueur.defiType = Math.random()<0.5?"tir enroulé":"tir trivela";
 
-  // 🎯 PROCHAIN TIR
-  j.tirImpose = tirerTypeImpose();
-  envoyerTirObligatoire(ms_org, ovl, j.tirImpose, auteur_Message);
-});
-
-// ---------------- RESULTATS ----------------
-async function envoyerResultats(ms_org, ovl, j){
-  const tag = `@${j.id.split('@')[0]}`;
-
-  let rank = "❌";
-  if(j.but >= 15) rank = "SS🥇";
-  else if(j.but >= 10) rank = "S🥈";
-  else if(j.but >= 5) rank = "A🥉";
-
-  let titre = "";
-  if(j.stats.trivela >= 5) titre = "👑 TRIVELA KING";
-  else if(j.stats.enroule >= 5) titre = "🎯 ENROULÉ MASTER";
-  else if(j.stats.direct >= 5) titre = "💥 DIRECT STRIKER";
-
-  const rec = recordsGlobal.get(j.id);
-  if(!rec || j.but > rec.buts){
-    recordsGlobal.set(j.id,{ buts:j.but, rank });
-  }
-
-  await ovl.sendMessage(ms_org,{
-    image:{url:"https://files.catbox.moe/1xnoc6.jpg"},
-    caption:`🔷RESULTATS DE L'ÉVALUATION📊
-*👤Joueur:* ${tag}
-*⚽Buts:* ${j.but}
-*📊Rank:* ${rank}
-${titre}
-╰───────────────────
-                      *🔷BLUELOCK⚽*`,
-    mentions:[j.id]
-  });
-
-  joueurs.delete(j.id);
-}
-
-// ---------------- RECORDS ----------------
-async function afficherRecords(ms_org, ovl){
-  if(recordsGlobal.size === 0)
-    return ovl.sendMessage(ms_org,{ text:"🏆 Aucun record enregistré pour le moment." });
-
-  let msg = "🏆 *RECORDS BLUE LOCK⚽*\n";
-  [...recordsGlobal.entries()]
-    .sort((a,b)=>b[1].buts - a[1].buts)
-    .slice(0,10)
-    .forEach(([id,r],i)=>{
-      msg += `#${i+1} @${id.split('@')[0]} – ${r.buts} buts (${r.rank})\n`;
+    await ovl.sendMessage(ms_org,{
+      video:{url:"https://files.catbox.moe/zqm7et.mp4"},
+      gifPlayback:true,
+      caption:`⚠️ Défi activé : ${joueur.defiType.toUpperCase()} !`
     });
 
-  ovl.sendMessage(ms_org,{ text:msg });
-}
+    setTimeout(()=>{
+      joueur.tirDefiEnCours=false;
+      joueur.defiType=null;
+    },3*60*1000);
+  }
 
-// ---------------- STOP ----------------
-ovlcmd({ nom_cmd:'stop', isfunc:true }, (ms_org, ovl, { auteur_Message, texte })=>{
-  if(!texte || texte.toLowerCase().trim() !== "stop") return;
-  const j = joueurs.get(auteur_Message);
-  if(j){
-    clearTimeout(j.timer);
-    joueurs.delete(auteur_Message);
-    ovl.sendMessage(ms_org,{ text:"✅Exercice arrêté." });
+  if(joueur.but>=15){
+    clearTimeout(joueur.timer);
+    joueur.en_cours=false;
+    return envoyerResultats(ms_org,ovl,joueur);
   }
 });
+
+//---------------- RESULTATS ----------------
+async function envoyerResultats(ms_org, ovl, joueur) {
+  const tag = `@${joueur.id.split('@')[0]}`;
+  let rank = "❌";
+  if(joueur.but >= 15) rank = "SS🥇";
+  else if(joueur.but >= 10) rank = "S🥈";
+  else if(joueur.but >= 5) rank = "A🥉";
+
+  const result = `
+🔷RESULTATS DE L'ÉVALUATION📊
+
+*🥅Exercice:* Épreuve de tirs
+*👤Joueur:* ${tag}
+*⚽Buts:* ${joueur.but}
+*📊Rank:* ${rank}
+
+╰───────────────────
+                      *🔷BLUELOCK⚽*`;
+
+  await ovl.sendMessage(ms_org, {
+    image:{url:"https://files.catbox.moe/1xnoc6.jpg"},
+    caption: result,
+    mentions:[joueur.id]
+  });
+
+  joueurs.delete(joueur.id);
+}
