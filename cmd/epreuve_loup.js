@@ -1,5 +1,5 @@
 const { ovlcmd } = require('../lib/ovlcmd');
-const { getAllTeams } = require('../DataBase/myneo_lineup_team');
+const { TeamFunctions } = require('../DataBase/myneo_lineup_team');
 const epreuvesLoup = new Map();
 
 // ──────────────────────────────
@@ -56,16 +56,20 @@ function renderFicheParticipants(epreuve) {
 // RECHERCHE JID DANS TOUTES LES TEAMS
 // ──────────────────────────────
 async function findJidByTag(tag) {
-  const allTeams = await getAllTeams(); // Récupère toutes les équipes
+
+  const all = await TeamFunctions.getAllTeams();
+  if (!all.length) return null;
+
   tag = cleanTag(tag);
-  for (const team of allTeams) {
-    for (const player of team.players) {
-      if (cleanTag(player.tag) === tag) return player.jid;
+
+  for (const row of all) {
+    if (cleanTag(row.users) === tag) {
+      return normalizeJid(row.id);
     }
   }
-  return null; // fallback si non trouvé
-}
 
+  return null;
+}
 // ──────────────────────────────
 // EXTRACTION DU TEXTE D’ACTION
 // ──────────────────────────────
