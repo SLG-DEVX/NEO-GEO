@@ -110,7 +110,7 @@ async function updatePlayerData(updates, jid, ovl, ms_org) {
   }
 }
 
-// ================= PROCESS UPDATES (FIXED) =================
+// ================= PROCESS UPDATES =================
 async function processUpdates(args, jid) {
   const updates = [];
   const dataRaw = await getData({ jid });
@@ -122,6 +122,15 @@ async function processUpdates(args, jid) {
     const object = args[i++];
     const signe = args[i++];
 
+    let texte = [];
+    while (
+      i < args.length &&
+      !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
+      !columns.includes(args[i])
+    ) {
+      texte.push(args[i++]);
+    }
+
     if (!columns.includes(object)) {
       throw new Error(`❌ La colonne '${object}' n'existe pas.`);
     }
@@ -129,32 +138,13 @@ async function processUpdates(args, jid) {
     const oldValue = values[object];
     let newValue;
 
-    // 🔥 ICI : tout ce qui reste devient UN SEUL TEXTE
-    let texte = [];
-
-if (object === "commentaire") {
-  // 🔥 commentaire = TOUT le reste
-  texte = args.slice(i);
-  i = args.length;
-} else {
-  // 🧠 comportement normal pour les autres champs (comme avant)
-  while (
-    i < args.length &&
-    !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
-    !columns.includes(args[i])
-  ) {
-    texte.push(args[i++]);
-  }
-}
-
-texte = texte.join(" ");
-
     if (object === "cards") {
       const old = oldValue || "";
       let list = old.split("\n").filter(x => x.trim() !== "");
 
-      const items = texte.length
-        ? texte.split(",").map(x => x.trim()).filter(Boolean)
+      const fullText = texte.join(" ");
+      const items = fullText.length
+        ? fullText.split(",").map(x => x.trim()).filter(Boolean)
         : [];
 
       if (signe === "+") {
@@ -178,14 +168,14 @@ texte = texte.join(" ");
 
     if (signe === "+" || signe === "-") {
       const n1 = Number(oldValue) || 0;
-      const n2 = Number(texte) || 0;
+      const n2 = Number(texte.join(" ")) || 0;
       newValue = signe === "+" ? n1 + n2 : n1 - n2;
     } else if (signe === "=") {
-      newValue = texte;
+      newValue = texte.join(" ");
     } else if (signe === "add") {
-      newValue = (oldValue + " " + texte).trim();
+      newValue = (oldValue + " " + texte.join(" ")).trim();
     } else if (signe === "supp") {
-      const regex = new RegExp(`\\b${normalizeText(texte)}\\b`, "gi");
+      const regex = new RegExp(`\\b${normalizeText(texte.join(" "))}\\b`, "gi");
       newValue = normalizeText(oldValue).replace(regex, "").trim();
     } else {
       throw new Error(`❌ Signe non reconnu : ${signe}`);
@@ -244,8 +234,6 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
         const fiche = `░▒▒░░▒░ *👤N E O P L A Y E R 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 ◇ *Pseudo👤*: ${data.pseudo}
-◇ *User👤*: ${data.user}
-◇ *Surnom(s)👤*: ${data.surnom}
 ◇ *Classement continental🌍:* ${data.classement}
 ◇ *Experience⏫:* ${data.exp} Exp
 ◇ *Niveau🎖️*: ${data.niveau} ▲
@@ -258,8 +246,6 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ◇ *Fans👥*: ${data.fans} 👥
 ◇ *Archetype ⚖️*: ${data.archetype}
 ◇ *Commentaire*: ${data.commentaire}
-
-◇ *Armes⭐*: ${data.armes}
 
 ░▒░░ PALMARÈS🏆
 ▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
