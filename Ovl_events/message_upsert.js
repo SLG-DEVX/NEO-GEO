@@ -6,8 +6,7 @@ const config = require("../set");
 const prefixe = config.PREFIXE || "";
 const getJid = require("./cache_jid");
 
-// ─────────────── Export direct de la fonction ───────────────
-module.exports = async function message_upsert(m, ovl) {
+async function message_upsert(m, ovl) {
   try {
     if (m.type !== 'notify') return;
     const ms = m.messages?.[0];
@@ -101,18 +100,20 @@ module.exports = async function message_upsert(m, ovl) {
     const dev_id = dev_num.includes(auteur_Message);
     const verif_Admin = verif_Groupe && (groupe_Admin.includes(auteur_Message) || prenium_id);
     const ms_badge = {
-      key: {
-        fromMe: false,
-        participant: '0@s.whatsapp.net',
-        remoteJid: '0@s.whatsapp.net',
+  key: {
+    fromMe: false,
+    participant: '0@s.whatsapp.net',
+    remoteJid: '0@s.whatsapp.net',
+  },
+  message: {
+    extendedTextMessage: {
+      text: 'ɴᴇᴏ-ʙᴏᴛ-ᴍᴅ ʙʏ ᴀɪɴᴢ',
+      contextInfo: {
+        mentionedJid: [],
       },
-      message: {
-        extendedTextMessage: {
-          text: 'ɴᴇᴏ-ʙᴏᴛ-ᴍᴅ ʙʏ ᴀɪɴᴢ',
-          contextInfo: { mentionedJid: [] },
-        },
-      }
-    };
+    },
+  }
+};
     const repondre = (msg) => ovl.sendMessage(ms_org, { text: msg }, { quoted: ms });
 
     const cmd_options = {
@@ -177,4 +178,6 @@ module.exports = async function message_upsert(m, ovl) {
   } catch (e) {
     console.error("❌ Erreur(message.upsert):", e);
   }
-};
+}
+
+module.exports = message_upsert;
