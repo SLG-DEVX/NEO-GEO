@@ -5,6 +5,7 @@ const evt = require("../lib/ovlcmd");
 const config = require("../set");
 const prefixe = config.PREFIXE || "";
 const getJid = require("./cache_jid");
+const { handleLoupMessage } = require("../cmd/epreuve_loup");
 
 async function message_upsert(m, ovl) {
   try {
