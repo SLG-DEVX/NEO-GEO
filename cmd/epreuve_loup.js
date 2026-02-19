@@ -1,24 +1,67 @@
 const { ovlcmd } = require('../lib/ovlcmd');
-
-// On garde la Map pour stocker l'état des parties par groupe
 const epreuvesLoup = new Map();
 
 // ──────────────────────────────
 // UTILITAIRES
 // ──────────────────────────────
 function cleanText(str) {
-  if (!str) return '';
-  return str.normalize("NFKC").replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '').replace(/\n/g, ' ').toLowerCase().trim();
+  return str
+    ?.normalize("NFKC")
+    .replace(/[\u200B-\u200F\u2060-\u206F\u2066-\u2069]/g, '')
+    .replace(/\n/g, ' ')
+    .toLowerCase() || '';
 }
 
-// Pour comparer les IDs de manière sûre (on ne garde que les chiffres)
-function purId(jid) {
-  if (!jid) return '';
-  return jid.split('@')[0].split(':')[0];
+function cleanTag(str) {
+  return cleanText(str).replace(/\s+/g, '');
+}
+
+function normalizeJid(jid) {
+  return jid ? jid.split(':')[0].trim() : '';
+}
+
+function normalize(str){
+  return cleanText(str);
 }
 
 // ──────────────────────────────
-// 1. LANCEMENT (exercice4)
+// RENDER FICHE PARTICIPANTS
+// ──────────────────────────────
+function renderFicheParticipants(epreuve) {
+  let txt =
+`🔷⚽ÉPREUVE DU LOUP🥅
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
+*👤Participants:*`;
+
+  let i = 1;
+  for (const p of epreuve.participants) {
+    const isLoup = normalizeJid(epreuve.loupJid) === normalizeJid(p.jid) ? " (Loup)" : "";
+    txt += `\n${i}- @${p.tag}: ${p.niveau}${isLoup}`;
+    i++;
+  }
+
+  txt += `
+     
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▱▱▱▔▔
+                      ⚽BLUE🔷LOCK`;
+
+  return txt;
+}
+
+// ──────────────────────────────
+// EXTRACTION CIBLE
+// ──────────────────────────────
+function extraireCibleDepuisTexte(texteAction, participants) {
+  for (const p of participants) {
+    if (texteAction.includes(cleanTag(p.tag))) {
+      return p;
+    }
+  }
+  return null;
+}
+
+// ──────────────────────────────
+// LANCEMENT
 // ──────────────────────────────
 ovlcmd({
   nom_cmd: 'exercice4',
@@ -26,198 +69,229 @@ ovlcmd({
   react: '⚽',
   desc: "Lance l'épreuve du loup"
 }, async (ms_org, ovl, { repondre, auteur_Message }) => {
-  try {
-    // Initialisation de la partie pour ce groupe
-    await ovl.sendMessage(ms_org, { video: { url: 'https://files.catbox.moe/z64kuq.mp4' }, gifPlayback: true });
 
-    const texteDebut = `🔷 *ÉPREUVE DU LOUP* 🐺⚽
-Voulez-vous lancer l’épreuve ?
-✅ \`Oui\`  /  ❌ \`Non\``;
+  const chatId = ms_org;
 
-    await ovl.sendMessage(ms_org, { image: { url: 'https://files.catbox.moe/zui2we.jpg' }, caption: texteDebut });
+  await ovl.sendMessage(chatId, {
+    video: { url: 'https://files.catbox.moe/z64kuq.mp4' },
+    gifPlayback: true
+  });
 
-    const rep = await ovl.recup_msg({ auteur: auteur_Message, ms_org, temps: 60000 });
-    const response = cleanText(rep?.message?.conversation || rep?.message?.extendedTextMessage?.text);
-    
-    if (response === "oui") {
-      epreuvesLoup.set(ms_org, { 
-        participants: [], 
-        loupJid: null, 
-        tirEnCours: null, 
-        debut: true 
-      });
-      await repondre("✅ Mode configuration activé.\nEnvoyez la liste des participants sous ce format :\n@pseudo : niveau (Loup)");
-    }
-  } catch (err) { console.error("[LOUP ERROR]", err); }
+  const texteDebut = `🔷 *ÉPREUVE DU LOUP*🐺❌⚽
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
+
+*⚽RÈGLES:*
+Objectif : toucher un autre joueur avec le ballon ⚽ avant la fin du temps imparti : 15 minutes❗
+Le modérateur doit ensuite envoyer la liste des participants avec leurs niveaux et ajouter (Loup) au joueur qui commence.
+
+⚽ Voulez-vous lancer l’épreuve ?
+✅ \`Oui\`  
+❌ \`Non\`
+
+╰───────────────────
+▝▝▝                    *🔷BLUELOCK⚽*`;
+
+  await ovl.sendMessage(chatId, {
+    image: { url: 'https://files.catbox.moe/zui2we.jpg' },
+    caption: texteDebut
+  });
+
+  const rep = await ovl.recup_msg({
+    auteur: auteur_Message,
+    ms_org,
+    temps: 60000
+  });
+
+  const response =
+    rep?.message?.conversation?.toLowerCase() ||
+    rep?.message?.extendedTextMessage?.text?.toLowerCase();
+
+  if (!response) return repondre("⏳ Pas de réponse, épreuve annulée.");
+  if (response === "non") return repondre("❌ Lancement annulé.");
+
+  if (response === "oui") {
+    epreuvesLoup.set(chatId, {
+      participants: [],
+      loupJid: null,
+      tirEnCours: null,
+      debut: true,
+      timerPaves: null
+    });
+
+    await repondre("✅📋 Envoie la liste des participants avec (Loup).");
+  }
 });
 
 // ──────────────────────────────
-// 2. GESTION DE LA LISTE (isfunc)
+// LISTE PARTICIPANTS
 // ──────────────────────────────
-ovlcmd({ nom_cmd: 'liste_loup_logic', isfunc: true }, async (ms_org, ovl, { texte, getJid, repondre }) => {
+ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, getJid, repondre }) => {
+
   const epreuve = epreuvesLoup.get(ms_org);
   if (!epreuve || !epreuve.debut) return;
 
   const lignes = texte.split('\n');
-  let aTrouveQuelqueChose = false;
+  let loupJid = null;
 
   for (const ligne of lignes) {
+
     const m = ligne.match(/@(\S+).*?:\s*(\d+)/i);
     if (!m) continue;
 
     const tag = m[1];
-    const niveau = parseInt(m[2]);
+    const niveau = parseInt(m[2], 10);
     const isLoup = /\(loup\)/i.test(ligne);
 
+    let jid;
     try {
-      // On utilise getJid de ton système pour la compatibilité
-      const jid = await getJid(tag + "@s.whatsapp.net", ms_org, ovl);
-      epreuve.participants.push({ jid, tag, niveau });
-      if (isLoup) epreuve.loupJid = jid;
-      aTrouveQuelqueChose = true;
-    } catch (e) { console.log("Erreur JID:", tag); }
+      jid = await getJid(tag + "@s.whatsapp.net", ms_org, ovl);
+    } catch {
+      continue;
+    }
+
+    epreuve.participants.push({ jid, tag, niveau });
+
+    if (isLoup) loupJid = jid;
   }
 
-  if (aTrouveQuelqueChose && epreuve.loupJid) {
-    epreuve.debut = false;
-    console.log(`[LOUP] Partie démarrée dans ${ms_org}. Loup : ${epreuve.loupJid}`);
-    await repondre(`⚽ *L'ÉPREUVE COMMENCE !*
-Le loup est @${purId(epreuve.loupJid)}.
-Il doit envoyer son pavé d'attaque en taguant sa cible.`, { mentions: [epreuve.loupJid] });
-  }
+  if (epreuve.participants.length < 2)
+    return repondre("❌ Il faut au moins 2 participants.");
+
+  if (!loupJid)
+    return repondre("❌ Aucun joueur avec (Loup) détecté.");
+
+  epreuve.loupJid = normalizeJid(loupJid);
+  epreuve.debut = false;
+
+  await ovl.sendMessage(ms_org, {
+    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
+    gifPlayback: true,
+    caption: renderFicheParticipants(epreuve),
+    mentions: epreuve.participants.map(p => p.jid)
+  });
 });
 
 // ──────────────────────────────
-// 3. LOGIQUE DE JEU (isfunc)
+// HANDLER CENTRAL (À APPELER DANS message_upsert.js)
 // ──────────────────────────────
-ovlcmd({ nom_cmd: 'loup_game_engine', isfunc: true }, async (ms_org, ovl, { texte, auteur_Message, mention_JID }) => {
-  const epreuve = epreuvesLoup.get(ms_org);
-  if (!epreuve || epreuve.debut || !texte) return;
+async function handleLoupMessage(ms, ovl){
 
-  const senderId = purId(auteur_Message);
-  const loupId = purId(epreuve.loupJid);
+  if (!ms.message || ms.key.fromMe) return;
 
-  // --- PHASE A : ATTAQUE DU LOUP ---
-  if (!epreuve.tirEnCours) {
-    if (senderId !== loupId) return; // Seul le loup peut attaquer
+  const chatId = ms.key.remoteJid;
+  const epreuve = epreuvesLoup.get(chatId);
+  if (!epreuve || !epreuve.loupJid) return;
 
-    console.log(`[LOG LOUP] Le Loup (${senderId}) a envoyé un message.`);
+  const sender = normalizeJid(ms.key.participant || ms.key.remoteJid);
+  const raw =
+    ms.message.conversation ||
+    ms.message.extendedTextMessage?.text;
 
-    const t = cleanText(texte);
-    const ZONES = ["tête", "torse", "abdomen", "jambe gauche", "jambe droite", "bras gauche", "bras droit"];
-    const TYPES = ["tir", "frappe", "coup de pied", "shoot", "balle", "pied"];
+  if (!raw) return;
 
-    const zoneTrouvee = ZONES.find(z => t.includes(z));
-    const typeTrouve = TYPES.find(ty => t.includes(ty));
+  const texte = normalize(raw);
 
-    if (!zoneTrouvee || !typeTrouve) {
-      console.log(`[LOG LOUP] Message ignoré : Zone=${zoneTrouvee}, Type=${typeTrouve}`);
-      return;
+  // ───────── TIR DU LOUP ─────────
+  if (!epreuve.tirEnCours && sender === normalizeJid(epreuve.loupJid)) {
+
+    const zones = ["tête","torse","abdomen","jambe gauche","jambe droite","bras gauche","bras droit"];
+    const zone = zones.find(z => texte.includes(normalize(z)));
+    if (!zone) return;
+
+    let cible = null;
+
+    const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
+    if (mentioned?.length) {
+      const cibleJid = normalizeJid(mentioned[0]);
+      cible = epreuve.participants.find(p => normalizeJid(p.jid) === cibleJid);
+    } else {
+      cible = extraireCibleDepuisTexte(texte, epreuve.participants);
     }
 
-    // On récupère la cible via les mentions (ton système fournit mention_JID)
-    let cibleJid = (mention_JID && mention_JID.length > 0) ? mention_JID[0] : null;
-
-    // Plan B : Recherche par tag texte si la mention n'est pas passée
-    if (!cibleJid) {
-      const cibleP = epreuve.participants.find(p => t.includes(p.tag.toLowerCase()));
-      if (cibleP) cibleJid = cibleP.jid;
-    }
-
-    if (!cibleJid || purId(cibleJid) === senderId) {
-      console.log("[LOG LOUP] Pas de cible valide détectée dans l'attaque.");
-      return;
-    }
-
-    console.log(`[LOG LOUP] Tir validé ! Cible: ${cibleJid} | Zone: ${zoneTrouvee}`);
+    if (!cible) return;
 
     epreuve.tirEnCours = {
-      auteur: auteur_Message,
-      cible: cibleJid,
-      zone: zoneTrouvee,
-      reussiteEsquive: false
+      auteur: epreuve.loupJid,
+      cible: cible.jid,
+      zone
     };
 
-    await ovl.sendMessage(ms_org, { 
-      text: `⚽ *ATTAQUE DÉTECTÉE !*
-@${purId(auteur_Message)} a envoyé un ${typeTrouve} vers la *${zoneTrouvee}* de @${purId(cibleJid)} !
-
-🛡️ @${purId(cibleJid)}, tu as 3 minutes pour envoyer ton pavé d'esquive !`,
-      mentions: [auteur_Message, cibleJid]
+    await ovl.sendMessage(chatId,{
+      text:`⚽ **TIR VALIDÉ !**
+Zone visée : ${zone}
+⏱️ 3 minutes pour esquiver 🛡️ @${cible.tag}`,
+      mentions:[cible.jid]
     });
 
-    // Timer de 3 minutes
-    epreuve.timer = setTimeout(() => {
-      finaliserAction(ms_org, ovl);
+    epreuve.timerPaves = setTimeout(async ()=>{
+      await verdictFinal(chatId, ovl);
     }, 180000);
 
-  } 
-  // --- PHASE B : ESQUIVE DE LA CIBLE ---
-  else {
-    const cibleAttenduId = purId(epreuve.tirEnCours.cible);
-    if (senderId !== cibleAttenduId) return;
+    return;
+  }
 
-    console.log(`[LOG LOUP] La cible (${senderId}) tente une esquive.`);
-    const t = cleanText(texte);
-    const zoneVisee = epreuve.tirEnCours.zone;
-    let esquiveValide = false;
+  // ───────── ESQUIVE ─────────
+  if (epreuve.tirEnCours && sender === normalizeJid(epreuve.tirEnCours.cible)) {
 
-    // Conditions d'esquive par zone
-    if (zoneVisee === "tête" && (t.includes("baisse") || t.includes("accroup"))) esquiveValide = true;
-    if ((zoneVisee === "torse" || zoneVisee === "abdomen") && (t.includes("decale") || t.includes("côté") || t.includes("pivot"))) esquiveValide = true;
-    if (zoneVisee.includes("jambe") && (t.includes("saute") || t.includes("bond") || t.includes("leve"))) esquiveValide = true;
-
-    if (esquiveValide) {
-      console.log("[LOG LOUP] Esquive réussie par mot-clé !");
-      epreuve.tirEnCours.reussiteEsquive = true;
-      if (epreuve.timer) clearTimeout(epreuve.timer);
-      await finaliserAction(ms_org, ovl);
+    if (
+      texte.includes("baisse") ||
+      texte.includes("saute") ||
+      texte.includes("decale") ||
+      texte.includes("evite")
+    ){
+      clearTimeout(epreuve.timerPaves);
+      await verdictFinal(chatId, ovl, true);
     }
   }
-});
+}
 
 // ──────────────────────────────
-// FINALISATION
+// VERDICT FINAL AVEC GIFS
 // ──────────────────────────────
-async function finaliserAction(chatId, ovl) {
+async function verdictFinal(chatId, ovl, esquive=false){
+
   const epreuve = epreuvesLoup.get(chatId);
-  if (!epreuve || !epreuve.tirEnCours) return;
+  if(!epreuve?.tirEnCours) return;
 
-  const { auteur, cible, zone, reussiteEsquive } = epreuve.tirEnCours;
+  const { auteur, cible } = epreuve.tirEnCours;
+  const loup = epreuve.participants.find(p => p.jid === auteur);
+  const cibleP = epreuve.participants.find(p => p.jid === cible);
 
-  if (reussiteEsquive) {
-    await ovl.sendMessage(chatId, { 
-      text: `❌ *RATÉ !*
-@${purId(cible)} a réussi son esquive RP contre le tir à la ${zone} !
-🐺 Le loup reste @${purId(auteur)}.`,
-      mentions: [auteur, cible]
+  let touche = false;
+
+  if(!esquive){
+    const chanceToucher = 50 + Math.max(Math.min(loup.niveau - cibleP.niveau, 20), -20);
+    touche = Math.random()*100 < chanceToucher;
+  }
+
+  if(touche){
+    epreuve.loupJid = normalizeJid(cible);
+    await ovl.sendMessage(chatId,{
+      video:{url:"https://files.catbox.moe/eckrvo.mp4"},
+      gifPlayback:true,
+      caption:`✅ **TOUCHÉ !**
+@${cibleP.tag} devient le nouveau Loup 🐺.`,
+      mentions:[cible]
     });
-  } else {
-    epreuve.loupJid = cible; // La cible devient le nouveau loup
-    await ovl.sendMessage(chatId, { 
-      video: { url: "https://files.catbox.moe/eckrvo.mp4" },
-      gifPlayback: true,
-      caption: `✅ *TOUCHÉ !*
-@${purId(cible)} a été atteint ! Tu es le nouveau Loup. 🐺`,
-      mentions: [cible]
+  }else{
+    const gifsRate = [
+      "https://files.catbox.moe/obqo0d.mp4",
+      "https://files.catbox.moe/m00580.mp4"
+    ];
+    await ovl.sendMessage(chatId,{
+      video:{url:gifsRate[Math.floor(Math.random()*gifsRate.length)]},
+      gifPlayback:true,
+      caption:`❌ **RATÉ !**
+Le Loup reste @${loup.tag}.`,
+      mentions:[auteur]
     });
   }
 
   epreuve.tirEnCours = null;
-  console.log(`[LOG LOUP] Action résolue dans ${chatId}.`);
+  epreuve.timerPaves = null;
 }
 
-// ──────────────────────────────
-// COMMANDE : STOP
-// ──────────────────────────────
-ovlcmd({
-    nom_cmd: 'stop_loup',
-    classe: 'BLUELOCK⚽',
-    desc: "Arrête l'épreuve en cours"
-}, async (ms_org, ovl, { repondre, verif_Admin }) => {
-    if (!verif_Admin) return repondre("Seul un admin peut stopper l'exercice.");
-    epreuvesLoup.delete(ms_org);
-    repondre("🛑 Épreuve terminée et données effacées.");
-});
-
-module.exports = { epreuvesLoup };
+module.exports = {
+  epreuvesLoup,
+  handleLoupMessage
+};
