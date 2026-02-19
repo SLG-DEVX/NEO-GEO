@@ -175,7 +175,13 @@ async function message_upsert(m, ovl) {
         console.error(`Erreur dans la fonction isfunc '${cmd.nom_cmd}':`, err);
       }
     }
-
+// ───────── LANCEMENT SYSTEME LOUP ─────────
+try {
+  await handleLoupMessage(ms, ovl);
+} catch (err) {
+  console.error("Erreur Loup:", err);
+}
+    
   } catch (e) {
     console.error("❌ Erreur(message.upsert):", e);
   }
