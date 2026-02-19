@@ -135,7 +135,7 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
 
   for (const ligne of lignes) {
 
-    const m = ligne.match(/@(\S+).*?:\s*(\d+)/i);
+const m = ligne.match(/@(\d+).*?:\s*(\d+)/i);
     if (!m) continue;
 
     const tag = m[1];
@@ -164,11 +164,11 @@ ovlcmd({ nom_cmd: 'liste_loup', isfunc: true }, async (ms_org, ovl, { texte, get
   epreuve.debut = false;
 
   await ovl.sendMessage(ms_org, {
-    video: { url: 'https://files.catbox.moe/eckrvo.mp4' },
-    gifPlayback: true,
-    caption: renderFicheParticipants(epreuve),
-    mentions: epreuve.participants.map(p => p.jid)
-  });
+  text: `⚽ *Début de l'exercice !*
+Le joueur @${epreuve.participants.find(p=>normalizeJid(p.jid)===epreuve.loupJid).tag} est le Loup 🐺⚠️
+Veuillez toucher un joueur avant la fin du temps ⌛ (3:00 min)`,
+  mentions: [epreuve.loupJid]
+});
 });
 
 // ──────────────────────────────
@@ -200,17 +200,18 @@ async function handleLoupMessage(ms, ovl){
 
     let cible = null;
 
-    const mentioned = ms.message.extendedTextMessage?.contextInfo?.mentionedJid;
-    if (mentioned?.length) {
-      const cibleJid = normalizeJid(mentioned[0]);
-      cible = epreuve.participants.find(p => normalizeJid(p.jid) === cibleJid);
-    } else {
-      cible = extraireCibleDepuisTexte(texte, epreuve.participants);
-    }
+    
+   const mentioned = ms.message?.extendedTextMessage?.contextInfo?.mentionedJid;
 
-    if (!cible) return;
+if (!mentioned || mentioned.length === 0) return;
 
-    epreuve.tirEnCours = {
+const cibleJid = normalizeJid(mentioned[0]);
+
+const cible = epreuve.participants.find(
+  p => normalizeJid(p.jid) === cibleJid
+);
+
+if (!cible) return; epreuve.tirEnCours = {
       auteur: epreuve.loupJid,
       cible: cible.jid,
       zone
