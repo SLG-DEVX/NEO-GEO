@@ -1,13 +1,6 @@
 const { ovlcmd } = require('../lib/ovlcmd');
 const joueurs = new Map();
-const recordsGlobal = new Map();
 
-const { MyNeoFunctions, TeamFunctions, BlueLockFunctions } = require("../DataBase/myneo_lineup_team");
-const { cardsBlueLock } = require("../DataBase/cardsBL");
-
-const { saveUser: saveMyNeo, deleteUser: delMyNeo, getUserData: getNeo, updateUser: updateMyNeo } = MyNeoFunctions;
-const { saveUser: saveTeam, deleteUser: delTeam, getUserData: getTeam, updateUser: updateTeam } = TeamFunctions;
-const { saveUser: saveLineup, deleteUser: delLineup, getUserData: getLineup, updatePlayers, updateStats } = BlueLockFunctions;
 
 // ---------------- ZONES & PIEDS ----------------
 const ZONES = [
@@ -32,15 +25,6 @@ function normalize(t){
     .trim();
 }
 
-// ---------------- UTIL : NOM JOUEUR ----------------
-async function getPlayerName(userId){
-  try{
-    const fiche = await getTeam(userId);
-    if(fiche && fiche.player) return fiche.player;
-  }catch(e){}
-  return userId.split('@')[0];
-}
-
 // ---------------- TIR IMPOSÉ ----------------
 function tirerTypeImpose(){
   const r = Math.random();
@@ -49,7 +33,7 @@ function tirerTypeImpose(){
   return "tir enroulé";
 }
 
-// ---------------- DÉTECTION DU TIR (RP SOLIDE) ----------------
+// ---------------- DÉTECTION DU TIR ----------------
 function detectTir(text){
   const t = normalize(text);
 
@@ -127,7 +111,6 @@ Dans cet exercice l'objectif est de marquer 18 buts en 18 tirs max dans le temps
 Souhaitez-vous lancer l'exercice ? :
 ✅ Oui
 ❌ Non
-🏆 Records
 ╰───────────────────
                       *⚽BLUE🔷LOCK*`;
 
@@ -137,7 +120,14 @@ Souhaitez-vous lancer l'exercice ? :
     });
 
     const rep = await ovl.recup_msg({ auteur:auteur_Message, ms_org, temps:60000 });
-    const res = rep?.message?.conversation?.toLowerCase()?.trim();
+
+    let res =
+      rep?.message?.conversation ||
+      rep?.message?.extendedTextMessage?.text ||
+      rep?.message?.imageMessage?.caption ||
+      "";
+
+    res = res.toLowerCase().trim();
 
     if(!res){
       return ovl.sendMessage(ms_org,{ text:"⏱️ Temps écoulé. Session fermée ❌" });
@@ -145,11 +135,6 @@ Souhaitez-vous lancer l'exercice ? :
 
     if(res === "non"){
       return ovl.sendMessage(ms_org,{ text:"❌ Lancement de l'exercice annulé." });
-    }
-
-    if(res === "records"){
-      await afficherRecords(ms_org, ovl);
-      return;
     }
 
     if(res !== "oui"){
@@ -169,7 +154,7 @@ Souhaitez-vous lancer l'exercice ? :
     envoyerTirObligatoire(ms_org, ovl, joueurs.get(auteur_Message).tirImpose, auteur_Message);
 
   }catch(e){
-    console.error(e);
+    console.error("ERREUR EXERCICE1 :", e);
     repondre("❌Erreur survenue lors de l'exercice");
   }
 });
@@ -231,11 +216,6 @@ async function envoyerResultats(ms_org, ovl, j){
   else if(j.stats.enroule >= 5) titre = "🎯 ENROULÉ MASTER";
   else if(j.stats.direct >= 5) titre = "💥 DIRECT STRIKER";
 
-  const rec = recordsGlobal.get(j.id);
-  if(!rec || j.but > rec.buts){
-    recordsGlobal.set(j.id,{ buts:j.but, rank });
-  }
-
   await ovl.sendMessage(ms_org,{
     image:{url:"https://files.catbox.moe/1xnoc6.jpg"},
     caption:`🔷RESULTATS DE L'ÉVALUATION📊
@@ -251,34 +231,27 @@ ${titre}
   joueurs.delete(j.id);
 }
 
-// ---------------- RECORDS ----------------
-async function afficherRecords(ms_org, ovl){
-  if(recordsGlobal.size === 0){
-    return ovl.sendMessage(ms_org,{ text:"🏆 Aucun record enregistré pour le moment." });
-  }
+// ---------------- STOP TIR ----------------
+ovlcmd({
+  nom_cmd: 'stoptir',
+  classe: 'BLUELOCK⚽',
+  react: '🛑'
+}, async (ms_org, ovl, { auteur_Message }) => {
 
-  let msg = "🏆 *RECORDS BLUE LOCK⚽*\n\n";
-
-  const sorted = [...recordsGlobal.entries()]
-    .sort((a,b)=>b[1].buts - a[1].buts)
-    .slice(0,10);
-
-  for(let i=0;i<sorted.length;i++){
-    const [id,r] = sorted[i];
-    const name = await getPlayerName(id);
-    msg += `${i+1}- ${name} (${r.buts} buts)\n`;
-  }
-
-  await ovl.sendMessage(ms_org,{ text: msg });
-}
-
-// ---------------- STOP ----------------
-ovlcmd({ nom_cmd:'stop', isfunc:true }, (ms_org, ovl, { auteur_Message, texte })=>{
-  if(!texte || texte.toLowerCase().trim() !== "stop") return;
   const j = joueurs.get(auteur_Message);
-  if(j){
-    clearTimeout(j.timer);
-    joueurs.delete(auteur_Message);
-    ovl.sendMessage(ms_org,{ text:"✅Exercice arrêté." });
+
+  if(!j || !j.en_cours){
+    return ovl.sendMessage(ms_org,{
+      text:"❌ Aucun exercice en cours."
+    });
   }
+
+  clearTimeout(j.timer);
+  j.en_cours = false;
+  joueurs.delete(auteur_Message);
+
+  await ovl.sendMessage(ms_org,{
+    text:"🛑 Exercice arrêté avec succès."
+  });
+
 });
