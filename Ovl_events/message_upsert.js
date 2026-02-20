@@ -5,11 +5,9 @@ const evt = require("../lib/ovlcmd");
 const config = require("../set");
 const prefixe = config.PREFIXE || "";
 const getJid = require("./cache_jid");
-const { handleLoupMessage } = require("../cmd/epreuve_loup");
 
 async function message_upsert(m, ovl) {
   try {
-    // ───────── Vérifications initiales ─────────
     if (m.type !== 'notify') return;
     const ms = m.messages?.[0];
     if (!ms?.message) return;
@@ -101,7 +99,21 @@ async function message_upsert(m, ovl) {
     const dev_num = devNumbers.map(n => `${n}@s.whatsapp.net`);
     const dev_id = dev_num.includes(auteur_Message);
     const verif_Admin = verif_Groupe && (groupe_Admin.includes(auteur_Message) || prenium_id);
-
+    const ms_badge = {
+  key: {
+    fromMe: false,
+    participant: '0@s.whatsapp.net',
+    remoteJid: '0@s.whatsapp.net',
+  },
+  message: {
+    extendedTextMessage: {
+      text: 'ɴᴇᴏ-ʙᴏᴛ-ᴍᴅ ʙʏ ᴀɪɴᴢ',
+      contextInfo: {
+        mentionedJid: [],
+      },
+    },
+  }
+};
     const repondre = (msg) => ovl.sendMessage(ms_org, { text: msg }, { quoted: ms });
 
     const cmd_options = {
@@ -137,7 +149,6 @@ async function message_upsert(m, ovl) {
       return !!ban;
     }
 
-    // ───────── PHASE 1: Gestion des commandes ─────────
     if (isCmd) {
       const cd = evt.cmd.find(c => c.nom_cmd === cmdName || c.alias?.includes(cmdName));
       if (cd) {
@@ -156,21 +167,12 @@ async function message_upsert(m, ovl) {
       }
     }
 
-    // ───────── PHASE 2: Fonctions isfunc ─────────
     for (const cmd of evt.func) {
       try {
         await cmd.fonction(ms_org, ovl, cmd_options);
       } catch (err) {
         console.error(`Erreur dans la fonction isfunc '${cmd.nom_cmd}':`, err);
       }
-    }
-
-    // ───────── PHASE 3: Système Loup ─────────
-    try {
-      // Tous les messages, non-commandes, sont traités par le Loup RP
-      await handleLoupMessage(ms, ovl);
-    } catch (err) {
-      console.error("Erreur Loup:", err);
     }
 
   } catch (e) {
