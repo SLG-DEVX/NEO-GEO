@@ -132,22 +132,22 @@ async function processUpdates(args, jid) {
     // 🔥 ICI : tout ce qui reste devient UN SEUL TEXTE
     let texte = [];
 
-if (object === "commentaire") {
-  // 🔥 commentaire = TOUT le reste
-  texte = args.slice(i);
-  i = args.length;
-} else {
-  // 🧠 comportement normal pour les autres champs (comme avant)
-  while (
-    i < args.length &&
-    !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
-    !columns.includes(args[i])
-  ) {
-    texte.push(args[i++]);
-  }
-}
+    if (object === "commentaire") {
+      // 🔥 commentaire = TOUT le reste
+      texte = args.slice(i);
+      i = args.length;
+    } else {
+      // 🧠 comportement normal pour les autres champs (comme avant)
+      while (
+        i < args.length &&
+        !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
+        !columns.includes(args[i])
+      ) {
+        texte.push(args[i++]);
+      }
+    }
 
-texte = texte.join(" ");
+    texte = texte.join(" ");
 
     if (object === "cards") {
       const old = oldValue || "";
@@ -233,13 +233,42 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 
     try {
       const dataRaw = await getData({ jid });
-      const data = dataRaw.dataValues ?? dataRaw;
+      const data = dataRaw?.dataValues ?? dataRaw;
 
-      data.exp = data.exp ?? 0;
-      data.niveau = Math.min(data.niveau ?? 0, 20);
-      data.close_fight = data.close_fight ?? 0;
-      data.cards = data.cards ?? "";
+      if (!data) {
+        return await repondre("❌ Fiche introuvable pour ce joueur.");
+      }
 
+      // Valeurs par défaut si absent
+      data.exp = Number(data.exp) || 0;
+      data.niveau = Math.min(Number(data.niveau) || 0, 20);
+      data.close_fight = Number(data.close_fight) || 0;
+      data.cards = data.cards || "";
+      data.pseudo = data.pseudo || jid.split("@")[0];
+      data.user = data.user || "Inconnu";
+      data.surnom = data.surnom || "—";
+      data.classement = data.classement || "—";
+      data.rang = data.rang || "—";
+      data.classe = data.classe || "—";
+      data.archetype = data.archetype || "—";
+      data.victoires = data.victoires || 0;
+      data.defaites = data.defaites || 0;
+      data.championnants = data.championnants || 0;
+      data.neo_cup = data.neo_cup || 0;
+      data.evo = data.evo || 0;
+      data.grandslam = data.grandslam || 0;
+      data.tos = data.tos || 0;
+      data.the_best = data.the_best || 0;
+      data.sigma = data.sigma || 0;
+      data.neo_globes = data.neo_globes || 0;
+      data.golden_boy = data.golden_boy || 0;
+      data.note = data.note || 0;
+      data.talent = data.talent || 0;
+      data.strikes = data.strikes || 0;
+      data.attaques = data.attaques || 0;
+      data.oc_url = data.oc_url || image_oc || "https://default-image.png";
+
+      // Si pas d'arguments, affichage de la fiche
       if (!arg.length) {
         const fiche = `░▒░ *👤N E O P L A Y E R | RAZORX⚡™ 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
@@ -254,8 +283,8 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ◇ *Classe🎖️*: ${data.classe}
 
 ▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
-◇ *Golds🧭*: ${data.golds} ©🧭
-◇ *Fans👥*: ${data.fans} 👥
+◇ *Golds🧭*: ${data.golds || 0} ©🧭
+◇ *Fans👥*: ${data.fans || 0} 👥
 ◇ *Archetype ⚖️*: ${data.archetype}
 
 ░▒░░ PALMARÈS🏆
@@ -285,11 +314,16 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ╰───────────────────
 ░▒░  *𝗡𝗘𝗢🔷 ESPORTS ARENA®🏆* ░▒░`;
 
-        await ovl.sendMessage(ms_org, {
-          video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
-          gifPlayback: true,
-          caption: ""
-        }, { quoted: ms });
+        // Envoi vidéo facultatif, ignore si problème
+        try {
+          await ovl.sendMessage(ms_org, {
+            video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
+            gifPlayback: true,
+            caption: ""
+          }, { quoted: ms });
+        } catch (e) {
+          console.warn("Vidéo non envoyée:", e.message);
+        }
 
         return ovl.sendMessage(ms_org, {
           image: { url: data.oc_url },
@@ -297,6 +331,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
         }, { quoted: ms });
       }
 
+      // Sinon, mise à jour
       if (!prenium_id) {
         return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
       }
@@ -311,8 +346,8 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
       await repondre("✅ Fiche mise à jour avec succès !\n\n" + message);
 
     } catch (err) {
-      console.error("Erreur:", err);
-      await repondre("❌ Une erreur est survenue. Vérifie les paramètres.");
+      console.error("Erreur add_fiche:", err);
+      await repondre("❌ Une erreur est survenue. Vérifie les paramètres ou la fiche du joueur.");
     }
   });
 }
