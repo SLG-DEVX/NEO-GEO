@@ -94,8 +94,11 @@ ovlcmd({
   react:'⚽'
 }, async (ms_org, ovl, { auteur_Message, repondre })=>{
   try{
+    console.log("==> Lancement de +exercice1");
+    console.log("ms_org:", ms_org);
+    console.log("auteur_Message:", auteur_Message);
 
-const texteDebut = `*🔷ÉPREUVE DE TIRS⚽🥅*
+    const texteDebut = `*🔷ÉPREUVE DE TIRS⚽🥅*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
                    🔷⚽RÈGLES:
 Dans cet exercice l'objectif est de marquer 18 buts en 18 tirs max dans le temps imparti ❗vous êtes face à un gardien Robot qui mémorise vos tirs et peut bloquer. ⚠Vous devez marquer au moins 6 buts sinon vous êtes éliminé ❌. 
@@ -114,12 +117,16 @@ Souhaitez-vous lancer l'exercice ? :
 ╰───────────────────
                       *⚽BLUE🔷LOCK*`;
 
+    console.log("Envoi du message de début...");
     await ovl.sendMessage(ms_org,{
       image:{url:"https://files.catbox.moe/09rll9.jpg"},
       caption:texteDebut
     });
+    console.log("Message envoyé avec succès.");
 
+    console.log("Attente de la réponse du joueur...");
     const rep = await ovl.recup_msg({ auteur:auteur_Message, ms_org, temps:60000 });
+    console.log("Réponse reçue:", rep);
 
     let res =
       rep?.message?.conversation ||
@@ -128,19 +135,24 @@ Souhaitez-vous lancer l'exercice ? :
       "";
 
     res = res.toLowerCase().trim();
+    console.log("Texte normalisé de la réponse:", res);
 
     if(!res){
+      console.log("Temps écoulé sans réponse");
       return ovl.sendMessage(ms_org,{ text:"⏱️ Temps écoulé. Session fermée ❌" });
     }
 
     if(res === "non"){
+      console.log("Joueur a annulé l'exercice");
       return ovl.sendMessage(ms_org,{ text:"❌ Lancement de l'exercice annulé." });
     }
 
     if(res !== "oui"){
+      console.log("Réponse invalide du joueur");
       return ovl.sendMessage(ms_org,{ text:"❌ Réponse invalide. Session fermée." });
     }
 
+    console.log("Initialisation du joueur dans la Map...");
     joueurs.set(auteur_Message,{
       id:auteur_Message,
       but:0,
@@ -151,11 +163,13 @@ Souhaitez-vous lancer l'exercice ? :
       timer:null
     });
 
+    console.log("Envoi du premier tir obligatoire...");
     envoyerTirObligatoire(ms_org, ovl, joueurs.get(auteur_Message).tirImpose, auteur_Message);
 
   }catch(e){
-    console.error("ERREUR EXERCICE1 :", e);
-    repondre("❌Erreur survenue lors de l'exercice");
+    console.error("❌ ERREUR EXERCICE1 :", e);
+    console.error(e.stack);
+    repondre("❌Erreur survenue lors de l'exercice, voir console pour détails.");
   }
 });
 
