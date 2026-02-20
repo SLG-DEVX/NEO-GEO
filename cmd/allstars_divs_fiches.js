@@ -60,6 +60,7 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
   const oldLevelByExp = Math.floor(oldExp / 100);
   const newLevelByExp = Math.floor(newExp / 100);
 
+  // 🔼 MONTÉE DE NIVEAU
   if (newLevelByExp > oldLevelByExp) {
     const levelsGained = newLevelByExp - oldLevelByExp;
     for (let i = 0; i < levelsGained; i++) {
@@ -74,7 +75,10 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
 
       await giveLevelRewards(jid, currentLevel, ovl, ms_org);
     }
-  } else if (newLevelByExp < oldLevelByExp) {
+  }
+
+  // 🔽 DESCENTE DE NIVEAU
+  else if (newLevelByExp < oldLevelByExp) {
     const levelsLost = oldLevelByExp - newLevelByExp;
     for (let i = 0; i < levelsLost; i++) {
       if (currentLevel <= 0) break;
@@ -106,7 +110,7 @@ async function updatePlayerData(updates, jid, ovl, ms_org) {
   }
 }
 
-// ================= PROCESS UPDATES =================
+// ================= PROCESS UPDATES (FIXED) =================
 async function processUpdates(args, jid) {
   const updates = [];
   const dataRaw = await getData({ jid });
@@ -125,22 +129,25 @@ async function processUpdates(args, jid) {
     const oldValue = values[object];
     let newValue;
 
+    // 🔥 ICI : tout ce qui reste devient UN SEUL TEXTE
     let texte = [];
 
-    if (object === "commentaire") {
-      texte = args.slice(i);
-      i = args.length;
-    } else {
-      while (
-        i < args.length &&
-        !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
-        !columns.includes(args[i])
-      ) {
-        texte.push(args[i++]);
-      }
-    }
+if (object === "commentaire") {
+  // 🔥 commentaire = TOUT le reste
+  texte = args.slice(i);
+  i = args.length;
+} else {
+  // 🧠 comportement normal pour les autres champs (comme avant)
+  while (
+    i < args.length &&
+    !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
+    !columns.includes(args[i])
+  ) {
+    texte.push(args[i++]);
+  }
+}
 
-    texte = texte.join(" ");
+texte = texte.join(" ");
 
     if (object === "cards") {
       const old = oldValue || "";
@@ -226,44 +233,15 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 
     try {
       const dataRaw = await getData({ jid });
-      const data = dataRaw?.dataValues ?? dataRaw;
+      const data = dataRaw.dataValues ?? dataRaw;
 
-      if (!data) {
-        return await repondre("❌ Fiche introuvable pour ce joueur.");
-      }
+      data.exp = data.exp ?? 0;
+      data.niveau = Math.min(data.niveau ?? 0, 20);
+      data.close_fight = data.close_fight ?? 0;
+      data.cards = data.cards ?? "";
 
-      // Valeurs par défaut
-      data.exp = Number(data.exp) || 0;
-      data.niveau = Math.min(Number(data.niveau) || 0, 20);
-      data.close_fight = Number(data.close_fight) || 0;
-      data.cards = data.cards || "";
-      data.pseudo = data.pseudo || jid.split("@")[0];
-      data.user = data.user || "Inconnu";
-      data.surnom = data.surnom || "—";
-      data.classement = data.classement || "—";
-      data.rang = data.rang || "—";
-      data.classe = data.classe || "—";
-      data.archetype = data.archetype || "—";
-      data.victoires = data.victoires || 0;
-      data.defaites = data.defaites || 0;
-      data.championnants = data.championnants || 0;
-      data.neo_cup = data.neo_cup || 0;
-      data.evo = data.evo || 0;
-      data.grandslam = data.grandslam || 0;
-      data.tos = data.tos || 0;
-      data.the_best = data.the_best || 0;
-      data.sigma = data.sigma || 0;
-      data.neo_globes = data.neo_globes || 0;
-      data.golden_boy = data.golden_boy || 0;
-      data.note = data.note || 0;
-      data.talent = data.talent || 0;
-      data.strikes = data.strikes || 0;
-      data.attaques = data.attaques || 0;
-      data.oc_url = data.oc_url || image_oc || "https://default-image.png";
-      
-// --- AFFICHAGE DE LA FICHE ---
-if (!arg.length || arg[0] === nom_joueur) {
-  const fiche = `░▒░ *👤N E O P L A Y E R | RAZORX⚡™ 🎮*
+      if (!arg.length) {
+        const fiche = `░▒░ *👤N E O P L A Y E R | RAZORX⚡™ 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 ◇ *Pseudo👤*: ${data.pseudo}
 ◇ *User👤*: ${data.user}
@@ -306,13 +284,12 @@ if (!arg.length || arg[0] === nom_joueur) {
 
 ╰───────────────────
 ░▒░  *𝗡𝗘𝗢🔷 ESPORTS ARENA®🏆* ░▒░`;
-        try {
-          await ovl.sendMessage(ms_org, {
-            video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
-            gifPlayback: true,
-            caption: ""
-          }, { quoted: ms });
-        } catch (e) { console.warn("Vidéo non envoyée:", e.message); }
+
+        await ovl.sendMessage(ms_org, {
+          video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
+          gifPlayback: true,
+          caption: ""
+        }, { quoted: ms });
 
         return ovl.sendMessage(ms_org, {
           image: { url: data.oc_url },
@@ -320,7 +297,6 @@ if (!arg.length || arg[0] === nom_joueur) {
         }, { quoted: ms });
       }
 
-      // --- MISE À JOUR (requiert prenium) ---
       if (!prenium_id) {
         return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
       }
@@ -335,8 +311,8 @@ if (!arg.length || arg[0] === nom_joueur) {
       await repondre("✅ Fiche mise à jour avec succès !\n\n" + message);
 
     } catch (err) {
-      console.error("Erreur add_fiche:", err);
-      await repondre("❌ Une erreur est survenue. Vérifie les paramètres ou la fiche du joueur.");
+      console.error("Erreur:", err);
+      await repondre("❌ Une erreur est survenue. Vérifie les paramètres.");
     }
   });
 }
@@ -349,6 +325,7 @@ async function initFichesAuto() {
       if (!player.code_fiche || player.code_fiche === "pas de fiche" || !player.division || !player.oc_url || !player.id) {
         continue;
       }
+
       const nom = player.code_fiche;
       const jid = player.jid;
       const division = player.division.replace(/\*/g, '');
@@ -361,7 +338,7 @@ async function initFichesAuto() {
 
 initFichesAuto();
 
-// ================= COMMANDES ADD / DEL =================
+// ================= COMMANDE ADD_FICHE =================
 ovlcmd({
   nom_cmd: "add_fiche",
   classe: "Other",
@@ -391,6 +368,7 @@ ovlcmd({
   }
 });
 
+// ================= COMMANDE DEL_FICHE =================
 ovlcmd({
   nom_cmd: "del_fiche",
   classe: "Other",
