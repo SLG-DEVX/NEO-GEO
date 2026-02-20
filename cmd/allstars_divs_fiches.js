@@ -60,7 +60,6 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
   const oldLevelByExp = Math.floor(oldExp / 100);
   const newLevelByExp = Math.floor(newExp / 100);
 
-  // 🔼 MONTÉE DE NIVEAU
   if (newLevelByExp > oldLevelByExp) {
     const levelsGained = newLevelByExp - oldLevelByExp;
     for (let i = 0; i < levelsGained; i++) {
@@ -75,10 +74,7 @@ async function checkLevel(jid, oldExp, newExp, ovl, ms_org) {
 
       await giveLevelRewards(jid, currentLevel, ovl, ms_org);
     }
-  }
-
-  // 🔽 DESCENTE DE NIVEAU
-  else if (newLevelByExp < oldLevelByExp) {
+  } else if (newLevelByExp < oldLevelByExp) {
     const levelsLost = oldLevelByExp - newLevelByExp;
     for (let i = 0; i < levelsLost; i++) {
       if (currentLevel <= 0) break;
@@ -110,7 +106,7 @@ async function updatePlayerData(updates, jid, ovl, ms_org) {
   }
 }
 
-// ================= PROCESS UPDATES (FIXED) =================
+// ================= PROCESS UPDATES =================
 async function processUpdates(args, jid) {
   const updates = [];
   const dataRaw = await getData({ jid });
@@ -129,15 +125,12 @@ async function processUpdates(args, jid) {
     const oldValue = values[object];
     let newValue;
 
-    // 🔥 ICI : tout ce qui reste devient UN SEUL TEXTE
     let texte = [];
 
     if (object === "commentaire") {
-      // 🔥 commentaire = TOUT le reste
       texte = args.slice(i);
       i = args.length;
     } else {
-      // 🧠 comportement normal pour les autres champs (comme avant)
       while (
         i < args.length &&
         !['+', '-', '=', 'add', 'supp'].includes(args[i]) &&
@@ -239,7 +232,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
         return await repondre("❌ Fiche introuvable pour ce joueur.");
       }
 
-      // Valeurs par défaut si absent
+      // Valeurs par défaut
       data.exp = Number(data.exp) || 0;
       data.niveau = Math.min(Number(data.niveau) || 0, 20);
       data.close_fight = Number(data.close_fight) || 0;
@@ -267,10 +260,10 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
       data.strikes = data.strikes || 0;
       data.attaques = data.attaques || 0;
       data.oc_url = data.oc_url || image_oc || "https://default-image.png";
-
-      // Si pas d'arguments, affichage de la fiche
-      if (!arg.length) {
-        const fiche = `░▒░ *👤N E O P L A Y E R | RAZORX⚡™ 🎮*
+      
+// --- AFFICHAGE DE LA FICHE ---
+if (!arg.length || arg[0] === nom_joueur) {
+  const fiche = `░▒░ *👤N E O P L A Y E R | RAZORX⚡™ 🎮*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
 ◇ *Pseudo👤*: ${data.pseudo}
 ◇ *User👤*: ${data.user}
@@ -283,8 +276,8 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 ◇ *Classe🎖️*: ${data.classe}
 
 ▔▔▔▔▔▔▔▔▔▔▔░▒▒▒▒░░▒░
-◇ *Golds🧭*: ${data.golds || 0} ©🧭
-◇ *Fans👥*: ${data.fans || 0} 👥
+◇ *Golds🧭*: ${data.golds} ©🧭
+◇ *Fans👥*: ${data.fans} 👥
 ◇ *Archetype ⚖️*: ${data.archetype}
 
 ░▒░░ PALMARÈS🏆
@@ -313,17 +306,13 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
 
 ╰───────────────────
 ░▒░  *𝗡𝗘𝗢🔷 ESPORTS ARENA®🏆* ░▒░`;
-
-        // Envoi vidéo facultatif, ignore si problème
         try {
           await ovl.sendMessage(ms_org, {
             video: { url: 'https://files.catbox.moe/0qzigf.mp4' },
             gifPlayback: true,
             caption: ""
           }, { quoted: ms });
-        } catch (e) {
-          console.warn("Vidéo non envoyée:", e.message);
-        }
+        } catch (e) { console.warn("Vidéo non envoyée:", e.message); }
 
         return ovl.sendMessage(ms_org, {
           image: { url: data.oc_url },
@@ -331,7 +320,7 @@ function add_fiche(nom_joueur, jid, image_oc, joueur_div) {
         }, { quoted: ms });
       }
 
-      // Sinon, mise à jour
+      // --- MISE À JOUR (requiert prenium) ---
       if (!prenium_id) {
         return await repondre("⛔ Accès refusé ! Seuls les membres de la NS peuvent faire ça.");
       }
@@ -360,7 +349,6 @@ async function initFichesAuto() {
       if (!player.code_fiche || player.code_fiche === "pas de fiche" || !player.division || !player.oc_url || !player.id) {
         continue;
       }
-
       const nom = player.code_fiche;
       const jid = player.jid;
       const division = player.division.replace(/\*/g, '');
@@ -373,7 +361,7 @@ async function initFichesAuto() {
 
 initFichesAuto();
 
-// ================= COMMANDE ADD_FICHE =================
+// ================= COMMANDES ADD / DEL =================
 ovlcmd({
   nom_cmd: "add_fiche",
   classe: "Other",
@@ -403,7 +391,6 @@ ovlcmd({
   }
 });
 
-// ================= COMMANDE DEL_FICHE =================
 ovlcmd({
   nom_cmd: "del_fiche",
   classe: "Other",
