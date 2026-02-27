@@ -48,15 +48,16 @@ async function connection_update(con, ovl, main) {
       break;
 
     case "close":
-      const code = lastDisconnect?.error?.output?.statusCode;
-      if (code === DisconnectReason.loggedOut) {
-        console.log("⛔ Déconnecté : Session terminée.");
-      } else {
-        console.log("⚠️ Connexion perdue, tentative de reconnexion...");
-        await delay(5000);
-        main();
-      }
-      break;
+  const code = lastDisconnect?.error?.output?.statusCode;
+
+  if (code === DisconnectReason.loggedOut) {
+    console.log("⛔ Déconnecté : Session terminée.");
+  } else {
+    console.log("⚠️ Connexion perdue. Redémarrage du service...");
+    await delay(3000);
+    process.exit(1); // ✅ Render redémarre proprement
+  }
+  break;
 
     default:
   }
