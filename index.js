@@ -3,7 +3,6 @@ const path = require('path');
 const pino = require("pino");
 const axios = require('axios');
 const express = require('express');
-const qrcode = require('qrcode-terminal');
 const {
   default: makeWASocket,
   makeCacheableSignalKeyStore,
@@ -19,22 +18,13 @@ const {
   dl_save_media_ms,
   recup_msg
 } = require('./Ovl_events');
-const { Boom } = require('@hapi/boom');
 
 async function main() {
   try {
     const instanceId = "principale";
-
-    // Restauration session depuis la base
     const sessionData = await get_session(config.SESSION_ID);
     await restaureAuth(instanceId, sessionData.creds, sessionData.keys);
-
-    // Création du dossier auth si inexistant (Render Free friendly)
-    const authDir = path.join(__dirname, 'auth', instanceId);
-    if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
-
-    const { state, saveCreds } = await useMultiFileAuthState(authDir);
-
+    const { state, saveCreds } = await useMultiFileAuthState(`./auth/${instanceId}`);
     const ovl = makeWASocket({
       auth: {
         creds: state.creds,
@@ -48,42 +38,13 @@ async function main() {
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: true
     });
-
-    // Gestion des événements
     ovl.ev.on("messages.upsert", async (m) => message_upsert(m, ovl));
     ovl.ev.on("group-participants.update", async (data) => group_participants_update(data, ovl));
-    ovl.ev.on("connection.update", (update) => {
-      connection_update(update, ovl, main);
-
-      // Affichage QR automatique si nécessaire
-      if (update.qr) {
-        console.log("📲 Scanner ce QR dans WhatsApp pour connecter le bot :");
-        qrcode.generate(update.qr, { small: true });
-      }
-
-      // Reconnexion automatique
-      if (update.connection === 'close') {
-        const reason = (update.lastDisconnect?.error)?.output?.statusCode;
-        console.log(`⚠️ Connexion perdue (code ${reason}), tentative de reconnexion...`);
-        if (reason !== 401 && reason !== 440) { // 401 / 440 = déconnecté définitivement
-          setTimeout(main, 5000);
-        } else {
-          console.log("❌ Session déconnectée définitivement, scanner QR à nouveau");
-        }
-      }
-
-      if (update.connection === 'open') {
-        console.log("✅ Session principale démarrée");
-      }
-    });
-
+    ovl.ev.on("connection.update", (update) => connection_update(update, ovl, main));
     ovl.ev.on("creds.update", saveCreds);
-
-    // Fonctions additionnelles
     ovl.dl_save_media_ms = (msg, filename = '', attachExt = true, dir = './downloads') =>
       dl_save_media_ms(ovl, msg, filename, attachExt, dir);
     ovl.recup_msg = (params = {}) => recup_msg({ ovl, ...params });
-
     console.log("✅ Session principale démarrée");
   } catch (err) {
     console.error("❌ Erreur au lancement :", err.message || err);
@@ -94,7 +55,6 @@ main().catch((err) => {
   console.error("❌ Erreur inattendue :", err);
 });
 
-// Serveur Express pour Render
 const app = express();
 const port = process.env.PORT || 3000;
 let dernierPingRecu = Date.now();
@@ -104,23 +64,51 @@ app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OVL-Bot Web Page</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #121212; font-family: Arial, sans-serif; color: #fff; overflow: hidden; }
-.content { text-align: center; padding: 30px; background-color: #1e1e1e; border-radius: 12px; box-shadow: 0 8px 20px rgba(255,255,255,0.1); transition: transform 0.3s ease, box-shadow 0.3s ease; }
-.content:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(255,255,255,0.15); }
-h1 { font-size: 2em; color: #f0f0f0; margin-bottom: 15px; letter-spacing: 1px; }
-p { font-size: 1.1em; color: #d3d3d3; line-height: 1.5; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OVL-Bot Web Page</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #121212;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      overflow: hidden;
+    }
+    .content {
+      text-align: center;
+      padding: 30px;
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(255,255,255,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .content:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 30px rgba(255,255,255,0.15);
+    }
+    h1 {
+      font-size: 2em;
+      color: #f0f0f0;
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+    p {
+      font-size: 1.1em;
+      color: #d3d3d3;
+      line-height: 1.5;
+    }
+  </style>
 </head>
 <body>
-<div class="content">
-<h1>Bienvenue sur NEO-BOT</h1>
-<p>Votre assistant WhatsApp</p>
-</div>
+  <div class="content">
+    <h1>Bienvenue sur NEO-BOT</h1>
+    <p>Votre assistant WhatsApp</p>
+  </div>
 </body>
 </html>`);
 });
@@ -134,7 +122,6 @@ app.listen(port, () => {
   setupAutoPing(publicURL);
 });
 
-// Ping automatique pour garder le dyno actif
 function setupAutoPing(url) {
   setInterval(async () => {
     try {
