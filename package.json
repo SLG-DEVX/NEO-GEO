@@ -2,10 +2,11 @@
   "name": "NEO-BOT",
   "version": "2.0.0",
   "description": "Bot WhatsApp multi-appareil développé par Ainz",
+  "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "pm2 start index.js --attach --name neo-bot",
-    "stop": "pm2 stop all"
+    "start": "node index.js",
+    "stop": "pm2 stop neo-bot"
   },
   "keywords": ["Ainz", "NEO-BOT", "Whatsapp", "Baileys", "Neoverse"],
   "author": "Ainz",
