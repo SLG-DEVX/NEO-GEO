@@ -1,34 +1,30 @@
-// index.js
-import fs from 'fs';
-import path from 'path';
-import pino from "pino";
-import axios from 'axios';
-import express from 'express';
-import {
-  default as makeWASocket,
+const fs = require('fs');
+const path = require('path');
+const pino = require("pino");
+const axios = require('axios');
+const express = require('express');
+const {
+  default: makeWASocket,
   makeCacheableSignalKeyStore,
   Browsers,
   useMultiFileAuthState
-} from "@whiskeysockets/baileys";
-
-import { get_session, restaureAuth } from './DataBase/session.js';
-import config from './set.js';
-import {
+} = require("@whiskeysockets/baileys");
+const { get_session, restaureAuth } = require('./DataBase/session');
+const config = require('./set');
+const {
   message_upsert,
   group_participants_update,
   connection_update,
   dl_save_media_ms,
   recup_msg
-} from './Ovl_events.js';
+} = require('./Ovl_events');
 
 async function main() {
   try {
     const instanceId = "principale";
     const sessionData = await get_session(config.SESSION_ID);
     await restaureAuth(instanceId, sessionData.creds, sessionData.keys);
-
     const { state, saveCreds } = await useMultiFileAuthState(`./auth/${instanceId}`);
-
     const ovl = makeWASocket({
       auth: {
         creds: state.creds,
@@ -42,17 +38,13 @@ async function main() {
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: true
     });
-
     ovl.ev.on("messages.upsert", async (m) => message_upsert(m, ovl));
     ovl.ev.on("group-participants.update", async (data) => group_participants_update(data, ovl));
     ovl.ev.on("connection.update", (update) => connection_update(update, ovl, main));
     ovl.ev.on("creds.update", saveCreds);
-
-    // Fonctions custom attachées à ovl
     ovl.dl_save_media_ms = (msg, filename = '', attachExt = true, dir = './downloads') =>
       dl_save_media_ms(ovl, msg, filename, attachExt, dir);
     ovl.recup_msg = (params = {}) => recup_msg({ ovl, ...params });
-
     console.log("✅ Session principale démarrée");
   } catch (err) {
     console.error("❌ Erreur au lancement :", err.message || err);
@@ -63,9 +55,6 @@ main().catch((err) => {
   console.error("❌ Erreur inattendue :", err);
 });
 
-// -----------------------
-// Express web server
-// -----------------------
 const app = express();
 const port = process.env.PORT || 3000;
 let dernierPingRecu = Date.now();
@@ -137,7 +126,9 @@ function setupAutoPing(url) {
   setInterval(async () => {
     try {
       const res = await axios.get(url);
-      if (res.data) console.log(`Ping: OVL-MD-V2✅`);
+      if (res.data) {
+        console.log(`Ping: OVL-MD-V2✅`);
+      }
     } catch (err) {
       console.error('Erreur lors du ping', err.message);
     }
